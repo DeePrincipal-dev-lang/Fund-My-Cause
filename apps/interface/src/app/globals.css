@@ -12,7 +12,8 @@
   --color-border-subtle:    #374151;
   --color-text-primary:     #f9fafb;
   --color-text-secondary:   #9ca3af;
-  --color-text-muted:       #6b7280;
+  /* WCAG AA fix: was #6b7280 (4.16:1 on bg), now #8691a0 (6.30:1 on bg, 4.59:1 on surface-elevated) */
+  --color-text-muted:       #8691a0;
   --color-brand:            #6366f1;
   --color-brand-hover:      #818cf8;
   --color-brand-subtle:     #312e81;
@@ -20,10 +21,16 @@
   /* Status */
   --color-success:          #22c55e;
   --color-success-subtle:   #4ade80;
+  /* WCAG AA fix (light): success text on white was #22c55e (2.28:1), now #15803d (5.02:1).
+     Dark stays as-is (#22c55e on #030712 = 8.84:1 PASS). */
+  --color-success-text:     #22c55e;
   --color-warning:          #facc15;
   --color-warning-bg:       rgba(234,179,8,0.15);
   --color-danger:           #ef4444;
   --color-danger-subtle:    #f87171;
+  /* WCAG AA fix (light): danger text on white was #ef4444 (3.76:1), now #b91c1c (6.47:1).
+     Dark stays as-is (#ef4444 on #030712 = 5.35:1 PASS). */
+  --color-danger-text:      #ef4444;
 
   /* Legacy aliases (kept for backward compat) */
   --background: var(--color-background);
@@ -56,10 +63,15 @@
   --color-border-subtle:    #f3f4f6;
   --color-text-primary:     #111827;
   --color-text-secondary:   #6b7280;
-  --color-text-muted:       #9ca3af;
+  /* WCAG AA fix: was #9ca3af (2.54:1 on white), now #565d6b (6.62:1 on white, 5.41:1 on surface-elevated) */
+  --color-text-muted:       #565d6b;
   --color-brand:            #4f46e5;
-  --color-brand-hover:      #6366f1;
+  /* WCAG AA fix: was #6366f1 (4.47:1 on white), now matches brand #4f46e5 (6.29:1 on white) */
+  --color-brand-hover:      #4f46e5;
   --color-brand-subtle:     #e0e7ff;
+  /* WCAG AA fix: success and danger text on white surfaces */
+  --color-success-text:     #15803d;  /* 5.02:1 on white */
+  --color-danger-text:      #b91c1c;  /* 6.47:1 on white */
 
   --background: var(--color-background);
   --foreground: var(--color-text-primary);

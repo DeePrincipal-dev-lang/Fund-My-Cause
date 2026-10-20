@@ -25,4 +25,8 @@ pub enum CommonError {
     AlreadyExists = 5,
     /// Contract has not been initialised yet; required storage key is absent.
     NotInitialized = 6,
+    /// Operation blocked because the contract is paused.
+    Paused = 7,
+    /// Arithmetic overflow detected.
+    Overflow = 8,
 }

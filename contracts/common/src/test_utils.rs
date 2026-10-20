@@ -25,66 +25,13 @@ pub fn setup_env() -> Env {
     env
 }
 
-/// Generates a random address suitable for use in tests.
-///
-/// # Parameters
-///
-/// * `env` — The test environment context.
-///
-/// # Returns
-///
-/// A freshly generated `Address` guaranteed to be unique per invocation.
-pub fn generate_address(env: &Env) -> Address {
-    Address::generate(env)
-}
-
-/// Generates multiple random addresses for use in tests.
-///
-/// # Parameters
-///
-/// * `env` — The test environment context.
-/// * `count` — The number of addresses to generate.
-///
-/// # Returns
-///
-/// A vector of `count` unique addresses.
-pub fn generate_addresses(env: &Env, count: usize) -> Vec<Address> {
-    let mut addresses = Vec::new(env);
-    for _ in 0..count {
-        addresses.push_back(Address::generate(env));
-    }
-    addresses
-}
-
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::setup_env;
 
     #[test]
     fn test_setup_env_creates_environment() {
         let env = setup_env();
         assert_eq!(env.ledger().sequence(), 0);
-    }
-
-    #[test]
-    fn test_generate_address_creates_unique_addresses() {
-        let env = setup_env();
-        let addr1 = generate_address(&env);
-        let addr2 = generate_address(&env);
-        assert_ne!(addr1, addr2);
-    }
-
-    #[test]
-    fn test_generate_addresses_creates_correct_count() {
-        let env = setup_env();
-        let addresses = generate_addresses(&env, 5);
-        assert_eq!(addresses.len(), 5);
-
-        // Verify uniqueness
-        for i in 0..addresses.len() {
-            for j in (i + 1)..addresses.len() {
-                assert_ne!(addresses.get(i).unwrap(), addresses.get(j).unwrap());
-            }
-        }
     }
 }

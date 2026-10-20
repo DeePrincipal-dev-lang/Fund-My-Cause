@@ -1,155 +1,235 @@
-//! Mutating registry operations.
+//! # Admin Business Logic for Registry Contract
 //!
-//! Two authorization models coexist here:
-//! - **Admin-gated**: [`initialize`], [`update_status`] — require the stored
-//!   admin's `require_auth()`.
-//! - **Self-authorized**: [`register`], [`register_with_category`],
-//!   [`register_with_status`] — require the campaign contract's own
-//!   `require_auth()`, not the registry admin's.
-//!
-//! Both groups live in this file because both groups *write* registry state
-//! (`KEY_CAMPAIGNS` and/or the category/status indexes), which is the
-//! organizing principle for this module vs. [`crate::lookup`] (read-only,
-//! no auth, no writes).
+//! This module contains all admin-related business logic for the registry contract.
+//! It handles:
+//! - Initialization
+//! - Admin management
+//! - Fee configuration
+//! - Emergency controls
 
-use common::{EVENT_SCHEMA_VERSION};
+use crate::events::RegistryEvents;
 use soroban_sdk::{Address, Env, Vec};
 
-use crate::{
-    require_initialized, CampaignStatus, ContractError, EventInitialized, EventRegistered,
-    RegDataKey, KEY_ADMIN, KEY_CAMPAIGNS,
-};
+// ================================================================
+// Admin Data Structures
+// ================================================================
 
-/// See [`crate::RegistryContract::initialize`].
-pub(crate) fn initialize(env: Env, admin: Address) -> Result<(), ContractError> {
-    admin.require_auth();
-
-    if env.storage().instance().has(&KEY_ADMIN) {
-        return Err(ContractError::AlreadyInitialized);
-    }
-
-    env.storage().instance().set(&KEY_ADMIN, &admin);
-    env.events().publish(
-        ("registry", "initialized"),
-        EventInitialized {
-            admin,
-            schema_version: EVENT_SCHEMA_VERSION,
-        },
-    );
-
-    Ok(())
+#[derive(Clone, Debug)]
+pub struct AdminState {
+    pub admin: Address,
+    pub paused: bool,
+    pub fee_bps: u32,
+    pub fee_recipient: Address,
 }
 
-/// See [`crate::RegistryContract::register`].
-pub(crate) fn register(env: Env, campaign_id: Address) -> Result<(), ContractError> {
-    require_initialized(&env)?;
-    campaign_id.require_auth();
-
-    let mut campaigns: Vec<Address> = env
-        .storage()
-        .instance()
-        .get(&KEY_CAMPAIGNS)
-        .unwrap_or_else(|| Vec::new(&env));
-
-    if !campaigns.contains(&campaign_id) {
-        campaigns.push_back(campaign_id.clone());
-        env.storage().instance().set(&KEY_CAMPAIGNS, &campaigns);
-        env.events().publish(
-            ("registry", "registered"),
-            EventRegistered {
-                campaign_id,
-                schema_version: EVENT_SCHEMA_VERSION,
-            },
-        );
-    }
-
-    Ok(())
+#[derive(Clone, Debug)]
+pub struct FeeConfig {
+    pub registration_fee_bps: u32,
+    pub update_fee_bps: u32,
+    pub verify_fee_bps: u32,
+    pub fee_recipient: Address,
 }
 
-/// See [`crate::RegistryContract::register_with_category`].
-pub(crate) fn register_with_category(
-    env: Env,
-    campaign_id: Address,
-    category_id: u32,
-) -> Result<(), ContractError> {
-    require_initialized(&env)?;
-    campaign_id.require_auth();
+// ================================================================
+// Admin Business Logic
+// ================================================================
 
-    // ── Global list ───────────────────────────────────────────────────────
-    let mut campaigns: Vec<Address> = env
-        .storage()
-        .instance()
-        .get(&KEY_CAMPAIGNS)
-        .unwrap_or_else(|| Vec::new(&env));
+pub struct AdminLogic;
 
-    if !campaigns.contains(&campaign_id) {
-        campaigns.push_back(campaign_id.clone());
-        env.storage().instance().set(&KEY_CAMPAIGNS, &campaigns);
+impl AdminLogic {
+    /// Initialize the registry with an admin
+    pub fn initialize(
+        env: &Env,
+        admin: Address,
+        fee_bps: u32,
+        fee_recipient: Address,
+    ) -> Result<(), CommonError> {
+        // Check if already initialized
+        let key = String::from_str(env, "initialized");
+        if env.storage().has(&key) {
+            return Err(CommonError::AlreadyInitialized);
+        }
+
+        // Store admin
+        let admin_key = String::from_str(env, "admin");
+        env.storage().set(&admin_key, &admin);
+
+        // Store fee config
+        let fee_config = FeeConfig {
+            registration_fee_bps: fee_bps,
+            update_fee_bps: fee_bps / 2,
+            verify_fee_bps: fee_bps / 4,
+            fee_recipient: fee_recipient.clone(),
+        };
+        let fee_key = String::from_str(env, "fee_config");
+        env.storage().set(&fee_key, &fee_config);
+
+        // Set paused to false
+        let paused_key = String::from_str(env, "paused");
+        env.storage().set(&paused_key, &false);
+
+        // Mark as initialized
+        env.storage().set(&key, &true);
+
+        // Emit event via the shared registry/common event schema.
+        RegistryEvents::initialized(env, admin);
+
+        Ok(())
+    }
+
+    /// Get the current admin
+    pub fn get_admin(env: &Env) -> Result<Address, CommonError> {
+        let key = String::from_str(env, "admin");
+        env.storage()
+            .get(&key)
+            .ok_or(CommonError::NotInitialized)
+    }
+
+    /// Transfer admin to a new address
+    pub fn transfer_admin(
+        env: &Env,
+        current_admin: Address,
+        new_admin: Address,
+    ) -> Result<(), CommonError> {
+        // Verify current admin
+        let stored_admin = Self::get_admin(env)?;
+        if current_admin != stored_admin {
+            return Err(CommonError::Unauthorized);
+        }
+
+        // Require auth
+        current_admin.require_auth();
+
+        // Store new admin
+        let key = String::from_str(env, "admin");
+        env.storage().set(&key, &new_admin);
+
+        // Emit event
         env.events().publish(
-            ("registry", "registered"),
-            EventRegistered {
-                campaign_id: campaign_id.clone(),
-                schema_version: EVENT_SCHEMA_VERSION,
-            },
+            ("admin_transferred", "v1"),
+            (current_admin, new_admin),
         );
+
+        Ok(())
     }
 
-    // ── Category-specific list ────────────────────────────────────────────
-    let cat_key = RegDataKey::CategoryList(category_id);
-    let mut cat_list: Vec<Address> = env
-        .storage()
-        .instance()
-        .get(&cat_key)
-        .unwrap_or_else(|| Vec::new(&env));
+    /// Pause the registry
+    pub fn pause(env: &Env, caller: Address) -> Result<(), CommonError> {
+        // Verify caller is admin
+        let admin = Self::get_admin(env)?;
+        if caller != admin {
+            return Err(CommonError::Unauthorized);
+        }
+        caller.require_auth();
 
-    if !cat_list.contains(&campaign_id) {
-        cat_list.push_back(campaign_id);
-        env.storage().instance().set(&cat_key, &cat_list);
-    }
+        let key = String::from_str(env, "paused");
+        env.storage().set(&key, &true);
 
-    Ok(())
-}
-
-/// See [`crate::RegistryContract::register_with_status`].
-pub(crate) fn register_with_status(
-    env: Env,
-    campaign_id: Address,
-    status: CampaignStatus,
-) -> Result<(), ContractError> {
-    require_initialized(&env)?;
-    campaign_id.require_auth();
-
-    let mut campaigns: Vec<Address> = env
-        .storage()
-        .instance()
-        .get(&KEY_CAMPAIGNS)
-        .unwrap_or_else(|| Vec::new(&env));
-
-    if !campaigns.contains(&campaign_id) {
-        campaigns.push_back(campaign_id.clone());
-        env.storage().instance().set(&KEY_CAMPAIGNS, &campaigns);
         env.events().publish(
-            ("registry", "registered"),
-            EventRegistered {
-                campaign_id: campaign_id.clone(),
-                schema_version: EVENT_SCHEMA_VERSION,
-            },
+            ("registry_paused", "v1"),
+            (caller, env.ledger().timestamp()),
         );
+
+        Ok(())
     }
 
-    let status_key = RegDataKey::StatusList(status as u32);
-    let mut status_list: Vec<Address> = env
-        .storage()
-        .instance()
-        .get(&status_key)
-        .unwrap_or_else(|| Vec::new(&env));
+    /// Unpause the registry
+    pub fn unpause(env: &Env, caller: Address) -> Result<(), CommonError> {
+        let admin = Self::get_admin(env)?;
+        if caller != admin {
+            return Err(CommonError::Unauthorized);
+        }
+        caller.require_auth();
 
-    if !status_list.contains(&campaign_id) {
-        status_list.push_back(campaign_id);
-        env.storage().instance().set(&status_key, &status_list);
+        let key = String::from_str(env, "paused");
+        env.storage().set(&key, &false);
+
+        env.events().publish(
+            ("registry_unpaused", "v1"),
+            (caller, env.ledger().timestamp()),
+        );
+
+        Ok(())
     }
 
-    Ok(())
+    /// Check if registry is paused
+    pub fn is_paused(env: &Env) -> bool {
+        let key = String::from_str(env, "paused");
+        env.storage().get(&key).unwrap_or(false)
+    }
+
+    /// Update fee configuration
+    pub fn update_fee_config(
+        env: &Env,
+        caller: Address,
+        registration_fee_bps: u32,
+        update_fee_bps: u32,
+        verify_fee_bps: u32,
+        fee_recipient: Address,
+    ) -> Result<(), CommonError> {
+        let admin = Self::get_admin(env)?;
+        if caller != admin {
+            return Err(CommonError::Unauthorized);
+        }
+        caller.require_auth();
+
+        let fee_config = FeeConfig {
+            registration_fee_bps,
+            update_fee_bps,
+            verify_fee_bps,
+            fee_recipient: fee_recipient.clone(),
+        };
+
+        let key = String::from_str(env, "fee_config");
+        env.storage().set(&key, &fee_config);
+
+        env.events().publish(
+            ("fee_config_updated", "v1"),
+            (registration_fee_bps, update_fee_bps, verify_fee_bps, fee_recipient),
+        );
+
+        Ok(())
+    }
+
+    /// Get fee configuration
+    pub fn get_fee_config(env: &Env) -> Result<FeeConfig, CommonError> {
+        let key = String::from_str(env, "fee_config");
+        env.storage()
+            .get(&key)
+            .ok_or(CommonError::NotInitialized)
+    }
+
+    /// Update campaign status (admin only)
+    pub fn update_campaign_status(
+        env: &Env,
+        campaign_id: Address,
+        new_status: CampaignStatus,
+    ) -> Result<(), CommonError> {
+        let admin = Self::get_admin(env)?;
+        admin.require_auth();
+
+        // Guard: campaign must already be registered globally
+        let campaigns: Vec<Address> = env
+            .storage()
+            .instance()
+            .get(&String::from_str(env, "campaigns"))
+            .unwrap_or_else(|| Vec::new(env));
+        if !campaigns.contains(&campaign_id) {
+            return Err(CommonError::NotFound);
+        }
+
+        // Get current status and update
+        let status_key = String::from_str(env, &format!("campaign_status_{}", campaign_id.to_string()));
+        let old_status: CampaignStatus = env.storage().get(&status_key).unwrap_or(CampaignStatus::Pending);
+        env.storage().set(&status_key, &new_status);
+
+        env.events().publish(
+            ("campaign_status_updated", "v1"),
+            (campaign_id, old_status, new_status),
+        );
+
+        Ok(())
+    }
 }
 
 /// See [`crate::RegistryContract::update_status`].
@@ -177,33 +257,76 @@ pub(crate) fn update_status(
         return Err(ContractError::NotFound);
     }
 
-    // Remove from old status list
-    let old_key = RegDataKey::StatusList(old_status as u32);
-    let old_list: Vec<Address> = env
-        .storage()
-        .instance()
-        .get(&old_key)
-        .unwrap_or_else(|| Vec::new(&env));
-    let mut filtered_old = Vec::new(&env);
-    for i in 0..old_list.len() {
-        let addr = old_list.get(i).unwrap();
-        if addr != campaign_id {
-            filtered_old.push_back(addr);
-        }
-    }
-    env.storage().instance().set(&old_key, &filtered_old);
+    #[test]
+    fn test_initialize_already_initialized() {
+        let env = Env::default();
+        let admin = Address::random(&env);
+        let fee_recipient = Address::random(&env);
 
-    // Add to new status list
-    let new_key = RegDataKey::StatusList(new_status as u32);
-    let mut new_list: Vec<Address> = env
-        .storage()
-        .instance()
-        .get(&new_key)
-        .unwrap_or_else(|| Vec::new(&env));
-    if !new_list.contains(&campaign_id) {
-        new_list.push_back(campaign_id);
-        env.storage().instance().set(&new_key, &new_list);
+        AdminLogic::initialize(&env, admin.clone(), 100, fee_recipient).unwrap();
+
+        let result = AdminLogic::initialize(&env, admin, 100, fee_recipient);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), CommonError::AlreadyInitialized);
     }
 
-    Ok(())
+    #[test]
+    fn test_transfer_admin() {
+        let env = Env::default();
+        let admin = Address::random(&env);
+        let fee_recipient = Address::random(&env);
+        let new_admin = Address::random(&env);
+
+        AdminLogic::initialize(&env, admin.clone(), 100, fee_recipient).unwrap();
+
+        let result = AdminLogic::transfer_admin(&env, admin.clone(), new_admin.clone());
+        assert!(result.is_ok());
+
+        let stored_admin = AdminLogic::get_admin(&env).unwrap();
+        assert_eq!(stored_admin, new_admin);
+    }
+
+    #[test]
+    fn test_transfer_admin_unauthorized() {
+        let env = Env::default();
+        let admin = Address::random(&env);
+        let fee_recipient = Address::random(&env);
+        let attacker = Address::random(&env);
+        let new_admin = Address::random(&env);
+
+        AdminLogic::initialize(&env, admin, 100, fee_recipient).unwrap();
+
+        let result = AdminLogic::transfer_admin(&env, attacker, new_admin);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), CommonError::Unauthorized);
+    }
+
+    #[test]
+    fn test_pause() {
+        let env = Env::default();
+        let admin = Address::random(&env);
+        let fee_recipient = Address::random(&env);
+
+        AdminLogic::initialize(&env, admin.clone(), 100, fee_recipient).unwrap();
+
+        let result = AdminLogic::pause(&env, admin.clone());
+        assert!(result.is_ok());
+
+        assert!(AdminLogic::is_paused(&env));
+    }
+
+    #[test]
+    fn test_unpause() {
+        let env = Env::default();
+        let admin = Address::random(&env);
+        let fee_recipient = Address::random(&env);
+
+        AdminLogic::initialize(&env, admin.clone(), 100, fee_recipient).unwrap();
+
+        AdminLogic::pause(&env, admin.clone()).unwrap();
+        let result = AdminLogic::unpause(&env, admin);
+        assert!(result.is_ok());
+
+        assert!(!AdminLogic::is_paused(&env));
+    }
 }

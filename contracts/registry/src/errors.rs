@@ -76,6 +76,7 @@ impl From<common::CommonError> for ContractError {
             // No exact match for InvalidInput in the registry error set;
             // Unauthorized is the closest generic catch-all.
             common::CommonError::InvalidInput => ContractError::Unauthorized,
+            common::CommonError::NotInitialized => ContractError::NotInitialized,
         }
     }
 }

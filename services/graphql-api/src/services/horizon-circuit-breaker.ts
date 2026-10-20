@@ -48,10 +48,12 @@
 // Errors
 // ---------------------------------------------------------------------------
 
+import { AppError } from "@fund-my-cause/shared-utils";
+
 /** Thrown when a call is rejected because the circuit is open. */
-export class CircuitOpenError extends Error {
+export class CircuitOpenError extends AppError {
   constructor(message = "Circuit is open — Horizon calls are suspended") {
-    super(message);
+    super("CIRCUIT_OPEN", message, { severity: "error" });
     this.name = "CircuitOpenError";
   }
 }

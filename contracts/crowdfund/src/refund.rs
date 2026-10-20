@@ -93,7 +93,7 @@ pub(crate) fn refund_single(env: Env, contributor: Address) -> Result<(), Contra
         }
         env.storage().persistent().set(&key, &0i128);
         env.events().publish(
-            ("campaign", "refunded"),
+            ("crowdfund", "refunded"),
             EventRefunded {
                 contributor,
                 amount: refund_amount,
@@ -157,7 +157,7 @@ pub(crate) fn refund_batch(env: Env, contributors: Vec<Address>) -> Result<u32, 
             token_client.transfer(&env.current_contract_address(), &contributor, &amount);
             env.storage().persistent().set(&key, &0i128);
             env.events().publish(
-                ("campaign", "refunded"),
+                ("crowdfund", "refunded"),
                 EventRefunded {
                     contributor,
                     amount,
@@ -170,7 +170,7 @@ pub(crate) fn refund_batch(env: Env, contributors: Vec<Address>) -> Result<u32, 
 
     // Issue #422: emit a single batch-level event summarising the run
     env.events().publish(
-        ("campaign", "batch_refund_completed"),
+        ("crowdfund", "batch_refund_completed"),
         EventBatchRefundCompleted {
             total_refunded: refunded,
             batch_size: limit,
@@ -217,7 +217,7 @@ pub(crate) fn refund_partial(
     inst.set(&KEY_TOTAL, &(total - amount));
 
     env.events().publish(
-        ("campaign", "partial_refund"),
+        ("crowdfund", "partial_refund"),
         EventPartialRefund {
             contributor,
             amount,
@@ -268,7 +268,7 @@ pub(crate) fn refund_matching_sponsor(env: Env) -> Result<(), ContractError> {
     inst.extend_ttl(TTL_INSTANCE_EXTEND_MIN, TTL_INSTANCE_EXTEND_MAX);
 
     env.events().publish(
-        ("campaign", "matching_sponsor_refunded"),
+        ("crowdfund", "matching_sponsor_refunded"),
         (config.sponsor, pool),
     );
     Ok(())

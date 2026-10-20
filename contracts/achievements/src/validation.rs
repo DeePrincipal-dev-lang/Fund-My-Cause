@@ -3,11 +3,13 @@ use crate::errors::ContractError;
 use crate::types::LeaderboardType;
 
 /// Validate achievement type (1-13)
+///
+/// Delegates the range check to `common::IssuanceValidator` — the shared
+/// issuance validation module also used by `contracts/registry` — so both
+/// contracts agree on what "a valid issuance type" means.
 pub fn validate_achievement_type(achievement_type: u32) -> Result<(), ContractError> {
-    if !(1..=13).contains(&achievement_type) {
-        return Err(ContractError::InvalidAchievementType);
-    }
-    Ok(())
+    common::IssuanceValidator::validate_type_range(achievement_type, 1, 13)
+        .map_err(|_| ContractError::InvalidAchievementType)
 }
 
 /// Validate leaderboard type

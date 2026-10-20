@@ -18,6 +18,12 @@ use soroban_sdk::Env;
 /// Award points to a user. Returns the user's new points total so callers
 /// that also need it (e.g. to derive a level) don't have to re-read
 /// `DataKey::Points` right after this just wrote it.
+///
+/// # Maximum
+///
+/// Points are a `u32`, so the maximum total is `u32::MAX` (4,294,967,295).
+/// Totals saturate there: an award that would overflow leaves the user at
+/// `u32::MAX` and never wraps back to a small value.
 pub fn award_points(env: &Env, user: &Address, points: u32) -> Result<u32, ContractError> {
     let key = DataKey::Points(user.clone());
     let current_points: u32 = env.storage().instance().get(&key).unwrap_or(0);
@@ -68,4 +74,54 @@ pub fn reset_points(env: &Env, user: &Address) -> Result<(), ContractError> {
     let key = DataKey::Points(user.clone());
     env.storage().instance().set(&key, &0u32);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use proptest::prelude::*;
+    use soroban_sdk::testutils::Address as _;
+
+    // Storage is only reachable inside a contract context, so register a stub
+    // contract and run each check through `env.as_contract`.
+    fn make_env() -> (Env, Address) {
+        let env = Env::default();
+        let id = env.register(crate::AchievementsContract, ());
+        (env, id)
+    }
+
+    #[test]
+    fn total_saturates_at_u32_max_instead_of_wrapping() {
+        let (env, id) = make_env();
+        let user = Address::generate(&env);
+        env.as_contract(&id, || {
+            award_points(&env, &user, u32::MAX - 5).unwrap();
+            let total = award_points(&env, &user, 10).unwrap();
+            assert_eq!(total, u32::MAX);
+            assert_eq!(get_user_points(&env, &user).unwrap(), u32::MAX);
+        });
+    }
+
+    #[test]
+    fn level_is_capped_at_100_for_the_maximum_points() {
+        assert_eq!(calculate_level_from_points(u32::MAX), 100);
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(64))]
+
+        /// Any two awards leave the running total equal to the saturating sum,
+        /// and the total never drops below the first award.
+        #[test]
+        fn prop_accumulation_never_wraps(first in any::<u32>(), second in any::<u32>()) {
+            let (env, id) = make_env();
+            let user = Address::generate(&env);
+            env.as_contract(&id, || {
+                award_points(&env, &user, first).unwrap();
+                let total = award_points(&env, &user, second).unwrap();
+                assert_eq!(total, first.saturating_add(second));
+                assert!(total >= first);
+            });
+        }
+    }
 }

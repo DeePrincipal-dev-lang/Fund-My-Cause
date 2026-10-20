@@ -1,10 +1,10 @@
-export function calculateCampaignProgress(
-  raised: number,
-  goal: number,
-): number {
-  return goal > 0 ? (raised / goal) * 100 : 0;
-}
-
-export function calculateIsEnded(deadline: string, isFunded: boolean): boolean {
-  return !isFunded && new Date(deadline) < new Date();
-}
+/**
+ * Campaign progress utilities.
+ *
+ * Canonical implementations live in @fund-my-cause/shared-utils.
+ * This file re-exports them for backward compatibility.
+ */
+export {
+  calculateProgress as calculateCampaignProgress,
+  isCampaignEnded as calculateIsEnded,
+} from "@fund-my-cause/shared-utils";

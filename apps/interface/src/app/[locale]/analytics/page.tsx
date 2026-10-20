@@ -6,7 +6,7 @@ import { useQueries } from "@tanstack/react-query";
 import { BarChart2, ArrowLeft, Loader2 } from "lucide-react";
 import { Navbar } from "@/components/layout/Navbar";
 import { WalletGuard } from "@/components/WalletGuard";
-import { AnalyticsDashboard } from "@/components/ui/AnalyticsDashboard";
+import { LazyAnalyticsDashboard } from "@/lib/lazy-components";
 import { useWallet } from "@/hooks/useWallet";
 import { fetchCampaignView } from "@/lib/graphql/client";
 import { isValidContractId } from "@/lib/validation";
@@ -163,7 +163,7 @@ export default function AnalyticsPage() {
               </button>
             </div>
           ) : (
-            <AnalyticsDashboard campaigns={campaigns} timeRange={timeRange} />
+            <LazyAnalyticsDashboard campaigns={campaigns} timeRange={timeRange} />
           )}
         </div>
       </WalletGuard>

@@ -14,13 +14,15 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "test": "vitest --run"
+    "test": "vitest --run",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@stellar/stellar-sdk": "14.6.1"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
+    "@vitest/coverage-v8": "^4.1.0",
     "typescript": "^5.3.3",
     "vitest": "^1.1.0"
   }

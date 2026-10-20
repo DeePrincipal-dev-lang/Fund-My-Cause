@@ -1,5 +1,13 @@
 # Integration Examples
 
+> **Maintenance status:** Active — all examples are verified to build against
+> the current `@fund-my-cause/sdk` public API.  Each example's
+> `dependencies` section pins to the workspace package via `file:` so a drift
+> between the SDK and an example is caught as a TypeScript compile error.
+>
+> If you find a method call that no longer exists or a type mismatch, please
+> open an issue against the `#1196` label.
+
 Self-contained, runnable code samples for the most common Fund-My-Cause integration patterns.
 
 | Example | Language | Description |

@@ -20,7 +20,7 @@ jobs:
         run: cargo install cargo-criterion
 
       - name: Run Rust benchmarks
-        run: cargo criterion --message-format=json > benchmark-results.json || true
+        run: cargo criterion --bench contract_benchmarks --bench registry_benchmarks --bench achievements_benchmarks --bench qf_benchmarks --message-format=json > benchmark-results.json || true
 
       - name: Generate benchmark report
         run: |

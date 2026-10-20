@@ -3,7 +3,7 @@
 import React from "react";
 import { Check, Loader2 } from "lucide-react";
 import { useTeamManagement, type Role } from "@/hooks/useTeamManagement";
-import { RoleBadge, ROLE_COLORS } from "./team/RoleBadge";
+import { ROLE_COLORS } from "./team/RoleBadge";
 import { ConfirmDialog } from "./team/ConfirmDialog";
 import { TeamMemberList } from "./team/TeamMemberList";
 import { TeamInvitationsList } from "./team/TeamInvitationsList";

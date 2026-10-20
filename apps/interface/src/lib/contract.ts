@@ -24,7 +24,6 @@ import {
 import { isValidContractId } from "@/lib/validation";
 import type { SignFn } from "@/types/contract";
 import { ContractError } from "@/types/contract";
-import type { CampaignInfo, CampaignStats } from "@fund-my-cause/types";
 import {
   cacheGet,
   cacheSet,

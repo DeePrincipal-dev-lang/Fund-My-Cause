@@ -1,8 +1,8 @@
 /// Validation logic for the crowdfund contract.
 ///
 /// This module contains validation functions for campaign parameters and operations.
+use common::math::BASIS_POINTS_MAX;
 use crate::errors::ContractError;
-use crate::storage::BASIS_POINTS_MAX;
 use crate::types::Category;
 use soroban_sdk::Address;
 
@@ -284,10 +284,10 @@ pub(crate) fn validate_address_not_self(
 /// * `fee_bps` - Fee in basis points
 ///
 /// # Returns
-/// * `Ok(())` if fee_bps <= 10_000
+/// * `Ok(())` if fee_bps <= BASIS_POINTS_MAX
 /// * `Err(ContractError::InvalidFee)` otherwise
 pub(crate) fn validate_fee_bps(fee_bps: u32) -> Result<(), ContractError> {
-    if fee_bps > 10_000 {
+    if fee_bps > BASIS_POINTS_MAX as u32 {
         return Err(ContractError::InvalidFee);
     }
     Ok(())

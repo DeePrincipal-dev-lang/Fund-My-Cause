@@ -67,6 +67,49 @@ npm run dev
 Requires environment variables from `.env.example`.  Redis is optional; the
 service falls back to in-memory rate limiting when `REDIS_URL` is absent.
 
+## Schema Documentation
+
+The GraphQL API schema reference is published in `docs/api/graphql.md` and includes:
+
+- Authentication & authorization flow
+- Rate limiting limits and error codes
+- Query, mutation, and subscription definitions
+- Type definitions and scalars
+- Complete SDL (Schema Definition Language)
+
+A machine-generated external reference also lives in `docs/api/`
+(`graphql-schema.md`, `graphql-schema.sdl`, `graphql-introspection.json`) —
+see [Schema Export](#schema-export) below.
+
+To regenerate the schema documentation after modifying `src/schema.ts`:
+
+```bash
+npm run docs:generate
+```
+
+This will update `docs/api/graphql.md` with the current schema and is run as part of the release process.
+
+### Schema Export
+
+To export the schema for external consumption (SDL, introspection JSON, and reference docs):
+
+```bash
+npm run schema:export
+```
+
+This generates:
+- `docs/api/graphql-schema.sdl` - Complete schema in SDL format
+- `docs/api/graphql-introspection.json` - Schema introspection for tooling
+- `docs/api/graphql-schema.md` - Reference documentation with examples
+
+External consumers can use these files for:
+- Code generation tools (GraphQL Code Generator, etc.)
+- Schema validation and linting
+- IDE integration and IntelliSense
+- API exploration tools (GraphiQL, GraphQL Playground)
+
+Run this command whenever the schema changes to keep external references up to date.
+
 ## Testing
 
 ```bash

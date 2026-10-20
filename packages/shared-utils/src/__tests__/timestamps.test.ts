@@ -110,6 +110,11 @@ describe("bigintSecondsToUtcIso", () => {
     const huge = BigInt(Number.MAX_SAFE_INTEGER) * 1000n;
     expect(() => bigintSecondsToUtcIso(huge)).toThrow(RangeError);
   });
+
+  it("throws RangeError for Infinity result from bigint multiplication", () => {
+    const veryLarge = BigInt(Number.MAX_VALUE) * 2n;
+    expect(() => bigintSecondsToUtcIso(veryLarge)).toThrow(RangeError);
+  });
 });
 
 // ---------------------------------------------------------------------------

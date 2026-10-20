@@ -3,7 +3,7 @@
 import { Trash2, PlusCircle } from "lucide-react";
 import type { FAQ, TeamMember } from "@/types/campaign";
 import { Input, Textarea } from "@fund-my-cause/components";
-import { fieldStyles } from "../fields";
+import { fieldStyles } from "../Fields";
 import { FORM_FIELD_CLS } from "@/lib/formStyles";
 import type { CampaignFormData } from "../types";
 

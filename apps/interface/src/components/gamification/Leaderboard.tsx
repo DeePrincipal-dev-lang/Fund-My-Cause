@@ -33,7 +33,6 @@ export function Leaderboard({
   totalPages = 1,
   currentPage = 0,
   onPageChange,
-  pageSize = 10,
 }: LeaderboardProps) {
   const [showAddresses, setShowAddresses] = useState(false);
 

@@ -15,6 +15,10 @@ import { EventDispatcher } from "./dispatcher.js";
 import { CampaignHandler } from "./crowdfund/campaign.handler.js";
 import { DonationHandler } from "./crowdfund/donation.handler.js";
 import { AchievementHandler } from "./crowdfund/achievement.handler.js";
+import { QFCalculatedHandler } from "./qf/calculated.handler.js";
+import { AchievementUnlockedHandler } from "./achievements/unlocked.handler.js";
+import { AchievementPointsAwardedHandler } from "./achievements/points-awarded.handler.js";
+import { RegisteredHandler } from "./registry/registered.handler.js";
 import type { EventHandler } from "./types.js";
 import type { EventRepository } from "../repository.js";
 import type { IndexerEvent } from "../rpc-client.js";
@@ -65,6 +69,37 @@ const unknownEvt: IndexerEvent = {
   data: { proposal: "42" },
 };
 
+const newContractEvents: IndexerEvent[] = [
+  {
+    id: "qf-dispatch-001",
+    timestamp: 1_700_000_600_000,
+    type: "qf_calc",
+    contractId: "CQF111111111111111111111111111111111111111111111111",
+    data: { total_distributed: "7500000", remaining_pool: "2500000" },
+  },
+  {
+    id: "achievement-dispatch-001",
+    timestamp: 1_700_000_700_000,
+    type: "ach_unl",
+    contractId: "CACHIEVEMENTS1111111111111111111111111111111111111111",
+    data: { user: "GUSER", achievement_type: 2, points_earned: 100 },
+  },
+  {
+    id: "points-dispatch-001",
+    timestamp: 1_700_000_800_000,
+    type: "ach_pts",
+    contractId: "CACHIEVEMENTS1111111111111111111111111111111111111111",
+    data: { user: "GUSER", points: 25, total_points: 125 },
+  },
+  {
+    id: "registry-dispatch-001",
+    timestamp: 1_700_000_900_000,
+    type: "reg_proj",
+    contractId: "CREGISTRY1111111111111111111111111111111111111111111",
+    data: { project_id: 17, name: "Community Garden" },
+  },
+];
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function makeMockRepository(): EventRepository {
@@ -91,6 +126,27 @@ const silentLogger = pino({ level: "silent" });
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe("EventDispatcher — handler routing", () => {
+  it("routes canonical QF, achievements, and registry topics to isolated handlers", () => {
+    const fallback = makeMockRepository();
+    const handlers = [
+      new QFCalculatedHandler(silentLogger),
+      new AchievementUnlockedHandler(silentLogger),
+      new AchievementPointsAwardedHandler(silentLogger),
+      new RegisteredHandler(silentLogger),
+    ];
+    const handlerSpies = handlers.map((handler) =>
+      vi.spyOn(handler, "handle"),
+    );
+    const dispatcher = new EventDispatcher(handlers, fallback, silentLogger);
+
+    dispatcher.dispatch(newContractEvents);
+
+    expect(handlerSpies.map((spy) => spy.mock.calls[0]?.[0])).toEqual(
+      newContractEvents.map((event) => [event]),
+    );
+    expect(fallback.addEvents).not.toHaveBeenCalled();
+  });
+
   it("routes campaign events to the CampaignHandler", () => {
     const campaignHandler = makeSpyHandler("campaign");
     const fallback = makeMockRepository();
@@ -170,6 +226,29 @@ describe("EventDispatcher — handler routing", () => {
 });
 
 describe("EventDispatcher — backward-compat alias routing", () => {
+  it("routes legacy registry events to the canonical registration handler", () => {
+    const fallback = makeMockRepository();
+    const registeredHandler = new RegisteredHandler(silentLogger);
+    const handleSpy = vi.spyOn(registeredHandler, "handle");
+    const legacyEvent: IndexerEvent = {
+      id: "registry-legacy-001",
+      timestamp: 1_700_000_900_000,
+      type: "registered",
+      contractId: "CREGISTRY1111111111111111111111111111111111111111111",
+      data: { campaign_id: 17 },
+    };
+    const dispatcher = new EventDispatcher(
+      [registeredHandler],
+      fallback,
+      silentLogger,
+    );
+
+    dispatcher.dispatch([legacyEvent]);
+
+    expect(handleSpy).toHaveBeenCalledOnce();
+    expect(fallback.addEvents).not.toHaveBeenCalled();
+  });
+
   it("routes 'Contribute' events to DonationHandler via alias", () => {
     const fallback = makeMockRepository();
     const donationHandler = new DonationHandler(silentLogger);

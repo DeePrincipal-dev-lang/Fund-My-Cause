@@ -9,6 +9,8 @@
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
     "test": "vitest",
+    "test:unit": "vitest run --exclude \"src/**/*.integration.test.ts\"",
+    "test:integration": "vitest run src/**/*.integration.test.ts --testTimeout=30000 --hookTimeout=30000",
     "lint": "eslint src",
     "health": "curl http://localhost:3001/health"
   },

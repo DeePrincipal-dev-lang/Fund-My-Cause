@@ -273,8 +273,18 @@ export function formatListShort(
 
 // ── Address Formatting ───────────────────────────────────────────────────
 
-/** "GABCD...WXYZ" */
-export function formatAddress(address: string): string {
-  if (address.length <= 10) return address;
-  return `${address.slice(0, 5)}...${address.slice(-4)}`;
+/**
+ * Truncate a Stellar address for display.
+ *
+ * @example
+ * formatAddress("GABCDEFGHIJKLMNOPQRSTUVWXYZ") // "GABCD...WXYZ"
+ * formatAddress("GABCDEFGHIJKLMNOPQRSTUVWXYZ", 6, 4) // "GABCDE...WXYZ"
+ */
+export function formatAddress(
+  address: string,
+  start: number = 5,
+  end: number = 4,
+): string {
+  if (address.length <= start + end) return address;
+  return `${address.slice(0, start)}...${address.slice(-end)}`;
 }

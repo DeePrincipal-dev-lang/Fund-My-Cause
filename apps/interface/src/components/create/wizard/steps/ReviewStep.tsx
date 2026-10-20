@@ -1,6 +1,6 @@
 "use client";
 
-import { ReviewRow } from "../fields";
+import { ReviewRow } from "../Fields";
 import type { CampaignFormData } from "../types";
 
 export interface ReviewStepProps {

@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Crowdfund event topics renamed from `("campaign", <event>)` to `("crowdfund", <event>)`** (see
+  ADR-010). Event names and payloads are unchanged. Indexers must subscribe to the `crowdfund`
+  scope for campaign events; events emitted before this release keep the old scope on the ledger.
+
+### Removed
+- **Deprecated `/health` endpoint** — removed the legacy `GET /health` route from
+  `backend/recommendations/service.py` and `backend/fraud_detection/pipeline.py`. It was a
+  duplicate of `GET /healthz` (which additionally reports a timestamp) and `GET /readyz`;
+  no client called `/health` specifically, only its own test suite. Associated
+  `test_health` tests were removed, and `tests_error_schema.py` now asserts against
+  `/healthz` instead.
+
 ### Added
 - **#893 REST endpoint audit** — `services/graphql-api/docs/rest-endpoints.md` documents
   every REST route in `services/graphql-api` (`GET /health`, `GET /status`, `GET /metrics`,

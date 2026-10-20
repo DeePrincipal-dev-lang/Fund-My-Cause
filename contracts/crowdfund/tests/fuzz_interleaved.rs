@@ -31,6 +31,14 @@ use crowdfund::{ContractError, DataKey};
 mod common;
 use common::setup;
 
+const FUZZ_SEED: u64 = 0xC0FFEE1234;
+
+fn log_fuzz_seed(test_name: &str) {
+    println!(
+        "[{test_name}] deterministic fuzz seed: 0x{FUZZ_SEED:x}. Reproduce locally with: cargo test -p crowdfund --test fuzz_interleaved {test_name} -- --nocapture"
+    );
+}
+
 const NUM_ACCOUNTS: usize = 4;
 /// Minted per account up front — far above anything the `Contribute` op can
 /// generate across a whole sequence, so a transfer never fails for lack of
@@ -71,6 +79,7 @@ proptest! {
     fn fuzz_interleaved_ops_preserve_fund_conservation(
         ops in prop::collection::vec(op_strategy(), 1..40),
     ) {
+        log_fuzz_seed("fuzz_interleaved_ops_preserve_fund_conservation");
         let env = Env::default();
         env.mock_all_auths();
 

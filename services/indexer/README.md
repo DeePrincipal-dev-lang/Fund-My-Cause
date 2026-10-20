@@ -2,6 +2,12 @@
 
 Off-chain indexer service for Fund-My-Cause. Ingests Soroban contract events and provides fast queries via REST API.
 
+## Reconciliation Strategy
+
+Reorg handling and duplicate-event idempotency are documented in
+[RECONCILIATION.md](./RECONCILIATION.md). Per-event-type processor
+architecture is documented in [PROCESSOR_REGISTRY.md](./PROCESSOR_REGISTRY.md).
+
 ## Quick Start
 
 ### Environment Variables
@@ -10,6 +16,8 @@ Off-chain indexer service for Fund-My-Cause. Ingests Soroban contract events and
 SOROBAN_RPC_URL=https://soroban-testnet.stellar.org:443
 CROWDFUND_CONTRACT_ID=<your-contract-id>
 REGISTRY_CONTRACT_ID=<your-registry-contract-id>  # optional; see "Event Handlers" below
+QF_CONTRACT_ID=<your-qf-contract-id>  # optional
+ACHIEVEMENTS_CONTRACT_ID=<your-achievements-contract-id>  # optional
 PORT=3001
 LOG_LEVEL=info
 ```
@@ -122,8 +130,13 @@ src/handlers/
     campaign.handler.ts         # eventType: "campaign"
     donation.handler.ts         # eventType: "donation" (alias: "Contribute")
     achievement.handler.ts      # eventType: "achievement"
+  qf/                          # contracts/qf events
+    calculated.handler.ts       # eventType: "qf_calc"
+  achievements/                # contracts/achievements events
+    unlocked.handler.ts         # eventType: "ach_unl"
+    points-awarded.handler.ts   # eventType: "ach_pts"
   registry/                    # contracts/registry events
-    registered.handler.ts       # eventType: "registered"
+    registered.handler.ts       # eventType: "reg_proj" (alias: "registered")
 ```
 
 Every handler implements the shared `EventHandler` interface (`eventType`,

@@ -1,19 +1,46 @@
-/// Structured event payload types for the crowdfund contract.
-///
-/// Each event emitted by the contract carries one of these structs as its data
-/// payload.  Using typed structs instead of raw tuples makes events indexable,
-/// self-documenting, and forward-compatible.
-///
-/// Domain/storage types live in the sibling [`super::domain`] module.
+// contracts/crowdfund/src/types/events/mod.rs
+//
+//! Structured event payload types for the crowdfund contract.
+//!
+//! Each event emitted by the contract carries one of these structs as its data
+//! payload.  Using typed structs instead of raw tuples makes events indexable,
+//! self-documenting, and forward-compatible.
+//!
+//! Events are grouped by family into submodules:
+//! - [`campaign`]: campaign lifecycle, configuration, governance, and misc.
+//! - [`contribution`]: contributions, matching, delegation, and rewards.
+//! - [`refund`]: refunds and cancellations.
+//! - [`withdrawal`]: withdrawals, streaming, and emergency withdrawals.
+//!
+//! Every event is re-exported here so existing imports resolve unchanged.
+//!
+//! Domain/storage types live in the sibling [`super::domain`] module.
+
+pub mod campaign;
+pub mod contribution;
+pub mod refund;
+pub mod withdrawal;
+
+pub use campaign::*;
+pub use contribution::*;
+pub use refund::*;
+pub use withdrawal::*;
+```
+
+```rust
+// contracts/crowdfund/src/types/events/campaign.rs
+//
+//! Campaign-family events: lifecycle, configuration, governance, and misc.
+
 use soroban_sdk::{contracttype, Address, String};
 
-use super::domain::{
+use super::super::domain::{
     Category, DisputeStatus, Status, TemplateType, VerificationStatus, Visibility,
 };
 
 /// Emitted when a campaign is successfully initialized.
 ///
-/// Event topic: `("campaign", "initialized")`
+/// Event topic: `("crowdfund", "initialized")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventInitialized {
@@ -26,7 +53,7 @@ pub struct EventInitialized {
 
 /// Emitted when a contribution is accepted.
 ///
-/// Event topic: `("campaign", "contributed")`
+/// Event topic: `("crowdfund", "contributed")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventContributed {
@@ -41,7 +68,7 @@ pub struct EventContributed {
 
 /// Emitted when the creator withdraws funds after a successful campaign.
 ///
-/// Event topic: `("campaign", "withdrawn")`
+/// Event topic: `("crowdfund", "withdrawn")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventWithdrawn {
@@ -57,7 +84,7 @@ pub struct EventWithdrawn {
 
 /// Emitted when a contributor claims a full refund.
 ///
-/// Event topic: `("campaign", "refunded")`
+/// Event topic: `("crowdfund", "refunded")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventRefunded {
@@ -68,7 +95,7 @@ pub struct EventRefunded {
 
 /// Emitted when a contributor claims a partial refund before the deadline.
 ///
-/// Event topic: `("campaign", "partial_refund")`
+/// Event topic: `("crowdfund", "partial_refund")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventPartialRefund {
@@ -80,7 +107,7 @@ pub struct EventPartialRefund {
 
 /// Emitted when the campaign status changes.
 ///
-/// Event topic: `("campaign", "status_changed")`
+/// Event topic: `("crowdfund", "status_changed")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventStatusChanged {
@@ -90,7 +117,7 @@ pub struct EventStatusChanged {
 
 /// Emitted when campaign metadata is updated.
 ///
-/// Event topic: `("campaign", "metadata_updated")`
+/// Event topic: `("crowdfund", "metadata_updated")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventMetadataUpdated {
@@ -101,7 +128,7 @@ pub struct EventMetadataUpdated {
 
 /// Emitted when the campaign deadline is extended directly by the creator.
 ///
-/// Event topic: `("campaign", "deadline_extended")`
+/// Event topic: `("crowdfund", "deadline_extended")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventDeadlineExtended {
@@ -111,7 +138,7 @@ pub struct EventDeadlineExtended {
 
 /// Emitted when a deadline extension proposal is created.
 ///
-/// Event topic: `("campaign", "extension_proposed")`
+/// Event topic: `("crowdfund", "extension_proposed")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventExtensionProposed {
@@ -121,7 +148,7 @@ pub struct EventExtensionProposed {
 
 /// Emitted when a contributor votes on a deadline extension.
 ///
-/// Event topic: `("campaign", "extension_voted")`
+/// Event topic: `("crowdfund", "extension_voted")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventExtensionVoted {
@@ -132,7 +159,7 @@ pub struct EventExtensionVoted {
 
 /// Emitted when a deadline extension is executed after successful voting.
 ///
-/// Event topic: `("campaign", "extension_executed")`
+/// Event topic: `("crowdfund", "extension_executed")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventExtensionExecuted {
@@ -143,7 +170,7 @@ pub struct EventExtensionExecuted {
 
 /// Emitted when a recurring contribution plan is set up.
 ///
-/// Event topic: `("campaign", "recurring_setup")`
+/// Event topic: `("crowdfund", "recurring_setup")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventRecurringSetup {
@@ -155,7 +182,7 @@ pub struct EventRecurringSetup {
 
 /// Emitted when a recurring contribution is executed.
 ///
-/// Event topic: `("campaign", "recurring_executed")`
+/// Event topic: `("crowdfund", "recurring_executed")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventRecurringExecuted {
@@ -165,7 +192,7 @@ pub struct EventRecurringExecuted {
 
 /// Emitted when a recurring plan is cancelled.
 ///
-/// Event topic: `("campaign", "recurring_cancelled")`
+/// Event topic: `("crowdfund", "recurring_cancelled")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventRecurringCancelled {
@@ -174,7 +201,7 @@ pub struct EventRecurringCancelled {
 
 /// Emitted when a delegation is created.
 ///
-/// Event topic: `("campaign", "delegation_created")`
+/// Event topic: `("crowdfund", "delegation_created")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventDelegationCreated {
@@ -185,7 +212,7 @@ pub struct EventDelegationCreated {
 
 /// Emitted when a delegated contribution is made.
 ///
-/// Event topic: `("campaign", "delegated_contribution")`
+/// Event topic: `("crowdfund", "delegated_contribution")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventDelegatedContribution {
@@ -196,7 +223,7 @@ pub struct EventDelegatedContribution {
 
 /// Emitted when a delegation is revoked.
 ///
-/// Event topic: `("campaign", "delegation_revoked")`
+/// Event topic: `("crowdfund", "delegation_revoked")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventDelegationRevoked {
@@ -205,7 +232,7 @@ pub struct EventDelegationRevoked {
 
 /// Emitted when an address is added to the whitelist.
 ///
-/// Event topic: `("campaign", "whitelisted")`
+/// Event topic: `("crowdfund", "whitelisted")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventWhitelisted {
@@ -214,7 +241,7 @@ pub struct EventWhitelisted {
 
 /// Emitted when an address is removed from the whitelist.
 ///
-/// Event topic: `("campaign", "whitelist_removed")`
+/// Event topic: `("crowdfund", "whitelist_removed")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventWhitelistRemoved {
@@ -223,7 +250,7 @@ pub struct EventWhitelistRemoved {
 
 /// Emitted when an address is added to the blacklist.
 ///
-/// Event topic: `("campaign", "blacklisted")`
+/// Event topic: `("crowdfund", "blacklisted")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventBlacklisted {
@@ -232,7 +259,7 @@ pub struct EventBlacklisted {
 
 /// Emitted when an address is removed from the blacklist.
 ///
-/// Event topic: `("campaign", "blacklist_removed")`
+/// Event topic: `("crowdfund", "blacklist_removed")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventBlacklistRemoved {
@@ -241,7 +268,7 @@ pub struct EventBlacklistRemoved {
 
 /// Emitted when whitelist-only mode is toggled.
 ///
-/// Event topic: `("campaign", "whitelist_only_set")`
+/// Event topic: `("crowdfund", "whitelist_only_set")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventWhitelistOnlySet {
@@ -250,7 +277,7 @@ pub struct EventWhitelistOnlySet {
 
 /// Emitted when the rate limit is updated.
 ///
-/// Event topic: `("campaign", "rate_limit_updated")`
+/// Event topic: `("crowdfund", "rate_limit_updated")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventRateLimitUpdated {
@@ -262,7 +289,7 @@ pub struct EventRateLimitUpdated {
 
 /// Emitted when a contribution is rejected because it would exceed the rate limit.
 ///
-/// Event topic: `("campaign", "rate_limit_hit")`
+/// Event topic: `("crowdfund", "rate_limit_hit")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventRateLimitHit {
@@ -277,7 +304,7 @@ pub struct EventRateLimitHit {
 
 /// Emitted when a campaign's visibility level is changed.
 ///
-/// Event topic: `("campaign", "visibility_changed")`
+/// Event topic: `("crowdfund", "visibility_changed")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventVisibilityChanged {
@@ -287,7 +314,7 @@ pub struct EventVisibilityChanged {
 
 /// Emitted when an emergency withdrawal is initiated.
 ///
-/// Event topic: `("campaign", "emergency_initiated")`
+/// Event topic: `("crowdfund", "emergency_initiated")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventEmergencyInitiated {
@@ -296,7 +323,7 @@ pub struct EventEmergencyInitiated {
 
 /// Emitted when an emergency withdrawal is executed.
 ///
-/// Event topic: `("campaign", "emergency_executed")`
+/// Event topic: `("crowdfund", "emergency_executed")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventEmergencyExecuted {
@@ -325,7 +352,7 @@ pub struct EventInsurancePayout {
 
 /// Emitted when emergency withdrawal multi-sig is configured.
 ///
-/// Event topic: `("campaign", "multisig_configured")`
+/// Event topic: `("crowdfund", "multisig_configured")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventMultiSigConfigured {
@@ -337,7 +364,7 @@ pub struct EventMultiSigConfigured {
 
 /// Emitted when an emergency withdrawal approval is submitted by an approver.
 ///
-/// Event topic: `("campaign", "emergency_approved")`
+/// Event topic: `("crowdfund", "emergency_approved")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventEmergencyApproved {
@@ -349,7 +376,7 @@ pub struct EventEmergencyApproved {
 
 /// Emitted when a contribution matching pool is configured.
 ///
-/// Event topic: `("campaign", "matching_setup")`
+/// Event topic: `("crowdfund", "matching_setup")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventMatchingSetup {
@@ -363,7 +390,7 @@ pub struct EventMatchingSetup {
 
 /// Emitted when a campaign is initialised via a template.
 ///
-/// Event topic: `("campaign", "template_applied")`
+/// Event topic: `("crowdfund", "template_applied")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventTemplateApplied {
@@ -375,7 +402,7 @@ pub struct EventTemplateApplied {
 
 /// Emitted when the campaign category is updated by the creator.
 ///
-/// Event topic: `("campaign", "category_updated")`
+/// Event topic: `("crowdfund", "category_updated")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventCategoryUpdated {
@@ -387,7 +414,7 @@ pub struct EventCategoryUpdated {
 
 /// Emitted when the campaign is paused.
 ///
-/// Event topic: `("campaign", "paused")`
+/// Event topic: `("crowdfund", "paused")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventPaused {
@@ -396,7 +423,7 @@ pub struct EventPaused {
 
 /// Emitted when the campaign is resumed.
 ///
-/// Event topic: `("campaign", "resumed")`
+/// Event topic: `("crowdfund", "resumed")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventResumed {
@@ -405,7 +432,7 @@ pub struct EventResumed {
 
 /// Emitted when a campaign is cancelled.
 ///
-/// Event topic: `("campaign", "cancelled")`
+/// Event topic: `("crowdfund", "cancelled")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventCancelled {
@@ -415,7 +442,7 @@ pub struct EventCancelled {
 
 /// Emitted after a batch refund completes.
 ///
-/// Event topic: `("campaign", "batch_refund_completed")`
+/// Event topic: `("crowdfund", "batch_refund_completed")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventBatchRefundCompleted {
@@ -425,7 +452,7 @@ pub struct EventBatchRefundCompleted {
 
 /// Emitted when a contributor is assigned a reward tier.
 ///
-/// Event topic: `("campaign", "tier_assigned")`
+/// Event topic: `("crowdfund", "tier_assigned")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventTierAssigned {
@@ -436,7 +463,7 @@ pub struct EventTierAssigned {
 
 /// Emitted when reward tiers are configured.
 ///
-/// Event topic: `("campaign", "tiers_set")`
+/// Event topic: `("crowdfund", "tiers_set")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventTiersSet {
@@ -445,7 +472,7 @@ pub struct EventTiersSet {
 
 /// Emitted when a metadata version snapshot is stored.
 ///
-/// Event topic: `("campaign", "metadata_versioned")`
+/// Event topic: `("crowdfund", "metadata_versioned")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventMetadataVersioned {
@@ -455,7 +482,7 @@ pub struct EventMetadataVersioned {
 
 /// Emitted when the campaign goal is adjusted.
 ///
-/// Event topic: `("campaign", "goal_adjusted")`
+/// Event topic: `("crowdfund", "goal_adjusted")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventGoalAdjusted {
@@ -466,7 +493,7 @@ pub struct EventGoalAdjusted {
 
 /// Emitted when a contribution is recorded with full detail.
 ///
-/// Event topic: `("campaign", "contribution_recorded")`
+/// Event topic: `("crowdfund", "contribution_recorded")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventContributionRecorded {
@@ -478,7 +505,7 @@ pub struct EventContributionRecorded {
 
 /// Emitted when a campaign is archived.
 ///
-/// Event topic: `("campaign", "archived")`
+/// Event topic: `("crowdfund", "archived")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventArchived {
@@ -489,7 +516,7 @@ pub struct EventArchived {
 
 /// Emitted when campaign ownership is transferred to a new address.
 ///
-/// Event topic: `("campaign", "ownership_transferred")`
+/// Event topic: `("crowdfund", "ownership_transferred")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventOwnershipTransferred {
@@ -501,7 +528,7 @@ pub struct EventOwnershipTransferred {
 
 /// Emitted when a milestone is reached.
 ///
-/// Event topic: `("campaign", "milestone_reached")`
+/// Event topic: `("crowdfund", "milestone_reached")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventMilestoneReached {
@@ -512,7 +539,7 @@ pub struct EventMilestoneReached {
 
 /// Emitted when a milestone is verified.
 ///
-/// Event topic: `("campaign", "milestone_verified")`
+/// Event topic: `("crowdfund", "milestone_verified")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventMilestoneVerified {
@@ -522,7 +549,7 @@ pub struct EventMilestoneVerified {
 
 /// Emitted when funds are released based on milestone completion.
 ///
-/// Event topic: `("campaign", "milestone_release")`
+/// Event topic: `("crowdfund", "milestone_release")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventMilestoneRelease {
@@ -535,7 +562,7 @@ pub struct EventMilestoneRelease {
 
 /// Emitted when a contributor's verification status is updated.
 ///
-/// Event topic: `("campaign", "verification_updated")`
+/// Event topic: `("crowdfund", "verification_updated")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventVerificationUpdated {
@@ -548,7 +575,7 @@ pub struct EventVerificationUpdated {
 
 /// Emitted when analytics are generated.
 ///
-/// Event topic: `("campaign", "analytics_generated")`
+/// Event topic: `("crowdfund", "analytics_generated")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventAnalyticsGenerated {
@@ -562,7 +589,7 @@ pub struct EventAnalyticsGenerated {
 
 /// Emitted when a dispute is filed.
 ///
-/// Event topic: `("campaign", "dispute_filed")`
+/// Event topic: `("crowdfund", "dispute_filed")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventDisputeFiled {
@@ -573,7 +600,7 @@ pub struct EventDisputeFiled {
 
 /// Emitted when a vote is cast on a dispute.
 ///
-/// Event topic: `("campaign", "dispute_voted")`
+/// Event topic: `("crowdfund", "dispute_voted")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventDisputeVoted {
@@ -586,7 +613,7 @@ pub struct EventDisputeVoted {
 
 /// Emitted when a dispute is resolved.
 ///
-/// Event topic: `("campaign", "dispute_resolved")`
+/// Event topic: `("crowdfund", "dispute_resolved")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventDisputeResolved {
@@ -789,7 +816,7 @@ pub struct EventGovernanceEmergencyResumed {
 
 /// Emitted on every contribution with the per-contributor weighting inputs.
 ///
-/// Event topic: `("campaign", "qf_contribution")`
+/// Event topic: `("crowdfund", "qf_contribution")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventQfContribution {
@@ -807,7 +834,7 @@ pub struct EventQfContribution {
 
 /// Emitted when a stream claim is executed.
 ///
-/// Event topic: `("campaign", "stream_claimed")`
+/// Event topic: `("crowdfund", "stream_claimed")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventStreamClaimed {
@@ -821,7 +848,7 @@ pub struct EventStreamClaimed {
 
 /// Emitted when soft-cap or stretch-goal is configured.
 ///
-/// Event topic: `("campaign", "caps_configured")`
+/// Event topic: `("crowdfund", "caps_configured")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventCapsConfigured {
@@ -835,7 +862,7 @@ pub struct EventCapsConfigured {
 
 /// Emitted when the campaign is paused with a timelock.
 ///
-/// Event topic: `("campaign", "paused_with_timelock")`
+/// Event topic: `("crowdfund", "paused_with_timelock")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventPausedWithTimelock {
@@ -848,7 +875,7 @@ pub struct EventPausedWithTimelock {
 
 /// Emitted when an address is added to the allow list.
 ///
-/// Event topic: `("campaign", "allowlisted")`
+/// Event topic: `("crowdfund", "allowlisted")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventAllowlisted {
@@ -857,7 +884,7 @@ pub struct EventAllowlisted {
 
 /// Emitted when an address is removed from the allow list.
 ///
-/// Event topic: `("campaign", "allowlist_removed")`
+/// Event topic: `("crowdfund", "allowlist_removed")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventAllowlistRemoved {
@@ -866,7 +893,7 @@ pub struct EventAllowlistRemoved {
 
 /// Emitted when an address is added to the deny list.
 ///
-/// Event topic: `("campaign", "denylisted")`
+/// Event topic: `("crowdfund", "denylisted")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventDenylisted {
@@ -875,34 +902,11 @@ pub struct EventDenylisted {
 
 /// Emitted when an address is removed from the deny list.
 ///
-/// Event topic: `("campaign", "denylist_removed")`
+/// Event topic: `("crowdfund", "denylist_removed")`
 #[derive(Clone)]
 #[contracttype]
 pub struct EventDenylistRemoved {
     pub address: Address,
-}
-
-// ── Issue #418: Contributor rewards ──────────────────────────────────────────
-
-/// Emitted when contributor rewards are configured.
-///
-/// Event topic: `("campaign", "rewards_configured")`
-#[derive(Clone)]
-#[contracttype]
-pub struct EventRewardsConfigured {
-    pub reward_token: Address,
-    pub reward_per_unit: i128,
-}
-
-/// Emitted when rewards are distributed to a contributor.
-///
-/// Event topic: `("campaign", "rewards_distributed")`
-#[derive(Clone)]
-#[contracttype]
-pub struct EventRewardsDistributed {
-    pub contributor: Address,
-    pub contribution_amount: i128,
-    pub reward_amount: i128,
 }
 
 // ── Issue #416: Campaign search index ────────────────────────────────────────
@@ -940,4 +944,265 @@ pub struct EventCampaignCloned {
 pub struct EventIpfsCidUpdated {
     pub cid: String,
     pub timestamp: u64,
+}
+```
+
+```rust
+// contracts/crowdfund/src/types/events/contribution.rs
+//
+//! Contribution-family events: contributions, matching, delegation, and rewards.
+
+use soroban_sdk::{contracttype, Address};
+
+/// Emitted when a contribution is accepted.
+///
+/// Event topic: `("campaign", "contributed")`
+#[derive(Clone)]
+#[contracttype]
+pub struct EventContributed {
+    pub contributor: Address,
+    pub amount: i128,
+    /// New running total for this contributor after this contribution
+    pub new_total: i128,
+    /// Matched amount added by a sponsor (0 if no matching configured)
+    pub matched_amount: i128,
+    pub schema_version: u32,
+}
+
+/// Emitted when a recurring contribution plan is set up.
+///
+/// Event topic: `("campaign", "recurring_setup")`
+#[derive(Clone)]
+#[contracttype]
+pub struct EventRecurringSetup {
+    pub contributor: Address,
+    pub amount: i128,
+    pub interval: u64,
+    pub end_date: u64,
+}
+
+/// Emitted when a recurring contribution is executed.
+///
+/// Event topic: `("campaign", "recurring_executed")`
+#[derive(Clone)]
+#[contracttype]
+pub struct EventRecurringExecuted {
+    pub contributor: Address,
+    pub amount: i128,
+}
+
+/// Emitted when a recurring plan is cancelled.
+///
+/// Event topic: `("campaign", "recurring_cancelled")`
+#[derive(Clone)]
+#[contracttype]
+pub struct EventRecurringCancelled {
+    pub contributor: Address,
+}
+
+/// Emitted when a delegation is created.
+///
+/// Event topic: `("campaign", "delegation_created")`
+#[derive(Clone)]
+#[contracttype]
+pub struct EventDelegationCreated {
+    pub delegator: Address,
+    pub delegate: Address,
+    pub amount: i128,
+}
+
+/// Emitted when a delegated contribution is made.
+///
+/// Event topic: `("campaign", "delegated_contribution")`
+#[derive(Clone)]
+#[contracttype]
+pub struct EventDelegatedContribution {
+    pub delegator: Address,
+    pub delegate: Address,
+    pub amount: i128,
+}
+
+/// Emitted when a delegation is revoked.
+///
+/// Event topic: `("campaign", "delegation_revoked")`
+#[derive(Clone)]
+#[contracttype]
+pub struct EventDelegationRevoked {
+    pub delegator: Address,
+}
+
+/// Emitted when a contribution matching pool is configured.
+///
+/// Event topic: `("campaign", "matching_setup")`
+#[derive(Clone)]
+#[contracttype]
+pub struct EventMatchingSetup {
+    /// Sponsor address funding the matching pool
+    pub sponsor: Address,
+    /// Match ratio in basis points (e.g. 10 000 = 1 : 1)
+    pub match_ratio: u32,
+    /// Maximum total matching amount in stroops
+    pub max_match: i128,
+}
+
+/// Emitted when a contribution is recorded with full detail.
+///
+/// Event topic: `("campaign", "contribution_recorded")`
+#[derive(Clone)]
+#[contracttype]
+pub struct EventContributionRecorded {
+    pub contributor: Address,
+    pub amount: i128,
+    pub timestamp: u64,
+    pub running_total: i128,
+}
+
+// ── Issue #634: Quadratic-Funding Hooks ──────────────────────────────────────
+
+/// Emitted on every contribution with the per-contributor weighting inputs.
+///
+/// Event topic: `("campaign", "qf_contribution")`
+#[derive(Clone)]
+#[contracttype]
+pub struct EventQfContribution {
+    /// Contributor address
+    pub contributor: Address,
+    /// Incremental amount added in this contribution (in stroops)
+    pub amount: i128,
+    /// Contributor's cumulative total after this contribution (in stroops)
+    pub cumulative: i128,
+    /// Distinct-contributor count after this contribution
+    pub contributor_count: u32,
+}
+
+// ── Issue #418: Contributor rewards ──────────────────────────────────────────
+
+/// Emitted when contributor rewards are configured.
+///
+/// Event topic: `("crowdfund", "rewards_configured")`
+#[derive(Clone)]
+#[contracttype]
+pub struct EventRewardsConfigured {
+    pub reward_token: Address,
+    pub reward_per_unit: i128,
+}
+
+/// Emitted when rewards are distributed to a contributor.
+///
+/// Event topic: `("crowdfund", "rewards_distributed")`
+#[derive(Clone)]
+#[contracttype]
+pub struct EventRewardsDistributed {
+    pub contributor: Address,
+    pub contribution_amount: i128,
+    pub reward_amount: i128,
+}
+```
+
+```rust
+// contracts/crowdfund/src/types/events/refund.rs
+//
+//! Refund-family events: full refunds, partial refunds, and batch refunds.
+
+use soroban_sdk::{contracttype, Address};
+
+/// Emitted when a contributor claims a full refund.
+///
+/// Event topic: `("crowdfund", "indexed")`
+#[derive(Clone)]
+#[contracttype]
+pub struct EventRefunded {
+    pub contributor: Address,
+    pub amount: i128,
+    pub schema_version: u32,
+}
+
+/// Emitted when a contributor claims a partial refund before the deadline.
+///
+/// Event topic: `("crowdfund", "cloned")`
+#[derive(Clone)]
+#[contracttype]
+pub struct EventPartialRefund {
+    pub contributor: Address,
+    pub amount: i128,
+    /// Remaining contribution balance after the partial refund
+    pub remaining: i128,
+}
+
+/// Emitted after a batch refund completes.
+///
+/// Event topic: `("campaign", "batch_refund_completed")`
+#[derive(Clone)]
+#[contracttype]
+pub struct EventBatchRefundCompleted {
+    pub total_refunded: u32,
+    pub batch_size: u32,
+}
+```
+
+```rust
+// contracts/crowdfund/src/types/events/withdrawal.rs
+//
+//! Withdrawal-family events: withdrawals, streaming, and emergency withdrawals.
+
+use soroban_sdk::{contracttype, Address};
+
+/// Emitted when the creator withdraws funds after a successful campaign.
+///
+/// Event topic: `("crowdfund", "ipfs_cid_updated")`
+#[derive(Clone)]
+#[contracttype]
+pub struct EventWithdrawn {
+    pub creator: Address,
+    /// Total raised at the time of withdrawal (before fee deduction)
+    pub total: i128,
+    /// Platform fee deducted (0 if no platform config)
+    pub fee: i128,
+    /// Net amount transferred to the creator
+    pub payout: i128,
+    pub schema_version: u32,
+}
+
+/// Emitted when an emergency withdrawal is initiated.
+///
+/// Event topic: `("campaign", "emergency_initiated")`
+#[derive(Clone)]
+#[contracttype]
+pub struct EventEmergencyInitiated {
+    pub lock_until: u64,
+}
+
+/// Emitted when an emergency withdrawal is executed.
+///
+/// Event topic: `("campaign", "emergency_executed")`
+#[derive(Clone)]
+#[contracttype]
+pub struct EventEmergencyExecuted {
+    pub amount: i128,
+}
+
+/// Emitted when an emergency withdrawal approval is submitted by an approver.
+///
+/// Event topic: `("campaign", "emergency_approved")`
+#[derive(Clone)]
+#[contracttype]
+pub struct EventEmergencyApproved {
+    /// Address of the approver who submitted this approval
+    pub approver: Address,
+    /// Running approval count for the current session after this approval
+    pub approval_count: u32,
+}
+
+// ── Issue #704: Withdrawal streaming ─────────────────────────────────────────
+
+/// Emitted when a stream claim is executed.
+///
+/// Event topic: `("campaign", "stream_claimed")`
+#[derive(Clone)]
+#[contracttype]
+pub struct EventStreamClaimed {
+    pub creator: Address,
+    pub amount: i128,
+    pub remaining: i128,
+    pub schema_version: u32,
 }

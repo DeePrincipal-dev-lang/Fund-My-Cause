@@ -1,0 +1,117 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: monitoring-service
+  namespace: fund-my-cause
+  labels:
+    app: monitoring-service
+    version: v1
+  annotations:
+    # Link to deployment runbook for restart/troubleshooting procedures
+    runbook.url: "https://github.com/Fund-My-Cause/Fund-My-Cause/blob/main/docs/runbooks/indexer-monitoring-service-deployment.md"
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: monitoring-service
+  template:
+    metadata:
+      labels:
+        app: monitoring-service
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9091"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: monitoring-service
+        image: fund-my-cause/monitoring-service:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 9091
+          name: http
+        env:
+        - name: PORT
+          value: "9091"
+        - name: PAGERDUTY_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: monitoring-service-secrets
+              key: pagerduty-api-key
+        - name: PAGERDUTY_SERVICE_ID
+          valueFrom:
+            secretKeyRef:
+              name: monitoring-service-secrets
+              key: pagerduty-service-id
+        - name: PAGERDUTY_INTEGRATION_KEY
+          valueFrom:
+            secretKeyRef:
+              name: monitoring-service-secrets
+              key: pagerduty-integration-key
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 9091
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 9091
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 2
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: monitoring-service
+  namespace: fund-my-cause
+  labels:
+    app: monitoring-service
+  annotations:
+    runbook.url: "https://github.com/Fund-My-Cause/Fund-My-Cause/blob/main/docs/runbooks/indexer-monitoring-service-deployment.md"
+spec:
+  type: ClusterIP
+  ports:
+  - port: 9091
+    targetPort: 9091
+    protocol: TCP
+    name: http
+  selector:
+    app: monitoring-service
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: monitoring-service-secrets
+  namespace: fund-my-cause
+type: Opaque
+stringData:
+  # Create with:
+  #   kubectl create secret generic monitoring-service-secrets \
+  #     -n fund-my-cause \
+  #     --from-literal=pagerduty-api-key=$PAGERDUTY_API_KEY \
+  #     --from-literal=pagerduty-service-id=$PAGERDUTY_SERVICE_ID \
+  #     --from-literal=pagerduty-integration-key=$PAGERDUTY_INTEGRATION_KEY
+  pagerduty-api-key: "REPLACE_WITH_PAGERDUTY_API_KEY"
+  pagerduty-service-id: "REPLACE_WITH_PAGERDUTY_SERVICE_ID"
+  pagerduty-integration-key: "REPLACE_WITH_PAGERDUTY_INTEGRATION_KEY"

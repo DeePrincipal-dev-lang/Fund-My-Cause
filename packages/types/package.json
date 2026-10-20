@@ -54,9 +54,11 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "lint": "echo 'types package - no lint config yet'",
-    "test": "vitest run"
+    "test": "vitest run --coverage",
+    "test:coverage": "vitest run --coverage"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^1.6.1",
     "typescript": "5.9.3",
     "vitest": "^1.1.0"
   }

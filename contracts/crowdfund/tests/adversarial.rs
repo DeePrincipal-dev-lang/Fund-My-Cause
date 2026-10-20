@@ -359,8 +359,10 @@ fn test_adversarial_past_deadline_initialization() {
 
 // ── Issue #700: CEI adversarial tests ────────────────────────────────────────
 
-/// Verify that a double-spend on refund_single is impossible (storage zeroed before
-/// any transfer, so a second call is a no-op and never over-pays the attacker).
+/// Threat model: reentrancy / replay. A malicious contributor can call the refund path
+/// multiple times within a single campaign state or attempt to re-use stale refund data.
+/// The contract must ensure refunds are idempotent and cannot overpay even under repeated
+/// calls from the same address.
 #[test]
 fn test_cei_refund_single_no_double_spend() {
     let env = Env::default();
@@ -391,6 +393,8 @@ fn test_cei_refund_single_no_double_spend() {
 }
 
 /// Verify that refund_batch cannot over-pay when the same contributor appears twice.
+/// Threat model: replay / duplicate entries in a batched refund payload. Attackers may
+/// include the same contributor multiple times to force duplicate payout logic.
 #[test]
 fn test_cei_refund_batch_idempotent() {
     let env = Env::default();
@@ -420,8 +424,9 @@ fn test_cei_refund_batch_idempotent() {
     );
 }
 
-/// Verify that withdraw() zeroes the total before transferring, preventing
-/// a state where the campaign appears funded after withdrawal.
+/// Threat model: reentrancy / stale refund state. A contributor can attempt to trigger a
+/// refund after the campaign has already been withdrawn and the creator has received funds.
+/// The state must be zeroed before any payout so the campaign no longer looks fundable.
 #[test]
 fn test_cei_withdraw_zeroes_total_before_payout() {
     let env = Env::default();
@@ -444,8 +449,9 @@ fn test_cei_withdraw_zeroes_total_before_payout() {
     assert_eq!(c.client.total_raised(), 0);
 }
 
-/// Verify that contribute() correctly deducts OnContribution fee and still
-/// credits the net amount toward the goal (stats gross vs net separation).
+/// Threat model: fee manipulation. An attacker tries to inflate the platform fee path or
+/// confuse gross-vs-net accounting so the campaign appears over-funded. The contract must
+/// maintain consistent `gross_raised` versus `total_raised` accounting and enforce the fee.
 #[test]
 fn test_on_contribution_fee_mode_net_vs_gross() {
     let env = Env::default();
@@ -505,6 +511,33 @@ fn test_on_contribution_fee_mode_net_vs_gross() {
     let stats = client.get_stats();
     assert_eq!(stats.total_raised, expected_net);
     assert_eq!(stats.gross_raised, contrib_amount);
+}
+
+#[test]
+fn test_adversarial_replay_of_contribution_state() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let deadline = 1_000u64;
+    let goal = 10_000i128;
+    let c = setup(&env, goal, deadline, None);
+
+    let contributor = Address::generate(&env);
+    c.token_admin.mint(&contributor, &5_000);
+    env.ledger().set_timestamp(500);
+
+    c.client.contribute(&contributor, &2_000, &c.token_id, &None);
+    c.client.contribute(&contributor, &1_500, &c.token_id, &None);
+
+    assert_eq!(c.client.contribution(&contributor), 3_500);
+    assert_eq!(c.client.total_raised(), 3_500);
+
+    env.ledger().set_timestamp(deadline + 1);
+    c.client.cancel_campaign();
+    c.client.refund_single(&contributor);
+
+    assert_eq!(c.client.contribution(&contributor), 0);
+    assert_eq!(c.token.balance(&contributor), 3_500);
 }
 
 // ── Issue #835: previously-panicking paths now return typed errors, not panics ──

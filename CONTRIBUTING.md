@@ -204,22 +204,7 @@ git commit --no-verify
    cd Fund-My-Cause
    ```
 
-2. Install dependencies:
-   ```bash
-   npm install
-   cd apps/interface && npm install
-   ```
-
-3. Build contracts:
-   ```bash
-   cargo build --release --target wasm32-unknown-unknown
-   ```
-
-4. Run tests:
-   ```bash
-   cargo test --workspace
-   cd apps/interface && npm test
-   ```
+2. Follow the single setup guide, [docs/SETUP.md](./docs/SETUP.md), to install dependencies, build the contracts, and run the test suites. Do not use other copies of these steps.
 
 ### Local Development
 

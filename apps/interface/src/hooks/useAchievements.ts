@@ -108,7 +108,7 @@ const ACHIEVEMENT_DEFINITIONS = {
  * Fetch user achievements
  */
 async function fetchUserAchievements(
-  userAddress: string
+  _userAddress: string
 ): Promise<Achievement[]> {
   // Mocked pending Issue #12 (achievements contract: unlock conditions are
   // still TODO'd on-chain). Replace with a real contract/API read once #12 lands.
@@ -143,7 +143,7 @@ async function fetchUserAchievements(
  * Fetch user achievement progress
  */
 async function fetchAchievementProgress(
-  userAddress: string
+  _userAddress: string
 ): Promise<AchievementProgress[]> {
   // Mocked pending Issue #12 (achievements contract: stub leaderboard ranking,
   // unlock conditions unresolved). Replace with a real contract/API read once #12 lands.
@@ -254,7 +254,7 @@ export function useAchievements({
     queryFn: () =>
       userAddress
         ? fetchGamificationProfile(userAddress)
-        : Promise.resolve(null as any),
+        : Promise.resolve(null as unknown as GamificationProfile),
     enabled: enabled && !!userAddress,
   });
 
@@ -299,8 +299,8 @@ export function useAchievements({
   // Mutation to share achievement
   const shareAchievementMutation = useMutation({
     mutationFn: async ({
-      achievementId,
-      platform,
+      achievementId: _achievementId,
+      platform: _platform,
     }: {
       achievementId: string;
       platform: string;

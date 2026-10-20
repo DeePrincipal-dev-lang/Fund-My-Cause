@@ -142,6 +142,30 @@ export const transitions = {
 // ── Semantic aliases (light / dark) ───────────────────────────────────────────
 // These map to CSS custom properties defined in globals.css.
 
+/**
+ * WCAG AA contrast audit results (audited 2026-08-30)
+ * ──────────────────────────────────────────────────
+ * All text/background pairs below have been verified to meet or exceed the
+ * 4.5:1 contrast ratio required for normal text under WCAG 2.1 SC 1.4.3.
+ *
+ * Changes from pre-audit values:
+ *
+ * Dark theme:
+ *   textMuted:  #6b7280 → #8691a0  (was 4.16:1 on bg, now 6.30:1)
+ *   brandHover: #818cf8 already passed (6.75:1 on bg); brand (#6366f1) only
+ *               used on dark background (4.51:1 PASS) or with white text on it.
+ *
+ * Light theme:
+ *   textMuted:  #9ca3af → #565d6b  (was 2.54:1 on bg, now 6.62:1)
+ *   brandHover: #6366f1 → #4f46e5  (was 4.47:1, now 6.29:1)
+ *   success:    #22c55e → #15803d  (was 2.28:1, now 5.02:1)
+ *   danger:     #ef4444 → #b91c1c  (was 3.76:1, now 6.47:1)
+ *
+ * Note: success/danger tokens in the light theme are used as text colours on
+ * white/near-white surfaces.  The dark-theme values remain for icon tints on
+ * dark surfaces where they already passed (e.g. success #22c55e on #030712 =
+ * 8.84:1).  Separate semantic entries keep the two concerns independent.
+ */
 export const semanticTokens = {
   light: {
     background: colors.neutral[0],
@@ -151,10 +175,16 @@ export const semanticTokens = {
     borderSubtle: colors.neutral[100],
     textPrimary: colors.neutral[900],
     textSecondary: colors.neutral[500],
-    textMuted: colors.neutral[400],
+    /** WCAG AA fix: darkened from neutral[400] (#9ca3af, 2.54:1) to #565d6b (6.62:1 on white) */
+    textMuted: "#565d6b",
     brand: colors.primary[600],
-    brandHover: colors.primary[500],
+    /** WCAG AA fix: reverted to primary[600] (#4f46e5, 6.29:1) from primary[500] (#6366f1, 4.47:1) */
+    brandHover: colors.primary[600],
     brandSubtle: colors.primary[100],
+    /** WCAG AA fix: darkened from success[500] (#22c55e, 2.28:1) to #15803d (5.02:1) */
+    successText: "#15803d",
+    /** WCAG AA fix: darkened from danger[500] (#ef4444, 3.76:1) to #b91c1c (6.47:1) */
+    dangerText: "#b91c1c",
   },
   dark: {
     background: colors.neutral[950],
@@ -164,9 +194,13 @@ export const semanticTokens = {
     borderSubtle: colors.neutral[700],
     textPrimary: colors.neutral[50],
     textSecondary: colors.neutral[400],
-    textMuted: colors.neutral[500],
+    /** WCAG AA fix: lightened from neutral[500] (#6b7280, 4.16:1) to #8691a0 (6.30:1 on #030712) */
+    textMuted: "#8691a0",
     brand: colors.primary[500],
     brandHover: colors.primary[400],
     brandSubtle: colors.primary[900],
+    /** Dark theme success/danger used as icon tints — already pass (8.84:1 and 5.35:1 on bg) */
+    successText: colors.success[400],
+    dangerText: colors.danger[400],
   },
 } as const;
