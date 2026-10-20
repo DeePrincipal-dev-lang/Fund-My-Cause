@@ -40,7 +40,7 @@ export function handleCampaignCreated(payload: CampaignPayload): void {
       "Invalid campaign.created payload: missing required fields",
     );
   }
-  // TODO: Implement campaign creation handling logic
+  // TODO(#1358): Implement campaign creation handling logic
 }
 
 /**
@@ -51,7 +51,7 @@ export function handleCampaignUpdated(payload: CampaignPayload): void {
   if (!payload.campaignId) {
     throw new Error("Invalid campaign.updated payload: missing campaignId");
   }
-  // TODO: Implement campaign update handling logic
+  // TODO(#1358): Implement campaign update handling logic
 }
 
 /**
@@ -62,7 +62,7 @@ export function handleCampaignFunded(payload: CampaignPayload): void {
   if (!payload.campaignId || payload.currentAmount === undefined) {
     throw new Error("Invalid campaign.funded payload: missing required fields");
   }
-  // TODO: Implement campaign funded handling logic
+  // TODO(#1358): Implement campaign funded handling logic
 }
 
 /**
@@ -73,7 +73,7 @@ export function handleCampaignSuccessful(payload: CampaignPayload): void {
   if (!payload.campaignId) {
     throw new Error("Invalid campaign.successful payload: missing campaignId");
   }
-  // TODO: Implement campaign successful handling logic
+  // TODO(#1358): Implement campaign successful handling logic
 }
 
 /**
@@ -84,7 +84,7 @@ export function handleCampaignCancelled(payload: CampaignPayload): void {
   if (!payload.campaignId) {
     throw new Error("Invalid campaign.cancelled payload: missing campaignId");
   }
-  // TODO: Implement campaign cancelled handling logic
+  // TODO(#1358): Implement campaign cancelled handling logic
 }
 
 /**

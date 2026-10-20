@@ -44,7 +44,7 @@ export function handleContributionReceived(payload: PaymentPayload): void {
     );
   }
 
-  // TODO: Implement contribution received handling logic
+  // TODO(#1358): Implement contribution received handling logic
 }
 
 /**
