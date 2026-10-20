@@ -16,8 +16,12 @@ import type { EventHandler } from "../types.js";
  * `services/indexer/src/handlers/index.ts` for the full module layout.
  */
 export class RegisteredHandler implements EventHandler {
-  readonly eventType = "registered";
+  readonly eventType = "reg_proj";
   readonly contractType = "registry" as const;
+  static readonly aliases: readonly string[] = [
+    "registered",
+    "project_registered",
+  ];
 
   private readonly logger: pino.Logger;
 
@@ -40,10 +44,12 @@ export class RegisteredHandler implements EventHandler {
         {
           eventId: event.id,
           contractId: event.contractId,
-          campaignId: event.data["campaign_id"],
-          schemaVersion: event.data["schema_version"],
+          projectId: event.data["project_id"] ?? event.data["campaign_id"],
+          creator: event.data["creator"],
+          name: event.data["name"],
+          category: event.data["category"],
         },
-        "RegisteredHandler: campaign registration event ingested",
+        "RegisteredHandler: project registration event ingested",
       );
     }
 

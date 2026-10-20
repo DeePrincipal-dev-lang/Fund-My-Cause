@@ -31,7 +31,7 @@ export function getActiveFailure(): FailureConfig & { _target?: string } | null 
 }
 
 export function shouldFail(target: string): { shouldFail: boolean; config: FailureConfig | null } {
-  if (activeFailure && (activeFailure as any)._target === target) {
+  if (activeFailure && activeFailure._target === target) {
     if (Math.random() < activeFailure.probability) {
       return { shouldFail: true, config: activeFailure };
     }

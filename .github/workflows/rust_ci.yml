@@ -18,8 +18,16 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
 
-      - name: Build contracts
-        run: cargo build --release --target wasm32-unknown-unknown
+      - name: Check WASM sizes via make size
+        run: make size
+
+      # ── Size budget check ─────────────────────────────────────────
+      - name: Check WASM size budgets
+        run: |
+          for wasm in target/wasm32-unknown-unknown/release/*.wasm; do
+            name=$(basename "$wasm" .wasm)
+            python3 scripts/check_wasm_size.py --artifact "$wasm" --budget "$(cat contracts/crowdfund/WASM_BUDGET_BYTES)" || exit 1
+          done
 
       # ── Contract size check ────────────────────────────────────────────────
       - name: Check contract WASM sizes

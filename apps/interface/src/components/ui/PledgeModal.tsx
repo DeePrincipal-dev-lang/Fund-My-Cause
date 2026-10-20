@@ -231,6 +231,7 @@ export function PledgeModal({
                 placeholder={t("amountPlaceholder", { min: minXlm })}
                 value={amount}
                 min={minXlm}
+                aria-describedby={amountDescribedBy}
                 step="0.1"
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                   setAmount(e.target.value)

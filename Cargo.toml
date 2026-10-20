@@ -14,8 +14,13 @@ output-dir = "target/doc"
 soroban-sdk = "25.3.0"
 
 [profile.release]
+# Optimized for minimal WASM binary size:
+# opt-level="z" minimizes code size; lto eliminates dead code; codegen-units=1
+# enables full optimization; panic="abort" avoids unwind info; strip="symbols"
+# removes debug symbols; overflow-checks=false reduces runtime overhead
+# (contracts use checked_mul/checked_div for safety instead).
 opt-level = "z"
-overflow-checks = true
+overflow-checks = false
 debug = 0
 strip = "symbols"
 debug-assertions = false

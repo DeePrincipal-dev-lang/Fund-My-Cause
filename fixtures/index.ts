@@ -1,5 +1,9 @@
 import multiCurrencyDonations from "./multi-currency-donations.json";
 
+// Campaign and contribution canonical fixtures
+export * from "./campaign";
+export * from "./contribution";
+
 export interface CurrencyConfig {
   code: string;
   symbol: string;

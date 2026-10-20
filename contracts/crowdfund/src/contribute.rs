@@ -15,13 +15,13 @@ use soroban_sdk::{token, Address, Env, String, Vec};
 use crate::{
     errors::ContractError,
     storage::{
-        DataKey, BASIS_POINTS_MAX, KEY_DEADLINE, KEY_GROSS_TOTAL, KEY_INSURANCE,
+        DataKey, KEY_DEADLINE, KEY_GROSS_TOTAL, KEY_INSURANCE,
         KEY_INSURANCE_POOL, KEY_MAX, KEY_MIN, KEY_PLATFORM, KEY_RATE_LIMIT, KEY_STATUS, KEY_TOKEN,
         KEY_TOTAL, KEY_VISIBILITY, MAX_MESSAGE_LENGTH, TTL_INSTANCE_EXTEND_MAX,
         TTL_INSTANCE_EXTEND_MIN, TTL_PERSISTENT_ENTRY,
     },
     types::{
-        ContributionRecord, Delegation, EventContributed, EventContributionRecorded,
+        ContributionHistory, Delegation, EventContributed, EventContributionRecorded,
         EventDelegatedContribution, EventDelegationCreated, EventDelegationRevoked,
         EventQfContribution, EventRateLimitHit, EventTierAssigned, FeeMode, InsuranceConfig,
         MatchingConfig, PlatformConfig, RateLimit, RewardTier, Status, Visibility,
@@ -32,6 +32,8 @@ use crate::{
         validate_min_contribution, validate_positive_amount,
     },
 };
+
+use common::math::apply_bps;
 
 // === Campaign snapshot
 
@@ -62,17 +64,17 @@ struct CampaignSnapshot {
 fn read_campaign_snapshot(env: &Env) -> CampaignSnapshot {
     let inst = env.storage().instance();
     CampaignSnapshot {
-        status: inst.get(&KEY_STATUS).unwrap(),
-        min: inst.get(&KEY_MIN).unwrap(),
+        status: inst.get(&KEY_STATUS).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound)),
+        min: inst.get(&KEY_MIN).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound)),
         max: inst.get(&KEY_MAX).unwrap_or(0),
-        deadline: inst.get(&KEY_DEADLINE).unwrap(),
-        default_token: inst.get(&KEY_TOKEN).unwrap(),
+        deadline: inst.get(&KEY_DEADLINE).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound)),
+        default_token: inst.get(&KEY_TOKEN).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound)),
         rate_limit: inst.get(&KEY_RATE_LIMIT),
         visibility: inst.get(&KEY_VISIBILITY).unwrap_or(Visibility::Public),
         accepted_tokens: inst.get(&DataKey::AcceptedTokens),
-        total: inst.get(&KEY_TOTAL).unwrap(),
-        count: inst.get(&DataKey::ContributorCount).unwrap(),
-        largest: inst.get(&DataKey::LargestContribution).unwrap(),
+        total: inst.get(&KEY_TOTAL).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound)),
+        count: inst.get(&DataKey::ContributorCount).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound)),
+        largest: inst.get(&DataKey::LargestContribution).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound)),
         platform_config: inst.get(&KEY_PLATFORM),
         gross_total: inst.get(&KEY_GROSS_TOTAL).unwrap_or(0),
         insurance_config: inst.get(&KEY_INSURANCE),
@@ -179,7 +181,7 @@ fn enforce_rate_limit(
         .ok_or(ContractError::Overflow)?;
     if new_period > rl.max_amount {
         env.events().publish(
-            ("campaign", "rate_limit_hit"),
+            ("crowdfund", "rate_limit_hit"),
             EventRateLimitHit {
                 contributor: contributor.clone(),
                 attempted: amount,
@@ -236,11 +238,7 @@ fn apply_fees(
 
     let contrib_fee: i128 = if let Some(ref config) = snap.platform_config {
         if config.fee_mode == FeeMode::OnContribution {
-            // Issue #1145: use checked_mul to prevent overflow on large amounts
-            let f = amount
-                .checked_mul(config.fee_bps as i128)
-                .and_then(|v| v.checked_div(BASIS_POINTS_MAX))
-                .ok_or(ContractError::Overflow)?;
+            let f = apply_bps(amount, config.fee_bps)?;
             if f > 0 {
                 token::Client::new(env, token).transfer(
                     &env.current_contract_address(),
@@ -261,13 +259,7 @@ fn apply_fees(
         .insurance_config
         .as_ref()
         .filter(|c| c.enabled)
-        // Issue #1145: use checked arithmetic for insurance fee calculation
-        .map(|c| {
-            effective_amount_after_fee
-                .checked_mul(c.fee_bps as i128)
-                .and_then(|v| v.checked_div(BASIS_POINTS_MAX))
-                .unwrap_or(0)
-        })
+        .map(|c| apply_bps(effective_amount_after_fee, c.fee_bps).unwrap_or(0))
         .unwrap_or(0);
 
     if insurance_fee > 0 {
@@ -312,10 +304,8 @@ fn apply_matching_and_total(
 
     let mut matched_amount = 0i128;
     if let Some(ref config) = snap.matching_config {
-        let match_amount = (effective_amount
-            .checked_mul(config.match_ratio as i128)
-            .ok_or(ContractError::Overflow)?)
-            / BASIS_POINTS_MAX;
+        let match_amount = apply_bps(effective_amount, config.match_ratio)
+            .unwrap_or(0);
         let total_matched: i128 = inst.get(&DataKey::TotalMatched).unwrap_or(0);
         let available_match = config
             .max_match
@@ -397,12 +387,12 @@ fn record_contributor(
 /// Appends to the per-contributor contribution history (#419).
 fn record_history(env: &Env, contributor: &Address, amount: i128, now: u64, new_contrib: i128) {
     let history_key = DataKey::ContributionHistory(contributor.clone());
-    let mut history: Vec<ContributionRecord> = env
+    let mut history: Vec<ContributionHistory> = env
         .storage()
         .persistent()
         .get(&history_key)
         .unwrap_or_else(|| Vec::new(env));
-    history.push_back(ContributionRecord {
+    history.push_back(ContributionHistory {
         amount,
         timestamp: now,
         running_total: new_contrib,
@@ -431,7 +421,7 @@ fn assign_reward_tier(env: &Env, contributor: &Address, new_contrib: i128) {
 
     if let Some(tier) = best {
         env.events().publish(
-            ("campaign", "tier_assigned"),
+            ("crowdfund", "tier_assigned"),
             EventTierAssigned {
                 contributor: contributor.clone(),
                 tier_name: tier.name.clone(),
@@ -461,7 +451,7 @@ fn emit_contribution_events(
     updated_count: u32,
 ) {
     env.events().publish(
-        ("campaign", "contribution_recorded"),
+        ("crowdfund", "contribution_recorded"),
         EventContributionRecorded {
             contributor: contributor.clone(),
             amount,
@@ -471,7 +461,7 @@ fn emit_contribution_events(
     );
 
     env.events().publish(
-        ("campaign", "contributed"),
+        ("crowdfund", "contributed"),
         EventContributed {
             contributor: contributor.clone(),
             amount,
@@ -482,7 +472,7 @@ fn emit_contribution_events(
     );
 
     env.events().publish(
-        ("campaign", "qf_contribution"),
+        ("crowdfund", "qf_contribution"),
         EventQfContribution {
             contributor,
             amount,
@@ -616,7 +606,7 @@ pub(crate) fn delegate_contribution(
         TTL_PERSISTENT_ENTRY,
     );
     env.events().publish(
-        ("campaign", "delegation_created"),
+        ("crowdfund", "delegation_created"),
         EventDelegationCreated {
             delegator,
             delegate,
@@ -666,15 +656,15 @@ pub(crate) fn contribute_on_behalf(
     }
 
     // Perform the contribution as if delegator is contributing
-    let min: i128 = env.storage().instance().get(&KEY_MIN).unwrap();
+    let min: i128 = env.storage().instance().get(&KEY_MIN).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound));
     validate_min_contribution(amount, min)?;
 
-    let status: Status = env.storage().instance().get(&KEY_STATUS).unwrap();
+    let status: Status = env.storage().instance().get(&KEY_STATUS).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound));
     if status != Status::Active {
         return Err(ContractError::NotActive);
     }
 
-    let deadline: u64 = env.storage().instance().get(&KEY_DEADLINE).unwrap();
+    let deadline: u64 = env.storage().instance().get(&KEY_DEADLINE).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound));
     validate_deadline_not_passed(env.ledger().timestamp(), deadline)?;
 
     // ── Per-contributor cap (#927: this path previously never enforced ────
@@ -739,7 +729,7 @@ pub(crate) fn contribute_on_behalf(
         TTL_PERSISTENT_ENTRY,
     );
 
-    let total: i128 = env.storage().instance().get(&KEY_TOTAL).unwrap();
+    let total: i128 = env.storage().instance().get(&KEY_TOTAL).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound));
     let new_total = total.checked_add(amount).ok_or(ContractError::Overflow)?;
     env.storage().instance().set(&KEY_TOTAL, &new_total);
 
@@ -760,7 +750,7 @@ pub(crate) fn contribute_on_behalf(
             .storage()
             .instance()
             .get(&DataKey::ContributorCount)
-            .unwrap();
+            .unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound));
         // O(1) indexed write, same pattern as contribute()
         let index_key = DataKey::ContributorIndex(count);
         env.storage().persistent().set(&index_key, &delegator);
@@ -776,7 +766,7 @@ pub(crate) fn contribute_on_behalf(
     }
 
     env.events().publish(
-        ("campaign", "delegated_contribution"),
+        ("crowdfund", "delegated_contribution"),
         EventDelegatedContribution {
             delegator,
             delegate,
@@ -808,7 +798,7 @@ pub(crate) fn revoke_delegation(env: Env, delegator: Address) -> Result<(), Cont
         .persistent()
         .set(&DataKey::Delegation(delegator.clone()), &delegation);
     env.events().publish(
-        ("campaign", "delegation_revoked"),
+        ("crowdfund", "delegation_revoked"),
         EventDelegationRevoked { delegator },
     );
     Ok(())

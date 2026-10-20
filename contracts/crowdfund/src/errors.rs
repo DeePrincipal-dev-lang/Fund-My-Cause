@@ -157,6 +157,11 @@ pub enum ContractError {
     NothingToRefund = 71,
     /// The campaign is not currently paused
     NotPaused = 72,
+    // ── Issue #1569/#1571: Metadata limit errors ─────────────────────────────
+    /// Campaign metadata exceeds the maximum allowed size
+    MetadataTooLong = 73,
+    /// Campaign metadata is invalid (empty or malformed)
+    InvalidMetadata = 74,
 }
 
 impl From<common::CommonError> for ContractError {
@@ -171,6 +176,8 @@ impl From<common::CommonError> for ContractError {
     /// | `AlreadyExists`         | `ContractError::InvalidGoal` (12) — closest generic |
     /// | `InvalidInput`          | `ContractError::InvalidInput` (58) |
     /// | `NotInitialized`        | `ContractError::InvalidAddress` (70) |
+    /// | `Paused`                | `ContractError::CampaignPaused` (11) |
+    /// | `Overflow`              | `ContractError::Overflow` (6) |
     fn from(err: common::CommonError) -> Self {
         match err {
             common::CommonError::Unauthorized => ContractError::Unauthorized,
@@ -179,6 +186,8 @@ impl From<common::CommonError> for ContractError {
             common::CommonError::AlreadyExists => ContractError::InvalidGoal,
             common::CommonError::InvalidInput => ContractError::InvalidInput,
             common::CommonError::NotInitialized => ContractError::InvalidAddress,
+            common::CommonError::Paused => ContractError::CampaignPaused,
+            common::CommonError::Overflow => ContractError::Overflow,
         }
     }
 }

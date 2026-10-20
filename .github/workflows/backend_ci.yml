@@ -204,3 +204,18 @@ jobs:
           files: ./services/graphql-api/coverage/coverage-final.json
           flags: graphql-api
           fail_ci_if_error: false
+
+  graphql-api-integration:
+    name: GraphQL API integration tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install (graphql-api)
+        working-directory: services/graphql-api
+        run: npm ci --no-audit --no-fund
+      - name: Integration tests
+        working-directory: services/graphql-api
+        run: npx vitest run --project=integration

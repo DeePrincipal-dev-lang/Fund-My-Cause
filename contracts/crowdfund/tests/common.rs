@@ -57,3 +57,12 @@ pub fn setup(
         creator,
     }
 }
+
+/// Shared fixture for the upgrade-path tests (issue #1490).
+///
+/// Builds a campaign at the current schema version so every upgrade step test
+/// starts from the same setup instead of re-implementing it.
+#[allow(dead_code)] // used by upgrade_step_harness.rs only
+pub fn setup_upgrade_campaign(env: &Env) -> Campaign<'_> {
+    setup(env, 10_000, 1_000_000, None)
+}

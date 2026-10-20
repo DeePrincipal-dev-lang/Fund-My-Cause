@@ -1,26 +1,5 @@
-export interface User {
-  id: string;
-  name: string;
-  email?: string;
-  phone?: string;
-  deletedAt: string | null;
-  lastLogin?: string;
-}
-
-export interface ApiResponse<T> {
-  data: T | null;
-  error: string | null;
-  timestamp: string;
-}
-
-export interface PaginationParams {
-  page: number;
-  limit: number;
-  cursor?: string;
-}
-
-export interface PaginatedResponse<T> {
-  items: T[];
-  total: number;
-  nextCursor: string | null;
-}
+/**
+ * This file is not the package entry point (see src/index.ts).
+ * Kept only for backward compatibility — prefer importing from
+ * "@fund-my-cause/types" which resolves to src/index.ts.
+ */

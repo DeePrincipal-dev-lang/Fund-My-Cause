@@ -5,8 +5,8 @@
  * feeBps) are delegated to the shared @fund-my-cause/types package so the
  * frontend and backend always apply identical rules.
  *
- * Interface-specific helpers (stripHtmlTags, isValidContractId,
- * validateContractId, sanitizeTitle, sanitizeDescription, validateVideoUrl,
+ * Interface-specific helpers (isValidContractId, validateContractId,
+ * sanitizeTitle, sanitizeDescription, validateVideoUrl,
  * validateMaxContribution) remain here.
  */
 
@@ -22,6 +22,7 @@ import {
   optionalXlmCapSchema,
   firstSchemaError,
 } from "@/lib/validationSchemas";
+import { sanitizeText } from "@/lib/sanitize";
 
 // Re-export shared constants for callers that import them from this module.
 export {
@@ -36,13 +37,6 @@ export {
 // ---------------------------------------------------------------------------
 // Interface-specific helpers (not shared)
 // ---------------------------------------------------------------------------
-
-/**
- * Strip HTML tags from a string.
- */
-export function stripHtmlTags(text: string): string {
-  return text.replace(/<[^>]*>/g, "");
-}
 
 /**
  * Validate that a string is a valid Stellar contract ID.
@@ -111,17 +105,17 @@ export function validateMaxContribution(
 }
 
 /**
- * Sanitize title by stripping HTML tags and trimming.
+ * Sanitize title by stripping HTML tags (including script/style contents) and trimming.
  */
 export function sanitizeTitle(title: string): string {
-  return stripHtmlTags(title).trim();
+  return sanitizeText(title).trim();
 }
 
 /**
- * Sanitize description by stripping HTML tags and trimming.
+ * Sanitize description by stripping HTML tags (including script/style contents) and trimming.
  */
 export function sanitizeDescription(description: string): string {
-  return stripHtmlTags(description).trim();
+  return sanitizeText(description).trim();
 }
 
 // ---------------------------------------------------------------------------

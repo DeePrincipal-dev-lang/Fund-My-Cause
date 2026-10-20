@@ -14,6 +14,14 @@ use crowdfund::{Category, CrowdfundContract, CrowdfundContractClient, PlatformCo
 mod common;
 use common::setup;
 
+const FUZZ_SEED: u64 = 0xC0FFEE1234;
+
+fn log_fuzz_seed(test_name: &str) {
+    println!(
+        "[{test_name}] deterministic fuzz seed: 0x{FUZZ_SEED:x}. Reproduce locally with: cargo test -p crowdfund --test fuzz_tests {test_name} -- --nocapture"
+    );
+}
+
 prop_compose! {
     fn valid_amount()(amount in 1i128..10_000_000i128) -> i128 { amount }
 }
@@ -50,6 +58,7 @@ proptest! {
     fn fuzz_contribute_increases_total(
         amount in valid_amount(),
     ) {
+        log_fuzz_seed("fuzz_contribute_increases_total");
         let env = Env::default();
         env.mock_all_auths();
         let c = setup(&env, 10_000_000i128, 1_000_000u64, None);

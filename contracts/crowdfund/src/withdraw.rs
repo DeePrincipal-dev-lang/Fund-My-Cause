@@ -24,6 +24,8 @@ use crate::{
     validation::validate_deadline_passed,
 };
 
+use common::math::apply_bps;
+
 // === Shared helpers
 
 /// Transfers the platform fee out of the campaign balance and returns the fee taken.
@@ -44,11 +46,7 @@ fn deduct_platform_fee(
             if respect_fee_mode && config.fee_mode == FeeMode::OnContribution {
                 0
             } else {
-                // Issue #1145: use checked_mul to prevent overflow on large base amounts
-                let fee = base
-                    .checked_mul(config.fee_bps as i128)
-                    .and_then(|v| v.checked_div(10_000))
-                    .unwrap_or(0);
+                let fee = apply_bps(base, config.fee_bps).unwrap_or(0);
                 token_client.transfer(&env.current_contract_address(), &config.address, &fee);
                 fee
             }
@@ -95,12 +93,12 @@ fn apply_vesting_schedule(
 pub(crate) fn withdraw(env: Env) -> Result<(), ContractError> {
     // === Batch all instance reads up-front
     let inst = env.storage().instance();
-    let status: Status = inst.get(&KEY_STATUS).unwrap();
+    let status: Status = inst.get(&KEY_STATUS).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound));
     let creator = require_auth_creator(&env)?;
-    let deadline: u64 = inst.get(&KEY_DEADLINE).unwrap();
-    let goal: i128 = inst.get(&KEY_GOAL).unwrap();
-    let total: i128 = inst.get(&KEY_TOTAL).unwrap();
-    let token_address: Address = inst.get(&KEY_TOKEN).unwrap();
+    let deadline: u64 = inst.get(&KEY_DEADLINE).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound));
+    let goal: i128 = inst.get(&KEY_GOAL).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound));
+    let total: i128 = inst.get(&KEY_TOTAL).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound));
+    let token_address: Address = inst.get(&KEY_TOKEN).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound));
     let platform_config: Option<PlatformConfig> = inst.get(&KEY_PLATFORM);
     let vesting: Option<VestingSchedule> = inst.get(&KEY_VESTING);
     // #694: use soft_cap as success threshold when set
@@ -144,14 +142,14 @@ pub(crate) fn withdraw(env: Env) -> Result<(), ContractError> {
             );
             inst.set(&DataKey::MatchingPool, &0i128);
             env.events().publish(
-                ("campaign", "matching_sponsor_refunded"),
+                ("crowdfund", "matching_sponsor_refunded"),
                 (config.sponsor, matching_pool),
             );
         }
     }
 
     env.events().publish(
-        ("campaign", "withdrawn"),
+        ("crowdfund", "withdrawn"),
         EventWithdrawn {
             creator,
             total,
@@ -171,6 +169,7 @@ pub(crate) fn set_stream_config(
     start_time: u64,
     end_time: u64,
 ) -> Result<(), ContractError> {
+    let inst = env.storage().instance();
     require_auth_creator(&env)?;
 
     let now = env.ledger().timestamp();
@@ -178,7 +177,7 @@ pub(crate) fn set_stream_config(
         return Err(ContractError::InvalidInput);
     }
 
-    let status: Status = inst.get(&KEY_STATUS).unwrap();
+    let status: Status = inst.get(&KEY_STATUS).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound));
     if status != Status::Active {
         return Err(ContractError::NotActive);
     }
@@ -197,17 +196,19 @@ pub(crate) fn set_stream_config(
 
 /// Claims the portion of streamed funds that has unlocked since the last claim.
 pub(crate) fn claim_stream(env: Env) -> Result<(), ContractError> {
+    let inst = env.storage().instance();
     let creator = require_auth_creator(&env)?;
+    let inst = env.storage().instance();
 
     let mut stream: StreamConfig = inst
         .get(&KEY_STREAM)
         .ok_or(ContractError::StreamNotConfigured)?;
 
     let now = env.ledger().timestamp();
-    let deadline: u64 = inst.get(&KEY_DEADLINE).unwrap();
-    let goal: i128 = inst.get(&KEY_GOAL).unwrap();
-    let total: i128 = inst.get(&KEY_TOTAL).unwrap();
-    let status: Status = inst.get(&KEY_STATUS).unwrap();
+    let deadline: u64 = inst.get(&KEY_DEADLINE).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound));
+    let goal: i128 = inst.get(&KEY_GOAL).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound));
+    let total: i128 = inst.get(&KEY_TOTAL).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound));
+    let status: Status = inst.get(&KEY_STATUS).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound));
 
     // Campaign must be complete (either still Active past deadline, or Successful)
     if status == Status::Active && now < deadline {
@@ -240,7 +241,7 @@ pub(crate) fn claim_stream(env: Env) -> Result<(), ContractError> {
 
     // Deduct platform fee pro-rata on first claim if configured
     let platform_config: Option<PlatformConfig> = inst.get(&KEY_PLATFORM);
-    let token_address: Address = inst.get(&KEY_TOKEN).unwrap();
+    let token_address: Address = inst.get(&KEY_TOKEN).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound));
     let token_client = token::Client::new(&env, &token_address);
     let fee = if stream.claimed == 0 {
         deduct_platform_fee(&env, &token_client, &platform_config, total, false)
@@ -268,7 +269,7 @@ pub(crate) fn claim_stream(env: Env) -> Result<(), ContractError> {
     inst.extend_ttl(TTL_INSTANCE_EXTEND_MIN, TTL_INSTANCE_EXTEND_MAX);
 
     env.events().publish(
-        ("campaign", "stream_claimed"),
+        ("crowdfund", "stream_claimed"),
         EventStreamClaimed {
             creator,
             amount: payout,
@@ -283,6 +284,7 @@ pub(crate) fn claim_stream(env: Env) -> Result<(), ContractError> {
 
 /// Records that `amount` stroops have been released to the creator.
 pub(crate) fn record_release(env: Env, amount: i128) -> Result<(), ContractError> {
+    let inst = env.storage().instance();
     if amount <= 0 {
         return Err(ContractError::AmountNotPositive);
     }

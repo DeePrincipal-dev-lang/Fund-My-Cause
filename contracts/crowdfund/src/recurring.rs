@@ -38,7 +38,7 @@ pub(crate) fn setup(
         .extend_ttl(&key, TTL_PERSISTENT_ENTRY, TTL_PERSISTENT_ENTRY);
 
     env.events().publish(
-        ("campaign", "recurring_setup"),
+        ("crowdfund", "recurring_setup"),
         EventRecurringSetup {
             contributor,
             amount,
@@ -91,7 +91,7 @@ pub(crate) fn execute(env: &Env, contributor: Address) -> Result<(), ContractErr
     );
 
     env.events().publish(
-        ("campaign", "recurring_executed"),
+        ("crowdfund", "recurring_executed"),
         EventRecurringExecuted {
             contributor,
             amount: plan.amount,
@@ -105,7 +105,7 @@ pub(crate) fn cancel(env: &Env, contributor: Address) -> Result<(), ContractErro
     let key = DataKey::RecurringPlan(contributor.clone());
     env.storage().persistent().remove(&key);
     env.events().publish(
-        ("campaign", "recurring_cancelled"),
+        ("crowdfund", "recurring_cancelled"),
         EventRecurringCancelled { contributor },
     );
     Ok(())

@@ -2,6 +2,7 @@ import type { RedisClientType } from "redis";
 import type DataLoader from "dataloader";
 import type pino from "pino";
 import type { PubSubService } from "./services/pubsub.js";
+import type { QueryCostAnalyzer } from "./services/query-cost-analyzer.js";
 // Canonical source: @fund-my-cause/types. Values are PascalCase ("Active",
 // not "ACTIVE"), matching the crowdfund contract's Status enum. The public
 // GraphQL schema still exposes SCREAMING_CASE enum names (see schema.ts) —
@@ -105,4 +106,6 @@ export interface Context {
   log: pino.Logger;
   /** Rate limiter service — used by mutation resolvers for per-mutation limits. */
   rateLimiter?: any;
+  /** Query cost analyzer — validates query complexity to prevent expensive nested queries. */
+  queryCostAnalyzer?: QueryCostAnalyzer;
 }

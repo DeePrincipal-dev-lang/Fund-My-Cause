@@ -1,10 +1,12 @@
 //! Typed event payloads for the achievements contract.
 //!
-//! Follows the shared convention documented in `common::events` (issue
-//! #924): topic = `("achievements", event_name)`, named fields (never raw
-//! tuples), identifying fields first, `schema_version` last. Only events
-//! actually emitted by `lib.rs` are defined here — see each struct's doc
-//! comment for its topic and call site.
+//! Follows the shared convention documented in `docs/adr/` (issue #1572):
+//! topic = `("achievements", event_name)`, where `event_name` is the
+//! snake_case form of the struct name with the `Event` prefix stripped
+//! (e.g. `EventPointsAwarded` -> `"points_awarded"`). Payloads use named
+//! fields (never raw tuples), identifying fields first, `schema_version`
+//! last. Only events actually emitted by `lib.rs` are defined here — see
+//! each struct's doc comment for its topic and call site.
 use soroban_sdk::{contracttype, Address, String};
 
 /// Topic: `("achievements", "initialized")`

@@ -1,16 +1,19 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import Link from "next/link";
-import { Loader2, ExternalLink } from "lucide-react";
-import { fetchAllCampaigns } from "@/lib/graphql/client";
+import { Loader2, ExternalLink, RefreshCw } from "lucide-react";
+import { fetchAllCampaigns } from "@/lib/soroban";
 import { formatCampaignDateShort } from "@/lib/campaignDateFormatting";
-import type { CampaignData } from "@fund-my-cause/types";
+import { useInfiniteList } from "@/hooks/useInfiniteList";
+import type { CampaignData } from "@/lib/soroban";
 
 interface CampaignsSectionProps {
   address: string;
   /** Called with the creator's campaigns once fetched, so parents can derive stats. */
   onCampaignsLoaded?: (campaigns: CampaignData[]) => void;
+  /** Campaigns displayed per page. Defaults to 8. */
+  pageSize?: number;
 }
 
 function CampaignCardRow({ campaign }: { campaign: CampaignData }) {
@@ -54,40 +57,31 @@ function CampaignCardRow({ campaign }: { campaign: CampaignData }) {
 }
 
 /**
- * Fetches all campaigns and filters by creator address.
+ * Fetches all campaigns for the given creator address using the shared
+ * `useInfiniteList` hook, applying infinite-scroll pagination.
  */
 export function CampaignsSection({
   address,
   onCampaignsLoaded,
+  pageSize = 8,
 }: CampaignsSectionProps) {
-  const [campaigns, setCampaigns] = useState<CampaignData[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { items, sentinelRef, isLoading, hasMore, error, retry } =
+    useInfiniteList<CampaignData>({
+      fetcher: async (page) => {
+        const all = await fetchAllCampaigns();
+        const creator = all.filter((c) => c.creator === address);
+        const start = (page - 1) * pageSize;
+        const slice = creator.slice(start, start + pageSize);
+        return { items: slice, hasMore: start + pageSize < creator.length };
+      },
+    });
 
+  // Notify parent once the first page resolves.
   useEffect(() => {
-    if (!address) {
-      setLoading(false);
-      return;
+    if (items.length > 0) {
+      onCampaignsLoaded?.(items);
     }
-
-    let cancelled = false;
-    fetchAllCampaigns()
-      .then((all) => {
-        if (!cancelled) {
-          const creatorCampaigns = all.filter((c) => c.creator === address);
-          setCampaigns(creatorCampaigns);
-          onCampaignsLoaded?.(creatorCampaigns);
-        }
-      })
-      .catch(() => {
-        // silently handle — show empty state
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    // onCampaignsLoaded omitted intentionally to prevent re-fetching loops on parent component re-renders
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [address]);
+  }, [items, onCampaignsLoaded]);
 
   return (
     <section aria-labelledby="profile-campaigns-heading" className="space-y-3">
@@ -95,18 +89,60 @@ export function CampaignsSection({
         Campaigns Created
       </h2>
 
-      {loading ? (
+      {items.length === 0 && isLoading ? (
         <div className="flex justify-center py-8">
           <Loader2 size={24} className="animate-spin text-gray-400" />
         </div>
-      ) : campaigns.length === 0 ? (
+      ) : error && items.length === 0 ? (
+        <div className="flex items-center gap-3 rounded-xl border border-red-800 bg-red-950/30 p-4">
+          <p className="text-sm text-red-300 flex-1">{error.message}</p>
+          <button
+            onClick={retry}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-red-800 hover:bg-red-700 text-white transition"
+          >
+            <RefreshCw size={12} />
+            Retry
+          </button>
+        </div>
+      ) : items.length === 0 ? (
         <p className="text-sm text-gray-500">No campaigns created yet.</p>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {campaigns.map((c) => (
-            <CampaignCardRow key={c.contractId} campaign={c} />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {items.map((c) => (
+              <CampaignCardRow key={c.contractId} campaign={c} />
+            ))}
+          </div>
+
+          {/* Inline error for subsequent pages */}
+          {error && (
+            <div className="flex items-center gap-3 rounded-xl border border-red-800 bg-red-950/30 p-3">
+              <p className="text-xs text-red-300 flex-1">{error.message}</p>
+              <button
+                onClick={retry}
+                className="flex items-center gap-1 px-2 py-1 text-xs rounded-lg bg-red-800 hover:bg-red-700 text-white transition"
+              >
+                <RefreshCw size={10} />
+                Retry
+              </button>
+            </div>
+          )}
+
+          {/* Infinite scroll sentinel */}
+          <div ref={sentinelRef} aria-hidden="true" />
+
+          {isLoading && (
+            <div className="flex justify-center py-4">
+              <Loader2 size={20} className="animate-spin text-gray-400" />
+            </div>
+          )}
+
+          {!hasMore && items.length > 0 && (
+            <p className="text-center text-xs text-gray-500 py-2">
+              All campaigns loaded.
+            </p>
+          )}
+        </>
       )}
     </section>
   );

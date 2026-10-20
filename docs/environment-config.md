@@ -37,8 +37,13 @@ The canonical list of required variables lives in [`scripts/check-env-parity.js`
 ### Optional Variables
 
 ```bash
+NEXT_PUBLIC_CONTRACT_ID           # Crowdfund contract the UI reads (defaults to a testnet ID)
+NEXT_PUBLIC_CAMPAIGN_CONTRACT_IDS # Comma-separated extra campaign contracts
+NEXT_PUBLIC_NETWORK               # mainnet | testnet
+NEXT_PUBLIC_GRAPHQL_URL           # Base URL of services/graphql-api (client appends /graphql)
+NEXT_PUBLIC_RPC_URL               # Soroban RPC endpoint alias
 NEXT_PUBLIC_PINATA_API_KEY        # IPFS upload key
-NEXT_PUBLIC_PINATA_SECRET_KEY     # IPFS upload secret
+NEXT_PUBLIC_PINATA_SECRET_API_KEY # IPFS upload secret (read by src/lib/pinata.ts)
 NEXT_PUBLIC_ANALYTICS_ENABLED     # Enable/disable analytics (true/false)
 NEXT_PUBLIC_ANALYTICS_ID          # Analytics tracking ID
 NEXT_PUBLIC_IMAGE_CDN_URL         # CDN origin for responsive images

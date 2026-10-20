@@ -1,6 +1,6 @@
-import { GraphQLError } from "graphql";
 import type { RateLimiterService } from "../services/rate-limiter.js";
 import type { Context } from "../types.js";
+import { AppError } from "../errors/AppError.js";
 
 export interface RateLimitOptions {
   windowMs?: number;
@@ -16,16 +16,21 @@ export interface RateLimitOptions {
  */
 export function createRateLimitMiddleware(
   rateLimiter: RateLimiterService,
-  options: RateLimitOptions = {}
+  options: RateLimitOptions = {},
 ) {
   const { scope = "ip", keyPrefix = "gql_mutation" } = options;
 
   return async (
-    resolver: (parent: any, args: any, context: Context, info: any) => Promise<any>,
+    resolver: (
+      parent: any,
+      args: any,
+      context: Context,
+      info: any,
+    ) => Promise<any>,
     parent: any,
     args: any,
     context: Context,
-    info: any
+    info: any,
   ) => {
     const operationName = info?.fieldName || "mutation";
     const ip = (context as any)?.req?.ip || (context as any)?.ip || "127.0.0.1";
@@ -34,9 +39,7 @@ export function createRateLimitMiddleware(
     try {
       if (scope === "user") {
         if (!userAddress) {
-          throw new GraphQLError("UNAUTHENTICATED", {
-            extensions: { code: "UNAUTHENTICATED", http: { status: 401 } },
-          });
+          throw new AppError("UNAUTHENTICATED", { code: "UNAUTHENTICATED" });
         }
         await rateLimiter.checkUserLimit(userAddress);
       } else if (scope === "ip") {
@@ -46,18 +49,17 @@ export function createRateLimitMiddleware(
         await rateLimiter.checkRequestLimit(key);
       }
     } catch (error: any) {
-      if (error instanceof GraphQLError) {
+      if (error instanceof AppError) {
         throw error;
       }
       const retryAfter = error.retryAfter || 60;
-      throw new GraphQLError(`Rate limit exceeded for mutation '${operationName}'. Retry after ${retryAfter}s`, {
-        extensions: {
+      throw new AppError(
+        `Rate limit exceeded for mutation '${operationName}'. Retry after ${retryAfter}s`,
+        {
           code: "TOO_MANY_REQUESTS",
-          http: { status: 429 },
-          retryAfter,
-          operationName,
+          details: { retryAfter, operationName },
         },
-      });
+      );
     }
 
     return resolver(parent, args, context, info);

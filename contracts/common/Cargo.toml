@@ -2,13 +2,6 @@
 name = "common"
 version = "0.1.0"
 edition = "2021"
-publish = false
-description = "Shared access-control (RBAC) and error-handling primitives for Fund-My-Cause Soroban contracts"
-readme = "README.md"
-license = "MIT"
-
-[lib]
-doctest = false
 
 [features]
 # Exposes `test_utils` to downstream contract test suites.
@@ -17,5 +10,5 @@ testutils = ["soroban-sdk/testutils"]
 [dependencies]
 soroban-sdk = { workspace = true }
 
-[dev-dependencies]
-soroban-sdk = { workspace = true, features = ["testutils"] }
+[lib]
+crate-type = ["cdylib", "rlib"]

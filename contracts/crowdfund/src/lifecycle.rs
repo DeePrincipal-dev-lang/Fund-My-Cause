@@ -131,7 +131,7 @@ pub(crate) fn initialize(
     env.storage().persistent().set(&KEY_META_HIST, &meta_hist);
 
     env.events().publish(
-        ("campaign", "initialized"),
+        ("crowdfund", "initialized"),
         EventInitialized {
             creator,
             goal,
@@ -257,7 +257,7 @@ pub(crate) fn initialize_from_template(
     env.storage().persistent().set(&KEY_GOAL_HISTORY, &history);
 
     env.events().publish(
-        ("campaign", "initialized"),
+        ("crowdfund", "initialized"),
         EventInitialized {
             creator,
             goal,
@@ -267,7 +267,7 @@ pub(crate) fn initialize_from_template(
         },
     );
     env.events().publish(
-        ("campaign", "template_applied"),
+        ("crowdfund", "template_applied"),
         EventTemplateApplied {
             template_type: template.template_type,
             suggested_min: template.suggested_min,
@@ -347,7 +347,7 @@ pub(crate) fn clone_campaign(
     env.storage().persistent().set(&KEY_META_HIST, &meta_hist);
 
     env.events().publish(
-        ("campaign", "cloned"),
+        ("crowdfund", "cloned"),
         EventCampaignCloned {
             original_creator: creator,
             new_creator,
@@ -382,14 +382,14 @@ pub(crate) fn cancel_campaign(env: Env) -> Result<(), ContractError> {
     let old_status = status;
     inst.set(&KEY_STATUS, &Status::Cancelled);
     env.events().publish(
-        ("campaign", "cancelled"),
+        ("crowdfund", "cancelled"),
         EventCancelled {
             creator,
             total_raised,
         },
     );
     env.events().publish(
-        ("campaign", "status_changed"),
+        ("crowdfund", "status_changed"),
         EventStatusChanged {
             old_status,
             new_status: Status::Cancelled,
@@ -425,7 +425,7 @@ pub(crate) fn archive(env: Env) -> Result<(), ContractError> {
     inst.set(&KEY_ARCHIVED, &now);
 
     env.events().publish(
-        ("campaign", "archived"),
+        ("crowdfund", "archived"),
         EventArchived {
             creator,
             total_raised,

@@ -12,7 +12,6 @@ import {
   X,
   Bell,
   AlertTriangle,
-  Globe,
   HelpCircle,
 } from "lucide-react";
 import { ProductTour } from "@/components/ui/ProductTour";
@@ -22,8 +21,7 @@ import { useNotifications } from "@/hooks/useNotifications";
 import { NotificationDropdown } from "@/components/ui/NotificationDropdown";
 import { WalletBalance } from "@/components/ui/WalletBalance";
 import { NETWORK_NAME } from "@/lib/constants";
-import { useLocale, useTranslations } from "next-intl";
-import { useRouter, usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { LanguageSelector } from "./LanguageSelector";
 
 function truncate(addr: string) {

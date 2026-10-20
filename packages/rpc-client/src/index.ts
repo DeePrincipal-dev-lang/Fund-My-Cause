@@ -22,3 +22,6 @@ export type {
   CircuitBreakerMetrics,
   CircuitState,
 } from "./circuit-breaker.js";
+
+export { withRetry, RetryExhaustedError } from "./retry.js";
+export type { RetryOptions, RetryResult } from "./retry.js";

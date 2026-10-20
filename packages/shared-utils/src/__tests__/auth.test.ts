@@ -22,15 +22,22 @@ describe("AuthService", () => {
 
     it("signs with HS256 and the configured secret", () => {
       const token = auth.generateToken("GADDRESS123");
-      const decodedWithRealSecret = jwt.verify(token, secret, { algorithms: ["HS256"] }) as any;
+      const decodedWithRealSecret = jwt.verify(token, secret, {
+        algorithms: ["HS256"],
+      }) as any;
       expect(decodedWithRealSecret.address).toBe("GADDRESS123");
 
-      expect(() => jwt.verify(token, "wrong-secret", { algorithms: ["HS256"] })).toThrow();
+      expect(() =>
+        jwt.verify(token, "wrong-secret", { algorithms: ["HS256"] }),
+      ).toThrow();
     });
 
     it("rejects a token verified against a different secret", () => {
       const token = auth.generateToken("GADDRESS123");
-      const otherAuth = new AuthService("a-completely-different-secret-32c", "24h");
+      const otherAuth = new AuthService(
+        "a-completely-different-secret-32c",
+        "24h",
+      );
 
       expect(otherAuth.verifyToken(token)).toBeNull();
     });
@@ -95,7 +102,9 @@ describe("AuthService", () => {
 
       // Modify the payload
       const parts = token.split(".");
-      const modifiedPayload = Buffer.from(JSON.stringify({ address: "HACKER", iat: 0 })).toString("base64url");
+      const modifiedPayload = Buffer.from(
+        JSON.stringify({ address: "HACKER", iat: 0 }),
+      ).toString("base64url");
       const tamperedToken = modifiedPayload + "." + parts[2];
 
       expect(auth.verifyToken(tamperedToken)).toBeNull();
@@ -111,17 +120,24 @@ describe("AuthService", () => {
         exp: Math.floor(Date.now() / 1000) - 3600, // 1 hour ago
       };
 
-      const tamperedToken = jwt.sign(modifiedDecoded, "different-secret-32-chars-minimum", {
-        algorithm: "HS256",
-        noTimestamp: true,
-      });
+      const tamperedToken = jwt.sign(
+        modifiedDecoded,
+        "different-secret-32-chars-minimum",
+        {
+          algorithm: "HS256",
+          noTimestamp: true,
+        },
+      );
 
       // Will fail to verify with our auth service's secret
       expect(auth.verifyToken(tamperedToken)).toBeNull();
     });
 
     it("rejects a token signed with a different algorithm", () => {
-      const payload = { address: "GADDRESS123", iat: Math.floor(Date.now() / 1000) };
+      const payload = {
+        address: "GADDRESS123",
+        iat: Math.floor(Date.now() / 1000),
+      };
       // Sign with RS256 (different algorithm)
       const token = jwt.sign(payload, secret, { algorithm: "HS512" });
 
@@ -135,7 +151,10 @@ describe("AuthService", () => {
       // Attempt to create a tampered token with different address
       const decoded = jwt.decode(originalToken) as any;
       const tamperedPayload = { ...decoded, address: "HACKER_ADDRESS" };
-      const tamperedToken = jwt.sign(tamperedPayload, secret, { algorithm: "HS256", noTimestamp: true });
+      const tamperedToken = jwt.sign(tamperedPayload, secret, {
+        algorithm: "HS256",
+        noTimestamp: true,
+      });
 
       // Verify should work (same secret) but return different address
       const verified = auth.verifyToken(tamperedToken);
@@ -178,7 +197,9 @@ describe("AuthService", () => {
 
   describe("extractTokenFromHeader", () => {
     it("extracts the token from a well-formed Bearer header", () => {
-      expect(auth.extractTokenFromHeader("Bearer abc.def.ghi")).toBe("abc.def.ghi");
+      expect(auth.extractTokenFromHeader("Bearer abc.def.ghi")).toBe(
+        "abc.def.ghi",
+      );
     });
 
     it("returns null when the header is missing", () => {
@@ -198,7 +219,10 @@ describe("AuthService", () => {
   describe("decodeToken", () => {
     it("decodes token payload without verifying the signature", () => {
       const token = auth.generateToken("GADDRESS123");
-      const otherAuth = new AuthService("different-secret-32-chars-minimum", "24h");
+      const otherAuth = new AuthService(
+        "different-secret-32-chars-minimum",
+        "24h",
+      );
       const decoded = otherAuth.decodeToken(token);
 
       expect(decoded.address).toBe("GADDRESS123");
@@ -215,7 +239,84 @@ describe("AuthService", () => {
 
       expect(message).toContain("GADDRESS123");
       expect(message).toContain("nonce-1");
-      expect(message).toContain("Sign this message to authenticate with Fund My Cause");
+      expect(message).toContain(
+        "Sign this message to authenticate with Fund My Cause",
+      );
+    });
+
+    it("includes a timestamp in the message", () => {
+      const before = Date.now();
+      const message = auth.createSignatureMessage("GADDRESS123", "nonce-1");
+      const after = Date.now();
+
+      expect(message).toContain("Timestamp:");
+      const tsMatch = message.match(/Timestamp: (.+)/);
+      expect(tsMatch).not.toBeNull();
+      const ts = new Date(tsMatch![1]).getTime();
+      expect(ts).toBeGreaterThanOrEqual(before);
+      expect(ts).toBeLessThanOrEqual(after);
+    });
+  });
+
+  describe("getTokenExpiry edge cases", () => {
+    it("returns null for a token with no exp claim", () => {
+      const payload = {
+        address: "GADDRESS123",
+        iat: Math.floor(Date.now() / 1000),
+      };
+      const token = jwt.sign(payload, secret, {
+        algorithm: "HS256",
+        noTimestamp: true,
+      });
+      expect(auth.getTokenExpiry(token)).toBeNull();
+    });
+  });
+
+  describe("isTokenExpired edge cases", () => {
+    it("returns true for a non-string input", () => {
+      expect(auth.isTokenExpired(null as any)).toBe(true);
+      expect(auth.isTokenExpired(undefined as any)).toBe(true);
+    });
+
+    it("returns true for a token without exp claim", () => {
+      const payload = {
+        address: "GADDRESS123",
+        iat: Math.floor(Date.now() / 1000),
+      };
+      const token = jwt.sign(payload, secret, {
+        algorithm: "HS256",
+        noTimestamp: true,
+      });
+      expect(auth.isTokenExpired(token)).toBe(true);
+    });
+  });
+
+  describe("generateToken error handling", () => {
+    it("propagates errors from jwt.sign", () => {
+      const authWithShortExpiry = new AuthService(secret, "1ms");
+      expect(() => authWithShortExpiry.generateToken("")).not.toThrow();
+    });
+  });
+
+  describe("verifyToken catch path", () => {
+    it("returns null when verification throws unexpected error", () => {
+      const consoleSpy = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+      const result = auth.verifyToken("completely.invalid.token");
+      expect(result).toBeNull();
+      consoleSpy.mockRestore();
+    });
+  });
+
+  describe("getTokenExpiry catch path", () => {
+    it("returns null when decode throws", () => {
+      const consoleSpy = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+      const result = auth.getTokenExpiry("not-a-token");
+      expect(result).toBeNull();
+      consoleSpy.mockRestore();
     });
   });
 });

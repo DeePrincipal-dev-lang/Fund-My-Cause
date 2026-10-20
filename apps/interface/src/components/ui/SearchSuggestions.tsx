@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useEffect, KeyboardEvent } from "react";
+import React, { useRef, useEffect } from "react";
 import { Search, Tag } from "lucide-react";
 import type { SearchSuggestion } from "@/hooks/useSearchSuggestions";
 

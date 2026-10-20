@@ -1,5 +1,25 @@
 # Gas Optimization & Event Documentation
 
+## WASM Size Budget
+
+The release profile in the workspace root is intentionally optimized for a small wasm payload:
+
+- `opt-level = "z"`
+- `lto = true`
+- `codegen-units = 1`
+- `strip = "symbols"`
+- `panic = "abort"`
+
+For the crowdfund contract, the practical size budget is 256 KiB for the release artifact in CI. This keeps deployment costs predictable on Stellar while preserving the full security and upgrade surface.
+
+Local verification:
+
+```bash
+python scripts/check_wasm_size.py --artifact target/wasm32-unknown-unknown/release/crowdfund.wasm --budget 262144
+```
+
+A build that exceeds the threshold should be treated as a size regression and investigated before deployment.
+
 ## Storage Optimization Techniques
 
 ### 1. Batch Instance Reads (contribute, withdraw, refund_single, refund_batch)

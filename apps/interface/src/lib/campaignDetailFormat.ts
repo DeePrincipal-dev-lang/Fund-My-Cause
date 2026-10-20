@@ -2,10 +2,14 @@
  * Formatting helpers for campaign detail view.
  */
 
+import { formatAddress } from "@fund-my-cause/shared-utils";
+
+/**
+ * Truncate a Stellar address for display.
+ * Re-exports formatAddress from shared-utils with configurable start/end.
+ */
 export function truncateAddress(addr: string, start = 6, end = 4): string {
-  if (!addr) return "";
-  if (addr.length <= start + end) return addr;
-  return `${addr.slice(0, start)}…${addr.slice(-end)}`;
+  return formatAddress(addr, start, end);
 }
 
 export function formatSocialLinkTitle(url: string): string {

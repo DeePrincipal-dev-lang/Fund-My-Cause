@@ -723,7 +723,7 @@ proptest! {
         c.client.contribute(&contributor, &contribution, &c.token_id, &None);
 
         // Configure streaming that spans a long period
-        c.client.set_stream_config(&1_001u64, &u64::MAX / 2);
+        c.client.set_stream_config(&1_001u64, &(u64::MAX / 2));
 
         // Claim at a point deep inside the stream window — must not panic
         env.ledger().set_timestamp(500_000);

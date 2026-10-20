@@ -55,6 +55,43 @@ Uses structlog with the same configuration as fraud_detection/pipeline.py:
     into structlog's context-var store for the request lifetime
   - JSON output in production (LOG_FORMAT=json), coloured console in dev
 See docs/logging-conventions.md for the project-wide logging convention.
+
+Cold-start fallback algorithm (#1387)
+─────────────────────────────────────
+The recommendation endpoint has two scoring paths and picks one per
+request.  The choice is deterministic and driven entirely by whether the
+caller's wallet has an IndexedActivity record:
+
+  wallet param missing          → cold path (trending)
+  wallet present, no activity   → cold path (trending), personalised=False
+  wallet present, activity row  → warm path (personalised)
+
+The warm path additionally filters out campaigns the wallet has already
+contributed to and applies a category boost to preferred categories.
+The cold path applies neither — it returns the top N by trending score.
+
+Boundary definition
+    The "cold → warm boundary" is exactly the presence of an
+    IndexedActivity row for the wallet.  An empty row (no contributions,
+    no preferred categories) still selects the warm path — the service
+    reports personalised=True — but the warm score for every campaign
+    equals its trending score, so the observable output is identical to
+    the cold path except for the personalised flag.
+
+Degradation under partial data
+    - No contributions, no categories → warm path, no exclusions, no
+      boosts.  Scores equal trending scores.
+    - Contributions only              → warm path, exclusions apply,
+      no boosts.
+    - Categories only                 → warm path, no exclusions,
+      boosts apply to matching categories.
+    - Both signals                    → fully warmed-up scoring.
+    - All campaigns already contributed → warm path returns an empty
+      recommendations list (not an error).
+
+The boundary is intentionally documented here and asserted by
+``tests_cold_start.py::TestColdStartBoundary`` so that any future change
+to the selection rule breaks a test before it reaches production.
 """
 
 from __future__ import annotations
@@ -294,11 +331,6 @@ app = FastAPI(title="Fund-My-Cause Recommendation Service", version="1.0.0")
 
 # Register TraceIDMiddleware so every request gets trace_id bound in structlog.
 app.add_middleware(TraceIDMiddleware)
-
-
-@app.get("/health")
-def health() -> dict:
-    return {"status": "ok"}
 
 
 @app.get("/healthz")

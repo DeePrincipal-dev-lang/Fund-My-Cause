@@ -10,7 +10,7 @@ import type { EventRepository } from "../repository.js";
  * existing contract's handler code — see `handlers/index.ts` for the module
  * layout and `index.ts` for how each contract's ID is wired to the RPC client.
  */
-export type ContractType = "crowdfund" | "registry";
+export type ContractType = "crowdfund" | "qf" | "achievements" | "registry";
 
 /**
  * Shared interface for domain-specific event handlers.

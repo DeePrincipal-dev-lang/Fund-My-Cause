@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { X, ChevronRight, ChevronLeft } from "lucide-react";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 

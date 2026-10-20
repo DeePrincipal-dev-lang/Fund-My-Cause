@@ -100,7 +100,7 @@ pub use storage::*;
 pub use types::*;
 pub use validation::*;
 
-use common::{AccessControl, CommonError, EVENT_SCHEMA_VERSION};
+use common::{AccessControl, CommonError, EventEmitter, EVENT_SCHEMA_VERSION};
 use soroban_sdk::{contract, contractimpl, Address, Bytes, Env, String, Vec};
 
 /// Main achievement contract
@@ -343,12 +343,13 @@ impl AchievementsContract {
         env.events().publish(
             ("achievements", "points_awarded"),
             EventPointsAwarded {
-                user,
+                user: user.clone(),
                 points,
                 total_points,
                 schema_version: EVENT_SCHEMA_VERSION,
             },
         );
+        EventEmitter::achievement_points_awarded(&env, user, points, total_points);
 
         Ok(total_points)
     }
@@ -574,6 +575,10 @@ fn do_unlock(
             schema_version: EVENT_SCHEMA_VERSION,
         },
     );
+    // Also emit via the shared cross-contract event schema (contracts/common)
+    // so services/indexer can parse achievement events the same way it
+    // parses crowdfund/registry/qf events.
+    EventEmitter::achievement_unlocked(env, user.clone(), achievement_type, points);
 
     // Reconstruct full public NFT (nft_id derived, not read from ledger).
     let nft = AchievementNFT {

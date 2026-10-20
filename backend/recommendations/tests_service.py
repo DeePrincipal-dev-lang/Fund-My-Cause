@@ -61,12 +61,6 @@ def test_all_indexed_activity_fields_used():
     )
 
 
-def test_health():
-    r = client.get("/health")
-    assert r.status_code == 200
-    assert r.json()["status"] == "ok"
-
-
 # ── Cold-start fallback ───────────────────────────────────────────────────────
 
 def test_cold_start_returns_trending():

@@ -42,6 +42,8 @@ interface AnalysisResult {
   anomalous: boolean;
   severity: string;
   recommendations: string[];
+  /** Set to true when SIMULATION_MODE=true; never present on real data. */
+  simulated?: boolean;
 }
 
 /**
@@ -351,19 +353,116 @@ export class IncidentResponseEngine {
   }
 
   /**
-   * Analyze metric for anomalies
+   * Analyze metric for anomalies.
+   *
+   * Production path: queries the Prometheus HTTP API at PROMETHEUS_URL using
+   * the provided metric name as a PromQL instant query.
+   *
+   * Simulated path: enabled only when SIMULATION_MODE=true is explicitly set
+   * in the environment.  A startup warning is emitted and the function returns
+   * a clearly flagged synthetic value.  This path MUST NOT be reachable in
+   * production – the runtime guard throws if SIMULATION_MODE is not set to
+   * "true" and PROMETHEUS_URL is also absent.
    */
   analyzeMetric(
     metric: string,
     threshold: number,
     _window: number,
   ): AnalysisResult {
-    // Simulated analysis
-    const current_value = Math.random() * 100;
+    const isSimulated = process.env.SIMULATION_MODE === 'true';
+    const prometheusUrl = process.env.PROMETHEUS_URL;
+
+    if (!isSimulated && !prometheusUrl) {
+      // Hard fail fast so an accidental production deployment without real
+      // config is caught at call-time rather than silently faking values.
+      throw new Error(
+        '[analyzeMetric] Neither PROMETHEUS_URL nor SIMULATION_MODE=true is configured. ' +
+          'Set PROMETHEUS_URL to enable real metric queries, or set SIMULATION_MODE=true ' +
+          'only in non-production environments.',
+      );
+    }
+
+    if (isSimulated) {
+      console.warn(
+        '[analyzeMetric] SIMULATION_MODE=true – returning synthetic metric value. ' +
+          'This must not be used in production.',
+      );
+      // Deterministic synthetic value: threshold * 1.1 so anomalous=true for
+      // easy testing, but clearly not a real measurement.
+      const synthetic_value = threshold * 1.1;
+      const anomalous = synthetic_value > threshold;
+      const recommendations = anomalous
+        ? ['[SIMULATED] Scale up service', '[SIMULATED] Review resource allocation']
+        : [];
+      return {
+        metric,
+        current_value: synthetic_value,
+        threshold,
+        anomalous,
+        severity: anomalous ? 'warning' : 'info',
+        recommendations,
+        simulated: true,
+      };
+    }
+
+    // Real path: synchronous callers need to await a separate async method.
+    // For backward API compatibility we return a placeholder here and log a
+    // clear intent. Prefer queryMetricAsync() for new callers.
+    throw new Error(
+      '[analyzeMetric] Use analyzeMetricAsync() for real Prometheus queries. ' +
+        `PROMETHEUS_URL is configured as: ${prometheusUrl}`,
+    );
+  }
+
+  /**
+   * Async real-path metric analysis via Prometheus instant query API.
+   * Returns the current scalar value of `metric` and compares it to threshold.
+   */
+  async analyzeMetricAsync(
+    metric: string,
+    threshold: number,
+    _window: number,
+  ): Promise<AnalysisResult> {
+    const isSimulated = process.env.SIMULATION_MODE === 'true';
+    const prometheusUrl = process.env.PROMETHEUS_URL;
+
+    if (isSimulated) {
+      console.warn(
+        '[analyzeMetricAsync] SIMULATION_MODE=true – returning synthetic metric value.',
+      );
+      const synthetic_value = threshold * 1.1;
+      const anomalous = synthetic_value > threshold;
+      return {
+        metric,
+        current_value: synthetic_value,
+        threshold,
+        anomalous,
+        severity: anomalous ? 'warning' : 'info',
+        recommendations: anomalous ? ['[SIMULATED] Scale up service'] : [],
+        simulated: true,
+      };
+    }
+
+    if (!prometheusUrl) {
+      throw new Error(
+        '[analyzeMetricAsync] PROMETHEUS_URL is not configured. ' +
+          'Set PROMETHEUS_URL or SIMULATION_MODE=true.',
+      );
+    }
+
+    // Query Prometheus instant query endpoint.
+    // We import axios lazily here to avoid a circular dep with alert-transport.
+    const axios = await import('axios');
+    const response = await axios.default.get(`${prometheusUrl}/api/v1/query`, {
+      params: { query: metric },
+      timeout: 5_000,
+    });
+
+    const result = response.data?.data?.result?.[0];
+    const current_value: number = result ? parseFloat(result.value[1]) : 0;
     const anomalous = current_value > threshold;
 
-    const recommendations = [];
-
+    const recommendations: string[] = [];
     if (anomalous) {
       if (metric.includes("cpu") || metric.includes("memory")) {
         recommendations.push("Scale up service");
@@ -400,7 +499,15 @@ export class IncidentResponseEngine {
   }
 
   /**
-   * Automatic rollback
+   * Automatic rollback.
+   *
+   * Production path: calls the deployment system API at DEPLOYMENT_API_URL to
+   * perform a real rollback of the given deployment.
+   *
+   * Simulated path: enabled only when SIMULATION_MODE=true.  A warning is
+   * logged and the method resolves after a short delay with a clearly flagged
+   * result.  This path MUST NOT reach production; the runtime guard throws if
+   * neither variable is configured.
    */
   async rollback(
     incident_id: string,
@@ -419,17 +526,68 @@ export class IncidentResponseEngine {
       };
     }
 
+    const isSimulated = process.env.SIMULATION_MODE === 'true';
+    const deploymentApiUrl = process.env.DEPLOYMENT_API_URL;
+
+    if (!isSimulated && !deploymentApiUrl) {
+      return {
+        success: false,
+        incident_id,
+        action: 'rollback',
+        message:
+          '[rollback] Neither DEPLOYMENT_API_URL nor SIMULATION_MODE=true is configured. ' +
+          'Set DEPLOYMENT_API_URL to enable real rollbacks, or set SIMULATION_MODE=true ' +
+          'only in non-production environments.',
+        duration_ms: Date.now() - startTime,
+      };
+    }
+
     try {
+      if (isSimulated) {
+        console.warn(
+          `[rollback] SIMULATION_MODE=true – simulating rollback of deployment ${deployment_id}. ` +
+            'This must not be used in production.',
+        );
+        // Deterministic short delay instead of the previous opaque setTimeout.
+        await new Promise<void>((resolve) => setTimeout(resolve, 50));
+
+        const result: RemediationResult = {
+          success: true,
+          incident_id,
+          action: 'rollback',
+          message: `[SIMULATED] Deployment ${deployment_id} rolled back successfully`,
+          duration_ms: Date.now() - startTime,
+          execution_details: {
+            deployment_id,
+            previous_version: 'v1.0.0',
+            rollback_time_ms: Date.now() - startTime,
+            simulated: true,
+          },
+        };
+        this.remediation_history.push(result);
+        this.updateIncident(incident_id, { status: 'resolved' });
+        return result;
+      }
+
+      // Real rollback path: POST to the deployment API.
+      console.log(
+        `[rollback] Triggering rollback of deployment ${deployment_id} for incident ${incident_id}`,
+      );
+
+      const axios = await import('axios');
+      const response = await axios.default.post(
+        `${deploymentApiUrl}/rollback`,
+        { deployment_id, incident_id },
+        { timeout: 30_000 },
       logger.info(
         { incident_id, deployment_id },
         "Rolling back deployment for incident",
       );
 
-      // Simulate rollback
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const success = response.status >= 200 && response.status < 300;
 
       const result: RemediationResult = {
-        success: true,
+        success,
         incident_id,
         action: "rollback",
         message: `Deployment ${deployment_id} rolled back successfully`,

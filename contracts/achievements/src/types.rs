@@ -194,20 +194,6 @@ pub struct ChallengeEntry {
     pub reward: i128,
 }
 
-/// Milestone celebration event
-#[derive(Clone, Debug)]
-#[contracttype]
-pub struct Milestone {
-    /// Milestone type (1=goal_reached, 2=level_up, 3=streak_milestone, 4=achievement_tier)
-    pub milestone_type: u32,
-    /// User address
-    pub user: Address,
-    /// Milestone value (e.g., new level, streak count)
-    pub value: u32,
-    /// Timestamp when milestone was reached
-    pub reached_at: u64,
-}
-
 /// Rarity tier enumeration
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[contracttype]

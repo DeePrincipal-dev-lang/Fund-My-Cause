@@ -279,7 +279,3 @@ export interface VideoPlayerProps {
   autoplay?: boolean;
   controls?: boolean;
 }
-
-// Re-export shared types used in prop interfaces above so consumers can import
-// them from a single location.
-export type { Milestone, Comment };

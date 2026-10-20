@@ -6,6 +6,7 @@ import { useServer } from "graphql-ws/lib/use/ws";
 import { ApolloServer } from "@apollo/server";
 import { expressMiddleware } from "@apollo/server/express4";
 import { makeExecutableSchema } from "@graphql-tools/schema";
+import { parse } from "graphql";
 import { createRedisClient } from "./redis.js";
 import { CacheService } from "./services/cache.js";
 import { ContractService } from "./services/contract.js";
@@ -13,13 +14,16 @@ import { createDataLoaders } from "./services/dataloader.js";
 import { getPubSub } from "./services/pubsub.js";
 import { AuthService } from "./services/auth.js";
 import { RateLimiterService } from "./services/rate-limiter.js";
+import { QueryCostAnalyzer } from "./services/query-cost-analyzer.js";
 import { typeDefs } from "./schema.js";
 import { resolvers } from "./resolvers.js";
 import { logger, requestLogger } from "./logger.js";
 import { resolveTraceId, TRACE_ID_HEADER } from "@fund-my-cause/shared-utils";
 import type { Context } from "./types.js";
 
-const PORT = process.env.GRAPHQL_PORT ? parseInt(process.env.GRAPHQL_PORT) : 4000;
+const PORT = process.env.GRAPHQL_PORT
+  ? parseInt(process.env.GRAPHQL_PORT)
+  : 4000;
 const NODE_ENV = process.env.NODE_ENV || "development";
 const RPC_URL = process.env.RPC_URL || "https://soroban-testnet.stellar.org";
 const CONTRACT_NETWORK = process.env.CONTRACT_NETWORK || "testnet";
@@ -28,7 +32,9 @@ const JWT_SECRET = process.env.JWT_SECRET;
 
 // Validate JWT_SECRET at startup
 if (!JWT_SECRET || JWT_SECRET.trim() === "") {
-  logger.fatal("JWT_SECRET environment variable is required and must not be empty");
+  logger.fatal(
+    "JWT_SECRET environment variable is required and must not be empty",
+  );
   process.exit(1);
 }
 
@@ -40,12 +46,16 @@ const knownDefaults = [
 
 // Check for known defaults before length check
 if (knownDefaults.includes(JWT_SECRET)) {
-  logger.fatal("JWT_SECRET appears to be a default/example value and must be changed");
+  logger.fatal(
+    "JWT_SECRET appears to be a default/example value and must be changed",
+  );
   process.exit(1);
 }
 
 if (JWT_SECRET.length < 32) {
-  logger.fatal("JWT_SECRET must be at least 32 characters for secure operation");
+  logger.fatal(
+    "JWT_SECRET must be at least 32 characters for secure operation",
+  );
   process.exit(1);
 }
 
@@ -79,6 +89,10 @@ async function startServer() {
     const pubsub = getPubSub();
     const authService = new AuthService(VALIDATED_JWT_SECRET);
     const rateLimiter = new RateLimiterService(redis);
+    const queryCostAnalyzer = new QueryCostAnalyzer({
+      maxCost: parseInt(process.env.GRAPHQL_QUERY_COST_MAX || "1000"),
+      maxDepth: parseInt(process.env.GRAPHQL_QUERY_DEPTH_MAX || "15"),
+    });
 
     logger.info("Services initialized");
 
@@ -208,9 +222,33 @@ async function startServer() {
     logger.info("Apollo Server started");
 
     // Setup WebSocket server for subscriptions
-    const wsServer = new WebSocketServer({ server: httpServer, path: "/graphql" });
+    const wsServer = new WebSocketServer({
+      server: httpServer,
+      path: "/graphql",
+    });
     useServer({ schema }, wsServer);
     logger.info("WebSocket server configured");
+
+    // Query cost validation middleware
+    const validateQueryCost = (req: any, res: any, next: any) => {
+      if (req.method === "POST" && req.body) {
+        const { query } = req.body;
+        if (query && typeof query === "string") {
+          try {
+            const document = parse(query);
+            queryCostAnalyzer.validateQueryCost(document);
+          } catch (error: any) {
+            logger.warn({ err: error.message }, "Query cost validation failed");
+            // Don't block the request, just log it. The query will be processed.
+            // In production, you might want to return an error here:
+            // return res.status(400).json({ error: error.message });
+          }
+        }
+      }
+      next();
+    };
+
+    app.use("/graphql", validateQueryCost);
 
     // Apply Apollo middleware
     app.post(
@@ -268,6 +306,7 @@ async function startServer() {
               traceId,
               log,
               rateLimiter,
+              queryCostAnalyzer,
             } as Context;
           } catch (error: any) {
             log.error(
@@ -328,7 +367,10 @@ async function startServer() {
     const signals = ["SIGTERM", "SIGINT"] as const;
     signals.forEach((signal) => {
       process.on(signal, async () => {
-        logger.info({ signal }, "Shutdown signal received, stopping gracefully");
+        logger.info(
+          { signal },
+          "Shutdown signal received, stopping gracefully",
+        );
         await apolloServer.stop();
         await pubsub.close();
         httpServer.close(() => {

@@ -214,6 +214,8 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+For the full setup (npm workspaces, Rust toolchain, Docker Compose), follow **[docs/SETUP.md](./docs/SETUP.md)**, the single setup guide.
+
 ### 6. Run the backend services (optional)
 
 The frontend runs without them, but if you are working on `services/graphql-api`
@@ -377,3 +379,14 @@ Fund-My-Cause is powered by the Stellar network and Soroban smart contracts. Ste
 - [Stellar Docs](https://developers.stellar.org)
 - [Soroban Docs](https://soroban.stellar.org)
 - [Freighter Wallet](https://www.freighter.app)
+
+## Handsoff notes
+
+<!-- handsoff-issue-1350 -->
+- #1350: [Frontend] Split app/campaigns page into focused container/presentational components
+
+<!-- handsoff-issue-1351 -->
+- #1351: [Frontend] Consolidate duplicate data-fetching logic in src/services and src/lib/graphql
+
+<!-- handsoff-issue-1358 -->
+- #1358: [Frontend] Modularize webhook handling logic in src/lib/webhooks

@@ -23,6 +23,9 @@
 export { CampaignHandler } from "./crowdfund/campaign.handler.js";
 export { DonationHandler } from "./crowdfund/donation.handler.js";
 export { AchievementHandler } from "./crowdfund/achievement.handler.js";
+export { QFCalculatedHandler } from "./qf/calculated.handler.js";
+export { AchievementUnlockedHandler } from "./achievements/unlocked.handler.js";
+export { AchievementPointsAwardedHandler } from "./achievements/points-awarded.handler.js";
 export { RegisteredHandler } from "./registry/registered.handler.js";
 export { EventDispatcher } from "./dispatcher.js";
 export type { EventHandler, ContractType } from "./types.js";

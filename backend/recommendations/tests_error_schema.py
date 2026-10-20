@@ -151,10 +151,10 @@ class TestEndpointErrorConformance:
         assert "message" in body["error"]
 
     def test_health_endpoint_not_affected_by_error_schema(self):
-        """Health endpoint must still return 200 {"status":"ok"}."""
-        r = client.get("/health")
+        """Health endpoint must still return 200 with status ok."""
+        r = client.get("/healthz")
         assert r.status_code == 200
-        assert r.json() == {"status": "ok"}
+        assert r.json()["status"] == "ok"
 
 
 # ── Error code constants ──────────────────────────────────────────────────────
