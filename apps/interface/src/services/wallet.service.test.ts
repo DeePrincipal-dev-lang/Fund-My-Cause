@@ -52,3 +52,23 @@ describe("classifySignError", () => {
     expect(classifySignError("not an error")).toBe("unknown");
   });
 });
+
+// ── Facade contract (#1575) ──────────────────────────────────────────────────
+
+import * as facade from "@/services/wallet.service";
+import * as connection from "@/services/wallet/wallet.connection";
+import * as signing from "@/services/wallet/wallet.signing";
+
+describe("wallet.service facade (#1575)", () => {
+  it("re-exports session helpers from wallet.connection", () => {
+    expect(facade.saveSession).toBe(connection.saveSession);
+    expect(facade.loadSession).toBe(connection.loadSession);
+    expect(facade.clearSession).toBe(connection.clearSession);
+    expect(facade.SESSION_KEY).toBe(connection.SESSION_KEY);
+    expect(facade.SESSION_WALLET_KEY).toBe(connection.SESSION_WALLET_KEY);
+  });
+
+  it("re-exports classifySignError from wallet.signing", () => {
+    expect(facade.classifySignError).toBe(signing.classifySignError);
+  });
+});
