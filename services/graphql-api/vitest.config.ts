@@ -31,7 +31,7 @@ export default defineConfig({
       reporter: ["text", "lcov", "json-summary"],
       reportsDirectory: "coverage",
       include: ["src/**/*.ts"],
-      exclude: ["src/**/*.test.ts", "src/index.ts"],
+      exclude: ["src/**/*.test.ts", "src/**/test-helpers.ts", "src/index.ts"],
       thresholds: {
         // #1389: resolver-to-datasource paths must stay >= 85%
         "src/resolvers.ts": {

@@ -8,11 +8,16 @@ import {
 } from "@fund-my-cause/shared-utils";
 import { decodeCursor, CursorError, buildPage } from "./cursor.js";
 import { enforceMutationRateLimit } from "./shared.js";
+import {
+  CACHE_TTL,
+  CacheKeys,
+  invalidateCampaignCaches,
+} from "../services/cache.js";
 
 export const campaignResolvers: IResolvers<any, Context> = {
   Query: {
     async campaign(_, { id }, context: Context) {
-      const cacheKey = `campaign:${id}`;
+      const cacheKey = CacheKeys.campaign(id);
       const cached = await context.cache.get(cacheKey);
       if (cached) return cached;
 
@@ -22,7 +27,7 @@ export const campaignResolvers: IResolvers<any, Context> = {
           extensions: { code: "NOT_FOUND" },
         });
       }
-      await context.cache.set(cacheKey, campaign, 300);
+      await context.cache.set(cacheKey, campaign, CACHE_TTL.campaign);
       return campaign;
     },
 
@@ -32,7 +37,7 @@ export const campaignResolvers: IResolvers<any, Context> = {
         offset: pagination.offset ?? 0,
         after: pagination.after,
       });
-      const cacheKey = `campaigns:${JSON.stringify({ filter, limit, offset, sort })}`;
+      const cacheKey = CacheKeys.campaigns({ filter, limit, offset, sort });
       const cached = await context.cache.get(cacheKey);
       if (cached) return cached;
 
@@ -43,7 +48,7 @@ export const campaignResolvers: IResolvers<any, Context> = {
       });
       const totalCount = await context.contractService.getCampaignCount(filter);
       const result = buildConnection(campaigns, offset, limit, totalCount);
-      await context.cache.set(cacheKey, result, 600);
+      await context.cache.set(cacheKey, result, CACHE_TTL.campaignList);
       return result;
     },
 
@@ -88,11 +93,12 @@ export const campaignResolvers: IResolvers<any, Context> = {
     },
 
     async trendingCampaigns(_, { limit = 10 }, context: Context) {
-      const cacheKey = `trending:${limit}`;
+      const cacheKey = CacheKeys.trendingCampaigns(limit);
       const cached = await context.cache.get(cacheKey);
       if (cached) return cached;
-      const campaigns = await context.contractService.getTrendingCampaigns(limit);
-      await context.cache.set(cacheKey, campaigns, 1800);
+      const campaigns =
+        await context.contractService.getTrendingCampaigns(limit);
+      await context.cache.set(cacheKey, campaigns, CACHE_TTL.trendingCampaigns);
       return campaigns;
     },
 
@@ -155,8 +161,7 @@ export const campaignResolvers: IResolvers<any, Context> = {
         context.user,
         input,
       );
-      await context.cache.delPattern("campaigns:*");
-      await context.cache.delPattern("trending:*");
+      await invalidateCampaignCaches(context.cache);
       return campaign;
     },
 
@@ -170,9 +175,7 @@ export const campaignResolvers: IResolvers<any, Context> = {
         context.user,
         input,
       );
-      await context.cache.del(`campaign:${id}`);
-      await context.cache.delPattern("campaigns:*");
-      await context.cache.delPattern("trending:*");
+      await invalidateCampaignCaches(context.cache, { campaignId: id });
       await context.pubsub.publish(`campaign_updated:${id}`, campaign);
       return campaign;
     },

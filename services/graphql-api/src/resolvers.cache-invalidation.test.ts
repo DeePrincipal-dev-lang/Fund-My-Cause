@@ -81,10 +81,11 @@ describe("cache-invalidation regression (del() vs delPattern())", () => {
     const redis = new FakeRedis();
     const context = buildContext(redis);
 
-    // Seed the exact list/trending cache entries the Query resolvers would
-    // have written on a prior read.
+    // Seed the exact list/trending/stats cache entries the Query resolvers
+    // would have written on a prior read.
     await context.cache.set("campaigns:{}", [{ id: "old" }], 600);
     await context.cache.set("trending:10", [{ id: "old" }], 1800);
+    await context.cache.set("platform:stats", { totalCampaigns: 1 }, 1800);
 
     (context.contractService.createCampaign as any).mockResolvedValue({
       id: "new",
@@ -109,6 +110,7 @@ describe("cache-invalidation regression (del() vs delPattern())", () => {
 
     expect(redis.has("campaigns:{}")).toBe(false);
     expect(redis.has("trending:10")).toBe(false);
+    expect(redis.has("platform:stats")).toBe(false);
   });
 
   it("actually evicts cached campaign lists and trending after updateCampaign", async () => {
@@ -118,6 +120,7 @@ describe("cache-invalidation regression (del() vs delPattern())", () => {
     await context.cache.set("campaign:camp_1", { id: "camp_1" }, 300);
     await context.cache.set("campaigns:{}", [{ id: "camp_1" }], 600);
     await context.cache.set("trending:10", [{ id: "camp_1" }], 1800);
+    await context.cache.set("platform:stats", { totalCampaigns: 1 }, 1800);
 
     (context.contractService.updateCampaign as any).mockResolvedValue({
       id: "camp_1",
@@ -132,6 +135,7 @@ describe("cache-invalidation regression (del() vs delPattern())", () => {
     expect(redis.has("campaign:camp_1")).toBe(false);
     expect(redis.has("campaigns:{}")).toBe(false);
     expect(redis.has("trending:10")).toBe(false);
+    expect(redis.has("platform:stats")).toBe(false);
   });
 
   it("actually evicts cached campaign lists and trending after recordContribution", async () => {
