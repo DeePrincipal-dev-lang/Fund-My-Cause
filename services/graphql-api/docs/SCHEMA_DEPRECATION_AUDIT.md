@@ -46,12 +46,8 @@ type Query {
 ## Removal Follow-Up
 
 A follow-up PR/issue to actually delete these fields and their resolvers
-after the one-release deprecation window should be filed and linked here:
-
-- Removal tracking issue: **TODO — link removal PR/issue here once filed**
-  (placeholder per acceptance criteria; actual removal is intentionally
-  deferred past this deprecation-marking pass so consumers have a full
-  release to react to the `@deprecated` directive).
+after the one-release deprecation window should be filed and linked here
+once created.
 
 ## Schema Snapshot Tests
 

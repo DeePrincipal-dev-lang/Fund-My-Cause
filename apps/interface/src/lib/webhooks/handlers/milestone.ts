@@ -49,7 +49,7 @@ export function handleMilestoneReached(payload: MilestonePayload): void {
     );
   }
 
-  // TODO: Implement milestone reached handling logic
+  // TODO(#1358): Implement milestone reached handling logic
 }
 
 /**
