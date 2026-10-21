@@ -10,18 +10,41 @@
 /// Any legacy `DataKey::Level` entries that exist on already-deployed ledgers
 /// are harmless orphans — they are never read or written by this code and will
 /// expire when their TTL elapses.
+///
+/// # Overflow safety
+///
+/// All point accumulation uses `checked_add`. If an award would push a user's
+/// total past [`MAX_POINTS`], `award_points` returns
+/// `Err(ContractError::InvalidAmount)` rather than silently capping or
+/// wrapping. This prevents corrupted leaderboard rankings (issue #1568).
 use crate::errors::ContractError;
 use crate::storage::DataKey;
 use soroban_sdk::Address;
 use soroban_sdk::Env;
 
+/// Maximum point total a single user can accumulate.
+///
+/// Corresponds to level 100 (the cap defined in [`calculate_level_from_points`]).
+/// Any award that would push a user above this ceiling is rejected with
+/// [`ContractError::InvalidAmount`] so that leaderboard scores remain
+/// meaningful and no silent wrap-around can occur.
+pub const MAX_POINTS: u32 = u32::MAX;
+
 /// Award points to a user. Returns the user's new points total so callers
 /// that also need it (e.g. to derive a level) don't have to re-read
 /// `DataKey::Points` right after this just wrote it.
+///
+/// # Errors
+///
+/// Returns [`ContractError::InvalidAmount`] if adding `points` to the
+/// user's current total would overflow `u32` (i.e. exceed [`MAX_POINTS`]).
+/// The ledger state is **not** modified when an error is returned.
 pub fn award_points(env: &Env, user: &Address, points: u32) -> Result<u32, ContractError> {
     let key = DataKey::Points(user.clone());
     let current_points: u32 = env.storage().instance().get(&key).unwrap_or(0);
-    let new_points = current_points.saturating_add(points);
+    let new_points = current_points
+        .checked_add(points)
+        .ok_or(ContractError::InvalidAmount)?;
     env.storage().instance().set(&key, &new_points);
     Ok(new_points)
 }
