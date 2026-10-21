@@ -9,7 +9,6 @@
 | Document | Purpose |
 |----------|---------|
 | [docs/SETUP.md](./SETUP.md) | **Start here** — Single onboarding guide covering monorepo setup, env vars, contracts build, and troubleshooting |
-| [docs/contributor-onboarding.md](./contributor-onboarding.md) | Detailed contributor guide, PR workflows, and standards |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) | Code of conduct and contribution lifecycle |
 | [SECURITY.md](../SECURITY.md) | Security vulnerability disclosure policy |
 | [CHANGELOG.md](../CHANGELOG.md) | Repository release notes and version history |

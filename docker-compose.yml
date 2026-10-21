@@ -64,9 +64,6 @@ services:
     profiles:
       - dev                            # only started with: docker compose --profile dev up
 
-volumes:
-  interface_node_modules:
-
   # ── Indexer service ─────────────────────────────────────────────────────────
   indexer:
     build:
@@ -94,3 +91,6 @@ volumes:
         condition: service_healthy
     profiles:
       - indexer                        # only started with: docker compose --profile indexer up
+
+volumes:
+  interface_node_modules:
