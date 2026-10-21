@@ -31,7 +31,10 @@
  * explaining why the default is insufficient.
  */
 
+import { retryWithBackoff } from "@fund-my-cause/shared-utils";
 import { TRACE_ID_HEADER } from "./trace.js";
+
+export { calcBackoff } from "@fund-my-cause/shared-utils";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -92,26 +95,6 @@ function isRetryable(error: unknown, status?: number): boolean {
   );
 }
 
-/**
- * Calculates the capped exponential backoff delay for a given attempt index.
- * attempt=0 → initialBackoffMs, attempt=1 → initialBackoffMs*multiplier, …
- */
-export function calcBackoff(
-  attempt: number,
-  opts: Pick<
-    HttpClientOptions,
-    "initialBackoffMs" | "backoffMultiplier" | "maxBackoffMs"
-  >,
-): number {
-  const raw = opts.initialBackoffMs * Math.pow(opts.backoffMultiplier, attempt);
-  return Math.min(raw, opts.maxBackoffMs);
-}
-
-/** Promisified sleep, injectable in tests via the `sleep` parameter. */
-function defaultSleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 // ---------------------------------------------------------------------------
 // Core fetch wrapper
 // ---------------------------------------------------------------------------
@@ -132,7 +115,7 @@ export async function httpFetch<T = unknown>(
   init: RequestInit = {},
   overrides: Partial<HttpClientOptions> = {},
   traceId?: string,
-  _sleep: (ms: number) => Promise<void> = defaultSleep,
+  _sleep?: (ms: number) => Promise<void>,
 ): Promise<HttpClientResult<T>> {
   const opts: HttpClientOptions = { ...HTTP_CLIENT_DEFAULTS, ...overrides };
 
@@ -147,17 +130,22 @@ export async function httpFetch<T = unknown>(
   }
   const initWithTrace: RequestInit = { ...init, headers };
 
-  let lastError: unknown;
   let lastStatus: number | undefined;
 
-  for (let attempt = 0; attempt <= opts.maxRetries; attempt++) {
-    // Each attempt gets its own AbortSignal so a timed-out attempt does not
-    // poison subsequent ones.
-    const signal = AbortSignal.timeout(opts.requestTimeoutMs);
+  return retryWithBackoff(
+    async (attempt) => {
+      // Each attempt gets its own AbortSignal so a timed-out attempt does not
+      // poison subsequent ones.
+      const signal = AbortSignal.timeout(opts.requestTimeoutMs);
 
-    try {
-      const response = await fetch(url, { ...initWithTrace, signal });
-      lastStatus = response.status;
+      let response: Response;
+      try {
+        response = await fetch(url, { ...initWithTrace, signal });
+        lastStatus = response.status;
+      } catch (err) {
+        lastStatus = undefined;
+        throw err;
+      }
 
       if (!isRetryable(undefined, response.status)) {
         // Success or a non-retryable client error — return immediately.
@@ -172,30 +160,16 @@ export async function httpFetch<T = unknown>(
 
       // Retryable HTTP status — consume body to free the connection, then retry.
       await response.body?.cancel();
-      lastError = new Error(`HTTP ${response.status}`);
-    } catch (err) {
-      lastError = err;
-      lastStatus = undefined;
-
-      if (!isRetryable(err)) {
-        // Non-retryable fetch error (e.g. invalid URL) — fail fast.
-        throw err;
-      }
-    }
-
-    // Don't sleep after the final attempt.
-    if (attempt < opts.maxRetries) {
-      const delay = calcBackoff(attempt, opts);
-      await _sleep(delay);
-    }
-  }
-
-  // All attempts exhausted.
-  throw (
-    lastError ??
-    new Error(
-      `HTTP request failed after ${opts.maxRetries + 1} attempts (last status: ${lastStatus})`,
-    )
+      throw new Error(`HTTP ${response.status}`);
+    },
+    {
+      maxRetries: opts.maxRetries,
+      initialBackoffMs: opts.initialBackoffMs,
+      backoffMultiplier: opts.backoffMultiplier,
+      maxBackoffMs: opts.maxBackoffMs,
+      shouldRetry: (error) => isRetryable(error, lastStatus),
+      sleep: _sleep,
+    },
   );
 }
 

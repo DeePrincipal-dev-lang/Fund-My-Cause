@@ -18,8 +18,8 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import pino from "pino";
+import { calcBackoff } from "@fund-my-cause/shared-utils";
 import {
-  calcBackoff,
   httpFetch,
   createHttpClient,
   HTTP_CLIENT_DEFAULTS,

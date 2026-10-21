@@ -29,6 +29,14 @@
     "./errors": {
       "import": "./src/errors.ts",
       "types": "./src/errors.ts"
+    },
+    "./retry": {
+      "import": "./src/retry.ts",
+      "types": "./src/retry.ts"
+    },
+    "./circuit-breaker": {
+      "import": "./src/circuit-breaker.ts",
+      "types": "./src/circuit-breaker.ts"
     }
   },
   "scripts": {

@@ -1,13 +1,13 @@
 import { rpc as SorobanRpc } from "@stellar/stellar-sdk";
 import pino from "pino";
 import { createHttpClient, type HttpClientOptions } from "./http-client.js";
+import { createRpcServer } from "@fund-my-cause/rpc-client";
 import {
-  createRpcServer,
   CircuitBreaker,
   CircuitOpenError,
   type CircuitBreakerOptions,
   type CircuitBreakerMetrics,
-} from "@fund-my-cause/rpc-client";
+} from "@fund-my-cause/shared-utils";
 import type { IndexerEvent } from "@fund-my-cause/types";
 
 // Re-exported so the rest of the indexer keeps importing IndexerEvent from
@@ -179,27 +179,32 @@ export class SorobanRPCClient {
         client.fetch<{
           result?: { events: unknown[] };
           error?: { message: string };
-        }>(this.config.url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            jsonrpc: "2.0",
-            id: 1,
-            method: "getEvents",
-            params: {
-              startLedger: ledgerSequence,
-              filters: [
-                {
-                  type: "contract",
-                  contractIds:
-                    this.config.contractIds && this.config.contractIds.length > 0
-                      ? this.config.contractIds
-                      : [this.config.contractId],
-                },
-              ],
-            },
-          }),
-        }),
+        }>(
+          this.config.url,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              jsonrpc: "2.0",
+              id: 1,
+              method: "getEvents",
+              params: {
+                startLedger: ledgerSequence,
+                filters: [
+                  {
+                    type: "contract",
+                    contractIds:
+                      this.config.contractIds && this.config.contractIds.length > 0
+                        ? this.config.contractIds
+                        : [this.config.contractId],
+                  },
+                ],
+              },
+            }),
+          },
+          {},
+          this._sleep,
+        ),
       );
 
       if (!result.ok) {

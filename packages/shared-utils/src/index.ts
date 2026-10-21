@@ -6,3 +6,5 @@ export * from "./mappers";
 export * from "./auth";
 export * from "./env-config";
 export * from "./errors";
+export * from "./retry";
+export * from "./circuit-breaker";
