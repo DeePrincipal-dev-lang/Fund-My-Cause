@@ -6,6 +6,7 @@ import type { Context } from "../types.js";
 import { notifyContribution } from "../services/fraud-client.js";
 import { decodeCursor, CursorError, buildPage } from "./cursor.js";
 import { enforceMutationRateLimit } from "./shared.js";
+import { CacheKeys } from "../services/cache.js";
 
 export const contributionResolvers: IResolvers<any, Context> = {
   Query: {
@@ -115,11 +116,11 @@ export const contributionResolvers: IResolvers<any, Context> = {
         log,
       );
 
-      await context.cache.del(`campaign:${input.campaignId}`);
-      await context.cache.del("platform:stats");
-      await context.cache.del(`user:${input.contributor}`);
-      await context.cache.delPattern("campaigns:*");
-      await context.cache.delPattern("trending:*");
+      await context.cache.del(CacheKeys.campaign(input.campaignId));
+      await context.cache.del(CacheKeys.platformStats);
+      await context.cache.del(CacheKeys.user(input.contributor));
+      await context.cache.delPattern(CacheKeys.campaignListPattern);
+      await context.cache.delPattern(CacheKeys.trendingPattern);
 
       await context.pubsub.publish(
         `contribution:${input.campaignId}`,
