@@ -12,6 +12,33 @@ To measure test coverage locally, use `cargo-tarpaulin`:
 cargo tarpaulin --manifest-path contracts/crowdfund/Cargo.toml --out Html
 ```
 
+## WASM Size Budget
+
+The release build of the crowdfund contract is kept under a fixed size budget so that
+unintentional growth (extra dependencies, debug formatting, unused code) is caught locally
+before it reaches a release. The budget is defined in `scripts/check_wasm_size.py` and is
+based on the current release build with a small amount of headroom.
+
+### Checking the size locally
+
+Build the contract and run the budget check with:
+
+```bash
+make contracts:size
+```
+
+This builds the crowdfund WASM in release mode, runs `scripts/check_wasm_size.py`, and
+**fails** (non-zero exit) if the artifact exceeds the budget. Run it before opening a PR
+that touches the contract.
+
+### Updating the budget intentionally
+
+If a change legitimately increases the contract size (e.g. a required new feature), update
+the budget constant in `scripts/check_wasm_size.py` in the same PR and explain in the PR
+description why the increase is necessary. Do not raise the budget just to make CI pass —
+first look for ways to reduce the size (removing unused code, avoiding debug strings,
+trimming dependencies).
+
 ## Linting
 
 Run Clippy across the entire contracts workspace with all targets and features:
@@ -65,3 +92,9 @@ under `corpus/fuzz_validation/`, fix the underlying bug, and note it here.
 Fuzzing is intentionally **not** run on every PR (it's non-deterministic and open-ended). A
 scheduled, non-blocking job runs it periodically instead — see
 `.github/workflows/fuzz.yml` — and reports findings without failing other CI checks.
+
+## WASM size budget
+
+Each release WASM must stay under the budget in `contracts/crowdfund/WASM_BUDGET_BYTES`
+(currently 512000 bytes). Run `make contracts-size` (or `make size`) after a release build. It
+fails when any contract is over the budget. CI runs the same check with the same file.

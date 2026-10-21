@@ -27,6 +27,11 @@ def parse_args() -> argparse.Namespace:
         default=262_144,
         help="Maximum allowed size in bytes. Default: 256 KiB.",
     )
+    parser.add_argument(
+        "--budget-file",
+        default=None,
+        help="Optional file containing the size budget in bytes (first integer found).",
+    )
     return parser.parse_args()
 
 
@@ -51,6 +56,15 @@ def check_artifact(artifact: str, budget: int) -> int:
     return 0
 
 
+def read_budget_file(path: str) -> int:
+    with open(path, "r", encoding="utf-8") as handle:
+        for line in handle:
+            for token in line.split():
+                if token.isdigit():
+                    return int(token)
+    raise ValueError(f"no integer budget found in {path}")
+
+
 def main() -> int:
     args = parse_args()
     artifacts = list(args.artifacts)
@@ -61,9 +75,17 @@ def main() -> int:
         print("ERROR: no artifacts provided.", file=sys.stderr)
         return 2
 
+    budget = args.budget
+    if args.budget_file is not None:
+        try:
+            budget = read_budget_file(args.budget_file)
+        except (OSError, ValueError) as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return 2
+
     rc = 0
     for artifact in artifacts:
-        rc = max(rc, check_artifact(artifact, args.budget))
+        rc = max(rc, check_artifact(artifact, budget))
     return rc
 
 

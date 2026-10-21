@@ -9,44 +9,71 @@
 ///
 /// Everything is re-exported at this level so existing `use crate::types::*`
 /// or `use crate::types::Foo` imports continue to resolve without any change.
+pub mod campaign;
+pub mod contribution;
 pub mod domain;
 pub mod events;
+pub mod withdrawal;
+
+// ── Re-export all campaign domain types ───────────────────────────────────────
+pub use campaign::{
+    CampaignAnalytics, CampaignInfo, CampaignStats, CampaignTemplate, CampaignUpdate, Category,
+    ExtensionProposal, FundingMilestone, GoalAdjustment, MetadataVersion, MilestoneStatus,
+    RecurringPlan, RewardConfig, RewardTier, StreamConfig, TemplateType, Visibility,
+};
+
+// ── Re-export all contribution domain types ───────────────────────────────────
+pub use contribution::{
+    ContributionHistory, Delegation, MatchingConfig, QfContributorInput, QfInputs, RateLimit,
+    VestingSchedule, YieldConfig, YieldInfo,
+};
+
+// ── Re-export all withdrawal domain types ─────────────────────────────────────
+pub use withdrawal::{
+    AnalyticsDataPoint, ContractStateSnapshot, Dispute, DisputeStatus, ExecutionRecord, FeeMode,
+    FunctionPerfStats, GovernanceConfig, GovernanceProposal, InsuranceConfig, PerformanceMetrics,
+    PlatformConfig, StateValidationResult, VerificationStatus, VersionMigration,
+};
 
 // ── Re-export all domain types ────────────────────────────────────────────────
 pub use domain::{
-    AnalyticsDataPoint, CampaignAnalytics, CampaignInfo, CampaignStats, CampaignTemplate,
-    CampaignUpdate, Category, ContractStateSnapshot, ContributionHistory, DataKey, Delegation,
-    Dispute, DisputeStatus, ExecutionRecord, ExtensionProposal, FeeMode, FunctionPerfStats,
-    GoalAdjustment, GovernanceConfig, GovernanceProposal, InsuranceConfig, MatchingConfig,
-    MetadataVersion, FundingMilestone, MilestoneStatus, PerformanceMetrics, PlatformConfig,
-    QfContributorInput, QfInputs, RateLimit, RecurringPlan, RewardConfig, RewardTier,
-    SearchIndexEntry, StateValidationResult, Status, StreamConfig, TemplateType,
-    VerificationStatus, VersionMigration, VestingSchedule, Visibility, YieldConfig, YieldInfo,
+    DataKey, Status,
 };
 
 // ── Re-export all event types ─────────────────────────────────────────────────
 pub use events::{
-    EventAllowlistRemoved, EventAllowlisted, EventAnalyticsGenerated, EventArchived,
-    EventBatchRefundCompleted, EventBlacklistRemoved, EventBlacklisted, EventCampaignCloned,
-    EventCampaignIndexed, EventCancelled, EventCapsConfigured, EventCategoryUpdated,
-    EventContractMigrated, EventContributed, EventContributionRecorded, EventDeadlineExtended,
-    EventDebugLog, EventDebugSnapshot, EventDelegatedContribution, EventDelegationCreated,
-    EventDelegationRevoked, EventDenylistRemoved, EventDenylisted, EventDisputeFiled,
-    EventDisputeResolved, EventDisputeVoted, EventEmergencyApproved, EventEmergencyExecuted,
-    EventEmergencyInitiated, EventExecutionRecorded, EventExtensionExecuted,
-    EventExtensionProposed, EventExtensionVoted, EventGoalAdjusted, EventGovernanceConfigUpdated,
-    EventGovernanceEmergencyPaused, EventGovernanceEmergencyResumed, EventGovernanceExecuted,
-    EventGovernanceProposed, EventGovernanceVoted, EventInitialized, EventInsuranceEnabled,
-    EventInsurancePayout, EventInvariantViolated, EventIpfsCidUpdated, EventMatchingSetup,
-    EventMetadataUpdated, EventMetadataVersioned, EventMilestoneReached, EventMilestoneRelease,
-    EventMilestoneVerified, EventMultiSigConfigured, EventOwnershipTransferred, EventPartialRefund,
-    EventPaused, EventPausedWithTimelock, EventPerfAlert, EventQfContribution, EventRateLimitHit,
-    EventRateLimitUpdated, EventRecurringCancelled, EventRecurringExecuted, EventRecurringSetup,
-    EventRefunded, EventResumed, EventRewardsConfigured, EventRewardsDistributed,
-    EventStateValidated, EventStatusChanged, EventStreamClaimed, EventTemplateApplied,
-    EventTierAssigned, EventTiersSet, EventVerificationUpdated, EventVersionChecked,
-    EventVisibilityChanged, EventWhitelistOnlySet, EventWhitelistRemoved, EventWhitelisted,
-    EventWithdrawn, EventYieldClaimed, EventYieldConfigured,
+    campaign::{
+        EventArchived, EventCampaignCloned, EventCampaignIndexed, EventCancelled,
+        EventCapsConfigured, EventCategoryUpdated, EventDeadlineExtended, EventGoalAdjusted,
+        EventInitialized, EventMetadataUpdated, EventMetadataVersioned, EventMilestoneReached,
+        EventMilestoneRelease, EventMilestoneVerified, EventOwnershipTransferred, EventPaused,
+        EventPausedWithTimelock, EventResumed, EventStatusChanged, EventTemplateApplied,
+        EventTiersSet, EventVisibilityChanged, EventWhitelistOnlySet,
+    },
+    contribution::{
+        EventAllowlistRemoved, EventAllowlisted, EventBatchRefundCompleted, EventBlacklistRemoved,
+        EventBlacklisted, EventContributed, EventContributionRecorded, EventDelegatedContribution,
+        EventDelegationCreated, EventDelegationRevoked, EventDenylistRemoved, EventDenylisted,
+        EventMatchingSetup, EventPartialRefund, EventQfContribution, EventRateLimitHit,
+        EventRateLimitUpdated, EventRecurringCancelled, EventRecurringExecuted,
+        EventRecurringSetup, EventRewardsConfigured, EventRewardsDistributed, EventTierAssigned,
+        EventWhitelistRemoved, EventWhitelisted,
+    },
+    refund::{
+        EventRefunded,
+    },
+    withdrawal::{
+        EventAnalyticsGenerated, EventContractMigrated, EventDebugLog, EventDebugSnapshot,
+        EventDisputeFiled, EventDisputeResolved, EventDisputeVoted, EventEmergencyApproved,
+        EventEmergencyExecuted, EventEmergencyInitiated, EventExecutionRecorded,
+        EventExtensionExecuted, EventExtensionProposed, EventExtensionVoted,
+        EventGovernanceConfigUpdated, EventGovernanceEmergencyPaused,
+        EventGovernanceEmergencyResumed, EventGovernanceExecuted, EventGovernanceProposed,
+        EventGovernanceVoted, EventInsuranceEnabled, EventInsurancePayout, EventInvariantViolated,
+        EventIpfsCidUpdated, EventMultiSigConfigured, EventPerfAlert, EventStateValidated,
+        EventStreamClaimed, EventVerificationUpdated, EventVersionChecked, EventWithdrawn,
+        EventYieldClaimed, EventYieldConfigured,
+    },
 };
 
 // ── Issue #703 / #924: Event schema versioning ───────────────────────────────

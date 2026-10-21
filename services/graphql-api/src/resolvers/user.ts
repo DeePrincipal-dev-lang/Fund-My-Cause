@@ -3,11 +3,12 @@ import { GraphQLError } from "graphql";
 import type { IResolvers } from "@graphql-tools/utils";
 import type { Context } from "../types.js";
 import { decodeCursor, CursorError, buildPage } from "./cursor.js";
+import { CACHE_TTL, CacheKeys } from "../services/cache.js";
 
 export const userResolvers: IResolvers<any, Context> = {
   Query: {
     async user(_, { address }, context: Context) {
-      const cacheKey = `user:${address}`;
+      const cacheKey = CacheKeys.user(address);
       const cached = await context.cache.get(cacheKey);
       if (cached) return cached;
 
@@ -17,7 +18,7 @@ export const userResolvers: IResolvers<any, Context> = {
           extensions: { code: "NOT_FOUND" },
         });
       }
-      await context.cache.set(cacheKey, user, 600);
+      await context.cache.set(cacheKey, user, CACHE_TTL.user);
       return user;
     },
 

@@ -53,21 +53,21 @@ Fund-My-Cause/
 │   ├── graphql-api/            # Apollo Server 4 GraphQL API with Redis caching & WS
 │   ├── indexer/                # Soroban RPC event listener & ingestion daemon
 │   └── monitoring-service/     # APM, metrics exporter, and health monitoring
-└── docker-compose.yml          # Local infra (PostgreSQL, Redis)
+└── docker-compose.yml          # Local Stellar quickstart + frontend/indexer containers
 ```
 
 ---
 
 ## Prerequisites
 
-Ensure the following tools are installed on your machine:
+Ensure the following tools are installed on your machine. The repository's `rust-toolchain.toml` pins Rust 1.91.0 and declares the `wasm32-unknown-unknown` target, so rustup installs both when you run any `cargo` command in the repo.
 
 | Tool | Version | Purpose | Installation |
 |------|---------|---------|--------------|
 | **Node.js** | 20.x or higher | Frontend, services, SDKs | [nodejs.org](https://nodejs.org) or `nvm install 20` |
 | **npm** | 9.x or higher | Monorepo package management | Included with Node.js |
-| **Rust & Cargo** | 1.70+ | Smart contract compilation | `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \| sh` |
-| **wasm32 target** | Latest | WebAssembly contract target | `rustup target add wasm32-unknown-unknown` |
+| **Rust & Cargo** | 1.91.0 | Smart contract compilation | [rustup.rs](https://rustup.rs) — `rust-toolchain.toml` pins the exact version |
+| **wasm32 target** | Latest | WebAssembly contract target | Installed automatically from `rust-toolchain.toml` |
 | **Stellar CLI** | 21.0+ | Contract deployment & RPC | `cargo install --locked stellar-cli --features opt` |
 | **Python** | 3.10+ | Backend fraud & recommendation | [python.org](https://python.org) |
 | **Docker & Compose** | Latest | PostgreSQL & Redis services | [docker.com](https://www.docker.com/) |
@@ -98,6 +98,14 @@ npm run dev
 ```
 
 Visit `http://localhost:3000` to interact with the UI using local mock data.
+
+### npm workspaces
+
+This repository uses **npm workspaces**. Run `npm install` once at the repository
+root: it installs dependencies for `apps/*`, `packages/*`, `sdks/*`, and
+`services/*`. Do not run a separate install inside an individual workspace; doing
+so creates a nested dependency tree and can hide version mismatches. Use the
+root `package-lock.json` as the source of truth for resolved versions.
 
 Every root script is described in [Root Scripts Reference](#root-scripts-reference);
 per-workspace startup (GraphQL API, indexer, monitoring, Python engines) is in
@@ -137,6 +145,24 @@ WASM artifacts are generated in `target/wasm32-unknown-unknown/release/`.
 # Run unit & integration tests across all Rust crates
 npm run contracts:test
 ```
+
+#### WASM Size Budget
+The release `crowdfund` WASM is kept under a documented size budget so it cannot
+grow unnoticed. The budget lives in `scripts/check_wasm_size.py` (see
+[contracts/crowdfund/README.md](../contracts/crowdfund/README.md) for the current
+limit and rationale).
+
+```bash
+# Build the release WASM, then check it against the budget
+npm run contracts:build
+make contracts-size
+```
+
+`make contracts-size` runs `scripts/check_wasm_size.py` against
+`target/wasm32-unknown-unknown/release/crowdfund.wasm` and **exits non-zero when
+the artifact exceeds the budget**. Run it before opening a PR that touches the
+contract; if your change legitimately needs more space, raise the budget in the
+same PR and explain why.
 
 #### Deploying & Seeding Testnet
 ```bash
@@ -196,9 +222,10 @@ Access at `http://localhost:3000`.
 Apollo Server 4 / Express service providing query aggregation, Redis caching, and WebSocket subscriptions.
 
 #### Infrastructure Dependency
-Start Redis:
+Start Redis (the service exits if Redis is unreachable; the in-memory fallback
+is only reachable from unit tests):
 ```bash
-docker compose up -d redis
+docker compose -f docker-compose.full.yml up -d redis
 ```
 
 #### Configuration
@@ -207,8 +234,8 @@ cp services/graphql-api/.env.example services/graphql-api/.env
 ```
 
 Ensure `JWT_SECRET` is at least 32 characters long and not a default value.
-The service reads **`GRAPHQL_PORT`** (not `PORT`) — all keys below come from
-`services/graphql-api/.env.example`:
+The service reads **`GRAPHQL_PORT`** (not `PORT`); the default is `4000`.
+Key variables read by the service:
 ```env
 GRAPHQL_PORT=4000
 NODE_ENV=development
@@ -224,9 +251,16 @@ FRAUD_DETECTION_URL=http://localhost:8000
 ```
 
 #### Running GraphQL Service
+
+This service does **not** load `.env` automatically. Export the file into your
+shell, then start it with `tsx` (the packaged `dev` script is currently broken):
 ```bash
-# Start in development mode
-npm run dev --workspace=services/graphql-api
+set -a
+source services/graphql-api/.env
+set +a
+
+cd services/graphql-api
+npx tsx src/index.ts
 ```
 GraphQL Playground / Endpoint: `http://localhost:4000/graphql`  
 Health check: `http://localhost:4000/health`
@@ -272,11 +306,16 @@ Metrics aggregator, health monitor, and Prometheus-compatible exporter with
 optional PagerDuty incident creation.
 
 #### Configuration & Startup
+
+This service does **not** load `.env` automatically, so export it before starting:
 ```bash
 cp services/monitoring-service/.env.example services/monitoring-service/.env
+set -a
+source services/monitoring-service/.env
+set +a
 npm run dev --workspace=services/monitoring-service
 ```
-The port comes from `PORT` (default **9091**):
+The port comes from `PORT` (default **9091**; the example file sets `9091`):
 ```env
 PORT=9091
 PAGERDUTY_API_KEY=your-pagerduty-api-key
@@ -350,7 +389,7 @@ Every script defined in the root `package.json`, run from the repository root:
 | `npm run prepare` | `which husky … && husky \|\| true` | Installs git hooks (`lint-staged`) after `npm install` |
 
 Workspace-scoped scripts are run with `npm run <script> --workspace=<dir>`,
-e.g. `npm run dev --workspace=services/graphql-api`. Each service also exposes
+e.g. `npm run dev --workspace=services/indexer`. Each service also exposes
 its own scripts — see that service's `package.json`.
 
 ---
@@ -370,19 +409,31 @@ in real values.
 | **`backend/`** | — | `LOG_LEVEL`, `LOG_FORMAT` (optional) | Python services read env directly; there is no `.env.example` yet |
 | **`playground/`, `examples/*`, `performance/`** | `.env` | See each directory's `.env.example` | Standalone demos and benchmarks |
 
+`services/indexer` loads `.env` automatically. `services/graphql-api` and
+`services/monitoring-service` do not — export those files into your shell with
+`set -a; source <file>; set +a` before starting them.
+
 ---
 
 ## Docker & Containerized Stack
 
-You can launch the complete local stack (Postgres, Redis, GraphQL API, Indexer, Frontend) using Docker Compose:
+The root `docker-compose.yml` starts the frontend and a local Stellar quickstart
+node; the indexer is an optional profile. PostgreSQL and Redis live in
+`docker-compose.full.yml`.
 
 ```bash
-# Start all backing services (PostgreSQL, Redis)
-docker compose up -d postgres redis
+# Start backing services used by the GraphQL API (and optional Postgres)
+docker compose -f docker-compose.full.yml up -d redis
 
-# Or start the full stack including containers
-docker compose -f docker-compose.full.yml up --build
+# Start the frontend plus local Stellar node
+docker compose up --build
+
+# Include the indexer container as well
+docker compose --profile indexer up --build
 ```
+
+For backend services, see the per-service sections above; run them with
+`npm run dev --workspace=<service>` after completing the setup in this guide.
 
 ---
 
@@ -425,18 +476,21 @@ npx lint-staged
 
 ### 3. `JWT_SECRET must be at least 32 characters for secure operation`
 - **Cause**: `services/graphql-api` validates `JWT_SECRET` on startup and rejects empty, short (<32 chars), or example default keys.
-- **Solution**: Generate a strong 32+ character key in `services/graphql-api/.env`:
+- **Solution**: Generate a strong 32+ character key, put it in
+  `services/graphql-api/.env`, and export the file before starting the service:
   ```bash
   openssl rand -hex 32
+  set -a; source services/graphql-api/.env; set +a
   ```
 
 ### 4. `Redis Connection Error / ECONNREFUSED 127.0.0.1:6379`
 - **Cause**: Redis server is not running.
-- **Solution**: Start Redis using Docker Compose:
+- **Solution**: Start Redis using the compose file that defines it:
   ```bash
-  docker compose up -d redis
+  docker compose -f docker-compose.full.yml up -d redis
   ```
-  Note: `services/graphql-api` will automatically fall back to an in-memory rate limiter if `REDIS_URL` is omitted.
+  `services/graphql-api` requires Redis at startup; the in-memory fallback is
+  only used by unit tests.
 
 ### 5. Frontend shows "No campaigns found" or "Contract not found"
 - **Cause**: `.env.local` contains placeholder contract IDs or testnet contracts were not deployed.
@@ -466,14 +520,14 @@ npx lint-staged
   ```
 
 ### 9. `npm install` fails with peer/lockfile errors
-- **Cause**: A stale `node_modules` or a `package-lock.json` written by a different npm version.
-- **Solution**: install exactly what the lockfile declares:
+- **Cause**: A stale `node_modules` or a nested `node_modules` from installing inside a workspace.
+- **Solution**: remove the stale tree and install once from the repository root:
   ```bash
   rm -rf node_modules
-  npm ci
+  npm install
   ```
-  If `npm ci` still fails, re-sync the lockfile with `npm install --package-lock-only`
-  and include the lockfile change in your PR.
+  Do not run `npm install` inside `apps/*`, `packages/*`, `sdks/*`, or `services/*`;
+  the root workspace install covers all of them.
 
 ### 10. A service starts and immediately exits (or complains about missing config)
 - **Cause**: The workspace's `.env.example` was never copied to the expected filename.
@@ -491,6 +545,7 @@ npx lint-staged
 ## Additional Resources
 
 - [Contributing Guidelines](../CONTRIBUTING.md)
+- [Backend Service Notes](./services-local-development.md)
 - [System Architecture](./architecture.md)
 - [API Reference](./api/README.md)
 - [GraphQL API Reference](./api/graphql.md)

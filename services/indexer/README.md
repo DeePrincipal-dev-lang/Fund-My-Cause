@@ -125,7 +125,8 @@ code:
 ```
 src/handlers/
   types.ts                    # EventHandler interface + ContractType
-  dispatcher.ts                # contract-agnostic router (eventType -> handler)
+  dispatcher.ts                # router (eventType -> handler instance)
+  handler-registry.ts          # canonical eventType -> handler constructor
   crowdfund/                   # contracts/crowdfund events
     campaign.handler.ts         # eventType: "campaign"
     donation.handler.ts         # eventType: "donation" (alias: "Contribute")
@@ -143,9 +144,10 @@ Every handler implements the shared `EventHandler` interface (`eventType`,
 `contractType`, `handle()`) documented in `src/handlers/types.ts`. To add a
 new contract type: create `src/handlers/<contractType>/`, implement
 `EventHandler` for each of its event types, export the classes from
-`src/handlers/index.ts`, register instances in the `EventDispatcher` in
-`src/index.ts`, and add the contract's ID to the `contractIds` passed to
-`SorobanRPCClient`.
+`src/handlers/index.ts`, add the event-type-to-handler entry in
+`src/handlers/handler-registry.ts`, and add the contract's ID to the
+`contractIds` passed to `SorobanRPCClient`. `createEventDispatcher()` picks
+up the new entry automatically.
 
 ## Connection Pool Configuration
 

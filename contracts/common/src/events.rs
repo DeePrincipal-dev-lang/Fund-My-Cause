@@ -111,6 +111,33 @@ impl EventEmitter {
         env.events().publish((topic, "v1"), event);
     }
 
+    /// Emit an event with an explicit namespace and name.
+    ///
+    /// Analytics events already use the `("contract", "<event>")` topic shape
+    /// that indexers consume, so they cannot use the short-symbol helpers
+    /// above without breaking existing consumers.
+    pub fn emit_named<T: soroban_sdk::IntoVal<Env, Val>>(
+        env: &Env,
+        namespace: &str,
+        name: &str,
+        data: T,
+    ) {
+        env.events().publish(
+            (Symbol::new(env, namespace), Symbol::new(env, name)),
+            data,
+        );
+    }
+
+    /// Emit a state-validation summary event.
+    pub fn state_validated<T: soroban_sdk::IntoVal<Env, Val>>(env: &Env, event: T) {
+        Self::emit_named(env, "contract", "state_validated", event);
+    }
+
+    /// Emit a state-invariant violation event.
+    pub fn invariant_violated<T: soroban_sdk::IntoVal<Env, Val>>(env: &Env, event: T) {
+        Self::emit_named(env, "contract", "invariant_violated", event);
+    }
+
     // ── Registry Events ────────────────────────────────────────────
 
     /// Emit registry initialized event

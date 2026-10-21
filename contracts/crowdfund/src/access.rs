@@ -3,6 +3,28 @@
 //! This module handles visibility, whitelist, blacklist, allow-list, and deny-list
 //! management, plus ownership transfer, pause/resume and the per-address rate limit.
 //! It controls who can contribute to a campaign and the campaign's visibility level.
+//!
+//! ## Issue #1559 — every crowdfund authorization check
+//!
+//! Crowdfund no longer performs ad-hoc `Address::require_auth()` calls. Every
+//! check is routed through [`common::AccessControl`] so there is one auditable
+//! authorization path:
+//!
+//! | Module / entry points | Authorization check | Address source | Shared helper |
+//! |---|---|---|---|
+//! | `lifecycle::initialize`, `initialize_from_template` | creator | function argument | `AccessControl::require_role_auth` |
+//! | `lifecycle::clone_campaign`, `cancel_campaign`, `archive` | creator | `KEY_CREATOR` | `require_auth_creator` → `require_stored_auth` |
+//! | `access::*` (lists, visibility, pause, rate limit, ownership) | creator or admin | `KEY_CREATOR` / `KEY_ADMIN` | `require_auth_creator` / `auth_admin` |
+//! | `access::transfer_ownership` | creator | `KEY_CREATOR` | `require_auth_creator` |
+//! | `contribute::contribute`, `delegate_contribution`, `contribute_on_behalf`, `revoke_delegation` | contributor / delegator / delegate | function argument | `AccessControl::require_role_auth` |
+//! | `refund::refund_partial`, `refund_matching_sponsor` | contributor / creator | argument / `KEY_CREATOR` | `AccessControl::require_role_auth` |
+//! | `withdraw::*` | creator or admin | `KEY_CREATOR` / `KEY_ADMIN` | `require_auth_creator` / `auth_admin` |
+//! | `metadata::update_metadata`, `update_ipfs_cid` | creator | `KEY_CREATOR` | `require_auth_creator` |
+//! | `recurring::setup`, `cancel` | contributor | function argument | `AccessControl::require_role_auth` |
+//! | `lib.rs` privileged endpoints (deadline, goal, category, emergency, matching, insurance, milestones, disputes, governance, yield, caps) | creator / admin / approver / sponsor / filer / voter / proposer / governor | `KEY_CREATOR` / `KEY_ADMIN` / function argument | `require_auth_creator` / `auth_admin` / `AccessControl::require_role_auth` |
+//!
+//! The `access_control_audit` integration test fails if a direct
+//! `.require_auth()` call is reintroduced anywhere under `src/`.
 
 use soroban_sdk::{Address, Env};
 
@@ -50,7 +72,7 @@ pub(crate) fn add_to_whitelist(env: Env, address: Address) -> Result<(), Contrac
         TTL_PERSISTENT_ENTRY,
     );
     env.events()
-        .publish(("campaign", "whitelisted"), EventWhitelisted { address });
+        .publish(("crowdfund", "whitelisted"), EventWhitelisted { address });
     Ok(())
 }
 
@@ -61,7 +83,7 @@ pub(crate) fn remove_from_whitelist(env: Env, address: Address) -> Result<(), Co
         .persistent()
         .remove(&DataKey::Whitelist(address.clone()));
     env.events().publish(
-        ("campaign", "whitelist_removed"),
+        ("crowdfund", "whitelist_removed"),
         EventWhitelistRemoved { address },
     );
     Ok(())
@@ -74,7 +96,7 @@ pub(crate) fn set_whitelist_only(env: Env, enabled: bool) -> Result<(), Contract
         .instance()
         .set(&DataKey::WhitelistOnly, &enabled);
     env.events().publish(
-        ("campaign", "whitelist_only_set"),
+        ("crowdfund", "whitelist_only_set"),
         EventWhitelistOnlySet { enabled },
     );
     Ok(())
@@ -102,7 +124,7 @@ pub(crate) fn add_to_blacklist(env: Env, address: Address) -> Result<(), Contrac
         TTL_PERSISTENT_ENTRY,
     );
     env.events()
-        .publish(("campaign", "blacklisted"), EventBlacklisted { address });
+        .publish(("crowdfund", "blacklisted"), EventBlacklisted { address });
     Ok(())
 }
 
@@ -113,7 +135,7 @@ pub(crate) fn remove_from_blacklist(env: Env, address: Address) -> Result<(), Co
         .persistent()
         .remove(&DataKey::Blacklist(address.clone()));
     env.events().publish(
-        ("campaign", "blacklist_removed"),
+        ("crowdfund", "blacklist_removed"),
         EventBlacklistRemoved { address },
     );
     Ok(())
@@ -144,7 +166,7 @@ pub(crate) fn add_to_allowlist(env: Env, address: Address) -> Result<(), Contrac
         TTL_PERSISTENT_ENTRY,
     );
     env.events()
-        .publish(("campaign", "allowlisted"), EventAllowlisted { address });
+        .publish(("crowdfund", "allowlisted"), EventAllowlisted { address });
     Ok(())
 }
 
@@ -155,7 +177,7 @@ pub(crate) fn remove_from_allowlist(env: Env, address: Address) -> Result<(), Co
         .persistent()
         .remove(&DataKey::Whitelist(address.clone()));
     env.events().publish(
-        ("campaign", "allowlist_removed"),
+        ("crowdfund", "allowlist_removed"),
         EventAllowlistRemoved { address },
     );
     Ok(())
@@ -175,24 +197,26 @@ pub(crate) fn add_to_denylist(env: Env, address: Address) -> Result<(), Contract
         TTL_PERSISTENT_ENTRY,
     );
     env.events()
-        .publish(("campaign", "denylisted"), EventDenylisted { address });
+        .publish(("crowdfund", "denylisted"), EventDenylisted { address });
     Ok(())
 }
 
 /// Removes an address from the deny list (admin only).
+#[cfg(test)]
 pub(crate) fn remove_from_denylist(env: Env, address: Address) -> Result<(), ContractError> {
     auth_admin(&env)?;
     env.storage()
         .persistent()
         .remove(&DataKey::Blacklist(address.clone()));
     env.events().publish(
-        ("campaign", "denylist_removed"),
+        ("crowdfund", "denylist_removed"),
         EventDenylistRemoved { address },
     );
     Ok(())
 }
 
 /// Returns `true` if the address is on the allow list.
+#[cfg(test)]
 pub(crate) fn is_allowlisted(env: Env, address: Address) -> bool {
     env.storage()
         .persistent()
@@ -201,6 +225,7 @@ pub(crate) fn is_allowlisted(env: Env, address: Address) -> bool {
 }
 
 /// Returns `true` if the address is on the deny list.
+#[cfg(test)]
 pub(crate) fn is_denylisted(env: Env, address: Address) -> bool {
     env.storage()
         .persistent()
@@ -217,7 +242,7 @@ pub(crate) fn set_visibility(env: Env, visibility: Visibility) -> Result<(), Con
     let old: Visibility = inst.get(&KEY_VISIBILITY).unwrap_or(Visibility::Public);
     inst.set(&KEY_VISIBILITY, &visibility);
     env.events().publish(
-        ("campaign", "visibility_changed"),
+        ("crowdfund", "visibility_changed"),
         EventVisibilityChanged {
             old_visibility: old,
             new_visibility: visibility,
@@ -253,7 +278,7 @@ pub(crate) fn transfer_ownership(env: Env, new_owner: Address) -> Result<(), Con
     inst.set(&KEY_ADMIN, &new_owner);
 
     env.events().publish(
-        ("campaign", "ownership_transferred"),
+        ("crowdfund", "ownership_transferred"),
         EventOwnershipTransferred {
             previous_owner: creator,
             new_owner,
@@ -281,16 +306,16 @@ pub(crate) fn pause(env: Env) -> Result<(), ContractError> {
     let unpause_after = now.saturating_add(timelock);
     inst.set(&KEY_UNPAUSE_AFTER, &unpause_after);
     env.events().publish(
-        ("campaign", "paused_with_timelock"),
+        ("crowdfund", "paused_with_timelock"),
         EventPausedWithTimelock {
             timestamp: now,
             unpause_after,
         },
     );
     env.events()
-        .publish(("campaign", "paused"), EventPaused { timestamp: now });
+        .publish(("crowdfund", "paused"), EventPaused { timestamp: now });
     env.events().publish(
-        ("campaign", "status_changed"),
+        ("crowdfund", "status_changed"),
         EventStatusChanged {
             old_status: Status::Active,
             new_status: Status::Paused,
@@ -315,9 +340,9 @@ pub(crate) fn resume(env: Env) -> Result<(), ContractError> {
     }
     inst.set(&KEY_STATUS, &Status::Active);
     env.events()
-        .publish(("campaign", "resumed"), EventResumed { timestamp: now });
+        .publish(("crowdfund", "resumed"), EventResumed { timestamp: now });
     env.events().publish(
-        ("campaign", "status_changed"),
+        ("crowdfund", "status_changed"),
         EventStatusChanged {
             old_status: Status::Paused,
             new_status: Status::Active,
@@ -349,7 +374,7 @@ pub(crate) fn set_rate_limit(
     if max_amount == 0 {
         inst.remove(&KEY_RATE_LIMIT);
         env.events().publish(
-            ("campaign", "rate_limit_updated"),
+            ("crowdfund", "rate_limit_updated"),
             EventRateLimitUpdated {
                 max_amount: 0,
                 window_seconds: 0,
@@ -368,7 +393,7 @@ pub(crate) fn set_rate_limit(
         },
     );
     env.events().publish(
-        ("campaign", "rate_limit_updated"),
+        ("crowdfund", "rate_limit_updated"),
         EventRateLimitUpdated {
             max_amount,
             window_seconds,

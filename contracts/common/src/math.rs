@@ -7,7 +7,8 @@
 /// Maximum basis points (10,000 = 100%).
 pub const BASIS_POINTS_MAX: i128 = 10_000;
 
-/// Maximum reward divisor used in crowdfund reward token calculations.
+/// Divisor used to convert stroops into whole units for reward and points
+/// calculations.
 pub const REWARD_DIVISOR: i128 = 1_000_000;
 
 /// Apply a basis-point fee/ratio to an amount using checked arithmetic.
@@ -60,9 +61,28 @@ pub fn proportional(
         .ok_or(crate::CommonError::InvalidInput)
 }
 
+/// Ratio expressed in basis points, capped at 10,000 (100%).
+///
+/// Returns `numerator * 10_000 / denominator`. Numerators at or above the
+/// denominator return 10,000; saturating multiplication prevents overflow for
+/// extreme values. Returns `0` for non-positive inputs or a zero denominator.
+/// This is the shared replacement for the progress/success-rate calculations
+/// in analytics views.
+pub fn ratio_bps(numerator: i128, denominator: i128) -> u32 {
+    if numerator <= 0 || denominator <= 0 {
+        return 0;
+    }
+    if numerator >= denominator {
+        return BASIS_POINTS_MAX as u32;
+    }
+    let raw = numerator.saturating_mul(BASIS_POINTS_MAX) / denominator;
+    raw.min(BASIS_POINTS_MAX) as u32
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
 
     #[test]
     fn test_apply_bps_basic() {
@@ -172,5 +192,45 @@ mod tests {
             proportional(i128::MIN, -1, 1),
             Err(crate::CommonError::InvalidInput)
         );
+    }
+
+    #[test]
+    fn test_ratio_bps_basic() {
+        assert_eq!(ratio_bps(5_000, 10_000), 5_000);
+        assert_eq!(ratio_bps(1, 2), 5_000);
+        assert_eq!(ratio_bps(10_000, 10_000), 10_000);
+    }
+
+    #[test]
+    fn test_ratio_bps_caps_at_100_percent() {
+        assert_eq!(ratio_bps(20_000, 10_000), 10_000);
+        assert_eq!(ratio_bps(i128::MAX, 1), BASIS_POINTS_MAX as u32);
+    }
+
+    #[test]
+    fn test_ratio_bps_zero_and_negative_inputs() {
+        assert_eq!(ratio_bps(0, 10_000), 0);
+        assert_eq!(ratio_bps(1, 0), 0);
+        assert_eq!(ratio_bps(-1, 10_000), 0);
+        assert_eq!(ratio_bps(1, -1), 0);
+    }
+
+    proptest! {
+        #[test]
+        fn prop_ratio_bps_is_bounded_and_matches_checked_formula(
+            numerator in any::<i128>(),
+            denominator in any::<i128>(),
+        ) {
+            let bps = ratio_bps(numerator, denominator);
+            prop_assert!(bps <= BASIS_POINTS_MAX as u32);
+
+            if numerator <= 0 || denominator <= 0 {
+                prop_assert_eq!(bps, 0);
+            } else if numerator >= denominator {
+                prop_assert_eq!(bps, BASIS_POINTS_MAX as u32);
+            } else if let Some(scaled) = numerator.checked_mul(BASIS_POINTS_MAX) {
+                prop_assert_eq!(bps, (scaled / denominator).min(BASIS_POINTS_MAX) as u32);
+            }
+        }
     }
 }

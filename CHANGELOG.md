@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **#1518/#1519 Shared resilience primitives** — moved the generic three-state circuit
+  breaker into `@fund-my-cause/shared-utils` and added a shared exponential-backoff retry
+  helper. Indexer HTTP/RPC clients and the Horizon wrapper now delegate to the shared
+  implementations; existing `@fund-my-cause/rpc-client` and indexer imports remain valid.
+- **Crowdfund event topics renamed from `("campaign", <event>)` to `("crowdfund", <event>)`** (see
+  ADR-010). Event names and payloads are unchanged. Indexers must subscribe to the `crowdfund`
+  scope for campaign events; events emitted before this release keep the old scope on the ledger.
+- **#1350 Campaigns page split into container/presentational components** — `CampaignList`,
+  `CampaignFilters`, and `CampaignCard` extracted to `src/components/campaigns/`; the page
+  now wires state through a `CampaignsContainer` and delegates rendering to those presentational
+  components.
+
+### Added
+- **#1531 90 % line-coverage floor on crowdfund contract** — `make contracts:coverage` runs
+  `cargo llvm-cov` for the `crowdfund` package and fails with a non-zero exit code when line
+  coverage drops below 90 %. New branch tests in
+  `contracts/crowdfund/tests/refund_withdraw_coverage.rs` exercise previously-uncovered guards
+  in `src/refund.rs` and `src/withdraw.rs` (AlreadyWithdrawn, GoalNotReached, soft_cap path,
+  partial-release proportional refund, record_release accumulation).
+
 ### Removed
 - **Deprecated `/health` endpoint** — removed the legacy `GET /health` route from
   `backend/recommendations/service.py` and `backend/fraud_detection/pipeline.py`. It was a

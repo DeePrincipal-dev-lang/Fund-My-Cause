@@ -50,7 +50,7 @@ fn contribution_family_snapshot() {
     c.client
         .contribute(&contributor, &1_000, &c.token_id, &None);
 
-    let data = event_data(&env, &c.contract_id, "campaign", "contributed");
+    let data = event_data(&env, &c.contract_id, "crowdfund", "contributed");
     let ev = EventContributed::try_from_val(&env, &data).unwrap();
     assert_eq!(ev.contributor, contributor);
     assert_eq!(ev.amount, 1_000);
@@ -76,7 +76,7 @@ fn refund_family_snapshot() {
     env.ledger().set_timestamp(deadline + 1);
     c.client.refund_single(&contributor);
 
-    let data = event_data(&env, &c.contract_id, "campaign", "refunded");
+    let data = event_data(&env, &c.contract_id, "crowdfund", "refunded");
     let ev = EventRefunded::try_from_val(&env, &data).unwrap();
     assert_eq!(ev.contributor, contributor);
     assert_eq!(ev.amount, 1_000);
@@ -102,7 +102,7 @@ fn withdrawal_family_snapshot() {
     env.ledger().set_timestamp(deadline + 1);
     c.client.withdraw();
 
-    let data = event_data(&env, &c.contract_id, "campaign", "withdrawn");
+    let data = event_data(&env, &c.contract_id, "crowdfund", "withdrawn");
     let ev = EventWithdrawn::try_from_val(&env, &data).unwrap();
     assert_eq!(ev.creator, c.creator);
     assert_eq!(ev.total, goal);
@@ -120,7 +120,7 @@ fn campaign_lifecycle_family_snapshot() {
     env.ledger().set_timestamp(100);
     c.client.cancel_campaign();
 
-    let data = event_data(&env, &c.contract_id, "campaign", "cancelled");
+    let data = event_data(&env, &c.contract_id, "crowdfund", "cancelled");
     let ev = EventCancelled::try_from_val(&env, &data).unwrap();
     assert_eq!(ev.creator, c.creator);
     assert_eq!(ev.total_raised, 0);

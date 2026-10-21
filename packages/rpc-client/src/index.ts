@@ -6,11 +6,12 @@
  *  - `createRpcServer`  — factory that constructs a `rpc.Server` with
  *                         consistent options (allowHttp derived from URL).
  *  - `CircuitBreaker`   — three-state circuit breaker (CLOSED / OPEN / HALF_OPEN)
- *                         that wraps outbound RPC calls to prevent cascading failures.
+ *                         re-exported from `@fund-my-cause/shared-utils`.
  *  - `CircuitOpenError` — thrown by CircuitBreaker when the circuit is OPEN.
  *
  * All services should import from this package rather than constructing
- * `rpc.Server` directly or copying the CircuitBreaker implementation.
+ * `rpc.Server` directly. New code that only needs the breaker or retry helper
+ * should import them from `@fund-my-cause/shared-utils` directly.
  */
 
 export { createRpcServer } from "./factory.js";

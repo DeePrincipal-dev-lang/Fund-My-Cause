@@ -38,3 +38,4 @@ You do **not** need an ADR for routine implementation choices (which library to 
 | [ADR-007](./ADR-007-stellar-contract-upgrade-strategy.md) | Stellar contract upgrade strategy & state migration | Accepted |
 | [ADR-008](./ADR-008-fraud-detection-scoring-pipeline-design.md) | Fraud-detection scoring pipeline design | Accepted |
 | [ADR-009](./ADR-009-crowdfund-storage-layout-and-upgrade.md) | Crowdfund storage layout and upgrade strategy | Proposed |
+| [ADR-010](./ADR-010-contract-event-naming-convention.md) | Contract event naming and topic convention | Proposed |

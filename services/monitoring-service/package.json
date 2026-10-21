@@ -27,6 +27,7 @@
   "author": "Fund My Cause Team",
   "license": "MIT",
   "dependencies": {
+    "@fund-my-cause/shared-utils": "file:../../packages/shared-utils",
     "@types/express": "^4.17.21",
     "@types/node": "^20.10.6",
     "axios": "^1.6.5",

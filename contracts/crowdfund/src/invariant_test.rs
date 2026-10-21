@@ -353,3 +353,114 @@ fn invariant_empty_campaign() {
 
     assert_eq!(client.total_raised(), 0);
 }
+
+// ── Panic Regression Tests ───────────────────────────────────────────────────
+//
+// These tests guard against regressions where production paths previously used
+// `unwrap()` and would panic on bad input. Each path must now surface a typed
+// `ContractError` via the `try_*` client methods instead of trapping.
+
+/// Helper: register a contract without initializing it.
+fn setup_uninitialized(env: &Env) -> CrowdfundContractClient<'_> {
+    env.mock_all_auths();
+    let contract_id = env.register_contract(None, CrowdfundContract);
+    CrowdfundContractClient::new(env, &contract_id)
+}
+
+#[test]
+fn panic_regression_uninitialized_total_raised_returns_typed_error() {
+    let env = Env::default();
+    let client = setup_uninitialized(&env);
+
+    // Previously could panic on a missing storage key; must now be a typed error.
+    let result = client.try_total_raised();
+    assert_eq!(result, Err(Ok(ContractError::NotInitialized)));
+}
+
+#[test]
+fn panic_regression_uninitialized_contribute_returns_typed_error() {
+    let env = Env::default();
+    let client = setup_uninitialized(&env);
+
+    let contributor = Address::generate(&env);
+    let token_admin = Address::generate(&env);
+    let token_id = env.register_stellar_asset_contract(token_admin.clone());
+
+    let result = client.try_contribute(&contributor, &1_000, &token_id, &None);
+    assert_eq!(result, Err(Ok(ContractError::NotInitialized)));
+}
+
+#[test]
+fn panic_regression_uninitialized_contribution_returns_typed_error() {
+    let env = Env::default();
+    let client = setup_uninitialized(&env);
+
+    let contributor = Address::generate(&env);
+    let result = client.try_contribution(&contributor);
+    assert_eq!(result, Err(Ok(ContractError::NotInitialized)));
+}
+
+#[test]
+fn panic_regression_uninitialized_cancel_returns_typed_error() {
+    let env = Env::default();
+    let client = setup_uninitialized(&env);
+
+    let result = client.try_cancel_campaign();
+    assert_eq!(result, Err(Ok(ContractError::NotInitialized)));
+}
+
+#[test]
+fn panic_regression_bad_input_zero_contribution_returns_typed_error() {
+    let env = Env::default();
+    let (_creator, token_id, client, token_admin_client) =
+        setup_contract(&env, 1_000, 1_000_000, 100);
+
+    let contrib = Address::generate(&env);
+    token_admin_client.mint(&contrib, &1_000);
+
+    // Zero amount is invalid input; must be a typed error, not a panic.
+    let result = client.try_contribute(&contrib, &0, &token_id, &None);
+    assert_eq!(result, Err(Ok(ContractError::InvalidAmount)));
+}
+
+#[test]
+fn panic_regression_bad_input_negative_contribution_returns_typed_error() {
+    let env = Env::default();
+    let (_creator, token_id, client, token_admin_client) =
+        setup_contract(&env, 1_000, 1_000_000, 100);
+
+    let contrib = Address::generate(&env);
+    token_admin_client.mint(&contrib, &1_000);
+
+    let result = client.try_contribute(&contrib, &-1, &token_id, &None);
+    assert_eq!(result, Err(Ok(ContractError::InvalidAmount)));
+}
+
+#[test]
+fn panic_regression_below_min_contribution_returns_typed_error() {
+    let env = Env::default();
+    let (_creator, token_id, client, token_admin_client) =
+        setup_contract(&env, 1_000, 1_000_000, 100);
+
+    let contrib = Address::generate(&env);
+    token_admin_client.mint(&contrib, &1_000);
+
+    // Below the configured minimum; must be a typed error, not a panic.
+    let result = client.try_contribute(&contrib, &50, &token_id, &None);
+    assert_eq!(result, Err(Ok(ContractError::BelowMinimum)));
+}
+
+#[test]
+fn panic_regression_refund_without_cancellation_returns_typed_error() {
+    let env = Env::default();
+    let (_creator, token_id, client, token_admin_client) =
+        setup_contract(&env, 10_000, 1_000_000, 100);
+
+    let contrib = Address::generate(&env);
+    token_admin_client.mint(&contrib, &10_000);
+    client.contribute(&contrib, &10_000, &token_id, &None);
+
+    // Refund before cancellation is invalid; must be a typed error, not a panic.
+    let result = client.try_refund_single(&contrib);
+    assert_eq!(result, Err(Ok(ContractError::CampaignStillActive)));
+}

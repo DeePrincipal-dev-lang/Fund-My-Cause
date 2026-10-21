@@ -40,16 +40,6 @@ VALID_PAYLOAD = {
 }
 
 
-def _clear():
-    _CONTRIBUTIONS.clear()
-    _REFUNDS.clear()
-    _CAMPAIGN_RECORDS.clear()
-    _QUEUE.clear()
-    # Reset the idempotency store between tests.
-    _IDEMPOTENCY_STORE._store.clear()
-    _IDEMPOTENCY_STORE._expiry_queue.clear()
-
-
 def _new_key() -> str:
     return str(uuid.uuid4())
 
@@ -57,9 +47,6 @@ def _new_key() -> str:
 # ── Basic acceptance ───────────────────────────────────────────────────────────
 
 class TestBasicAcceptance:
-    def setup_method(self):
-        _clear()
-
     def test_first_request_without_key_accepted(self):
         r = client.post("/contributions", json=VALID_PAYLOAD)
         assert r.status_code == 202
@@ -90,9 +77,6 @@ class TestBasicAcceptance:
 # ── Duplicate rejection ────────────────────────────────────────────────────────
 
 class TestDuplicateRejection:
-    def setup_method(self):
-        _clear()
-
     def test_duplicate_key_returns_202_not_reprocessed(self):
         """Second request with same key must not append to _CONTRIBUTIONS."""
         key = _new_key()
@@ -155,9 +139,6 @@ class TestDuplicateRejection:
 # ── Concurrent duplicates ──────────────────────────────────────────────────────
 
 class TestConcurrentDuplicates:
-    def setup_method(self):
-        _clear()
-
     def test_concurrent_same_key_only_processes_once(self):
         """
         Simulate two requests arriving at roughly the same time with the same
@@ -186,9 +167,6 @@ class TestConcurrentDuplicates:
 # ── TTL expiry ─────────────────────────────────────────────────────────────────
 
 class TestTTLExpiry:
-    def setup_method(self):
-        _clear()
-
     def test_expired_key_allows_reprocessing(self, monkeypatch):
         """After TTL expires the same key should be accepted as a new request."""
         key = _new_key()
@@ -218,9 +196,6 @@ class TestTTLExpiry:
 # ── Input validation ───────────────────────────────────────────────────────────
 
 class TestInputValidation:
-    def setup_method(self):
-        _clear()
-
     def test_oversized_key_rejected_400(self):
         oversized = "x" * (IDEMPOTENCY_KEY_MAX_LEN + 1)
         r = client.post(

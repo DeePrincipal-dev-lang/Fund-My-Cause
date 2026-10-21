@@ -297,6 +297,7 @@ dependencies = [
 name = "common"
 version = "0.1.0"
 dependencies = [
+ "proptest",
  "soroban-sdk",
 ]
 
@@ -1100,6 +1101,7 @@ dependencies = [
 name = "qf"
 version = "0.1.0"
 dependencies = [
+ "common",
  "proptest",
  "soroban-sdk",
 ]

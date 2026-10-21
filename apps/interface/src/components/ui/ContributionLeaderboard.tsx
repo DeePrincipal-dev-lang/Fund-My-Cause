@@ -76,6 +76,9 @@ function RankDeltaBadge({ delta }: { delta: number | null }) {
   );
 }
 
+// Only one page of rows is ever in the DOM: the server returns `pageSize` entries (10 by default)
+// per request, so the table stays small however many contributors a campaign has. Virtualising it
+// would add cost without any benefit, so rows are not virtualised.
 export function ContributionLeaderboard({
   contractId,
   totalRaised,

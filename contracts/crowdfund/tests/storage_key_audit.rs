@@ -76,6 +76,101 @@ fn every_row_declares_a_recognised_ttl_policy() {
             matches!(storage.as_str(), "persistent" | "instance" | "none"),
             "{name} has an unknown storage kind: {storage:?}"
         );
+        match storage.as_str() {
+            "persistent" => assert!(
+                policy.starts_with("persistent:") && policy.contains("TTL_PERSISTENT_ENTRY"),
+                "{name} is persistent but its policy does not bump TTL_PERSISTENT_ENTRY: {policy:?}"
+            ),
+            "instance" => assert!(
+                policy.starts_with("instance:")
+                    && policy.contains("TTL_INSTANCE_EXTEND_MIN")
+                    && policy.contains("TTL_INSTANCE_EXTEND_MAX"),
+                "{name} is instance-backed but its policy is not the contract-wide bump: {policy:?}"
+            ),
+            "none" => assert!(
+                policy.starts_with("reserved:"),
+                "{name} is unused but is not marked reserved: {policy:?}"
+            ),
+            _ => unreachable!(),
+        }
+    }
+}
+
+/// All Rust sources under `src/`, so TTL calls made outside `storage.rs` are
+/// visible to the audit.
+fn contract_sources() -> Vec<String> {
+    fn visit(dir: &std::path::Path, out: &mut Vec<String>) {
+        for entry in std::fs::read_dir(dir).expect("read src directory") {
+            let path = entry.expect("read dir entry").path();
+            if path.is_dir() {
+                visit(&path, out);
+            } else if path.extension().and_then(|e| e.to_str()) == Some("rs") {
+                out.push(std::fs::read_to_string(&path).expect("read Rust source"));
+            }
+        }
+    }
+
+    let src = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+    let mut out = Vec::new();
+    visit(&src, &mut out);
+    out
+}
+
+#[test]
+fn every_persistent_data_key_write_extends_ttl() {
+    let sources: Vec<String> = contract_sources()
+        .iter()
+        .map(|s| s.chars().filter(|c| !c.is_whitespace()).collect())
+        .collect();
+
+    let set_needle = "persistent().set(&DataKey::";
+    let ttl_needle = "persistent().extend_ttl(&DataKey::";
+    let mut writes = 0;
+
+        for source in &sources {
+            for (idx, _) in source.match_indices(set_needle) {
+                writes += 1;
+                let end = source.len().min(idx + 320);
+                let window = source.get(idx..end).unwrap_or(&source[idx..]);
+                assert!(
+                    window.contains(ttl_needle),
+                    "a persistent DataKey write is not followed by a TTL bump: {window}"
+                );
+            }
+        }
+
+    assert!(writes > 0, "expected at least one persistent DataKey write");
+}
+
+#[test]
+fn every_persistent_key_is_extended_on_write() {
+    let sources: Vec<String> = contract_sources()
+        .iter()
+        .map(|s| s.chars().filter(|c| !c.is_whitespace()).collect())
+        .collect();
+
+    for (name, _, storage, _) in table_rows() {
+        if storage != "persistent" {
+            continue;
+        }
+
+        let set_needle = format!("persistent().set(&{name}");
+        let ttl_needle = format!("persistent().extend_ttl(&{name}");
+        let mut writes = 0;
+
+        for source in &sources {
+            for (idx, _) in source.match_indices(&set_needle) {
+                writes += 1;
+                let end = source.len().min(idx + 400);
+                let window = source.get(idx..end).unwrap_or(&source[idx..]);
+                assert!(
+                    window.contains(&ttl_needle),
+                    "{name} is written without an immediate TTL bump: {window}"
+                );
+            }
+        }
+
+        assert!(writes > 0, "{name} is documented as persistent but never written");
     }
 }
 

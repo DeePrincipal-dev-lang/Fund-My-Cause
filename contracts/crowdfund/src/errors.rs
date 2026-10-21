@@ -157,6 +157,11 @@ pub enum ContractError {
     NothingToRefund = 71,
     /// The campaign is not currently paused
     NotPaused = 72,
+    // ── Issue #1569/#1571: Metadata limit errors ─────────────────────────────
+    /// Campaign metadata exceeds the maximum allowed size
+    MetadataTooLong = 73,
+    /// Campaign metadata is invalid (empty or malformed)
+    InvalidMetadata = 74,
 }
 
 impl From<common::CommonError> for ContractError {

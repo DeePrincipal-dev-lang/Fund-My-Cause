@@ -88,74 +88,13 @@ pub fn setup_upgrade_campaign(env: &Env) -> Campaign<'_> {
     setup(env, 10_000, 1_000_000, None)
 }
 
-// ── Upgrade-path seeding harness ──────────────────────────────────────────────
-
-/// A contract whose storage was written at the old schema version (v5).
+/// Mint `amount` tokens to a fresh address and contribute them to the campaign.
 ///
-/// Returned by [`seed_old_schema`] so that `migration_harness.rs` and any
-/// future upgrade-step test can use a single, authoritative seeding
-/// implementation rather than each duplicating the `env.as_contract` block
-/// (issue #1565).
-#[allow(dead_code)]
-pub struct SeededCampaign {
-    pub contract_id: Address,
-    pub creator: Address,
-    pub token_id: Address,
-    pub contributor: Address,
-}
-
-/// Write the instance + persistent storage keys exactly as `initialize`
-/// would have at schema v5, including a prior `4 → 5` migration record.
-///
-/// All writes happen inside `env.as_contract` so they land in the registered
-/// contract's storage, not the test's.  Tests that need to call
-/// `migrate_version` against this state should use [`test_utils::setup_env`]
-/// (which pre-enables `mock_all_auths`) as the environment.
-#[allow(dead_code)]
-pub fn seed_old_schema(env: &Env) -> SeededCampaign {
-    let creator = Address::generate(env);
-    let token_admin = Address::generate(env);
-    let token_id = env.register_stellar_asset_contract(token_admin);
-    let contract_id = env.register_contract(None, CrowdfundContract);
+/// Returns the contributor address so callers can make assertions about balances.
+#[allow(dead_code)] // used by refund_withdraw_coverage.rs and other test files
+pub fn fund(env: &Env, c: &Campaign<'_>, amount: i128) -> Address {
     let contributor = Address::generate(env);
-
-    env.as_contract(&contract_id, || {
-        let inst = env.storage().instance();
-        inst.set(&KEY_CONTRACT_VERSION, &5u32);
-        inst.set(&KEY_ADMIN, &creator);
-        inst.set(&KEY_CREATOR, &creator);
-        inst.set(&KEY_TOKEN, &token_id);
-        inst.set(&KEY_GOAL, &10_000i128);
-        inst.set(&KEY_DEADLINE, &1_000_000u64);
-        inst.set(&KEY_TOTAL, &2_500i128);
-        inst.set(&KEY_STATUS, &Status::Active);
-        inst.set(&KEY_MIN, &100i128);
-        inst.set(&KEY_MAX, &0i128);
-        inst.set(&KEY_TITLE, &String::from_str(env, "Old Campaign"));
-        inst.set(&KEY_DESC, &String::from_str(env, "Seeded at schema v5"));
-        inst.set(&KEY_CATEGORY, &Category::Technology);
-        inst.set(&KEY_VISIBILITY, &Visibility::Public);
-        inst.set(&KEY_START_TIME, &100u64);
-        inst.set(&DataKey::ContributorCount, &1u32);
-        inst.set(&DataKey::LargestContribution, &2_500i128);
-
-        let pers = env.storage().persistent();
-        pers.set(&DataKey::Contribution(contributor.clone()), &2_500i128);
-        pers.set(&DataKey::ContributorPresence(contributor.clone()), &true);
-
-        let mut history: Vec<VersionMigration> = Vec::new(env);
-        history.push_back(VersionMigration {
-            from_version: 4,
-            to_version: 5,
-            timestamp: 100,
-        });
-        pers.set(&KEY_VERSION_HISTORY, &history);
-    });
-
-    SeededCampaign {
-        contract_id,
-        creator,
-        token_id,
-        contributor,
-    }
+    c.token_admin.mint(&contributor, &amount);
+    c.client.contribute(&contributor, &amount, &c.token_id, &None);
+    contributor
 }

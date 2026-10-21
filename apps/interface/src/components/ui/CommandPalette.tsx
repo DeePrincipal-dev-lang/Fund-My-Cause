@@ -155,6 +155,17 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
     }
   }, [isOpen]);
 
+  // Remember what had focus before the palette opened, and return focus there on close.
+  const triggerRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (isOpen) {
+      triggerRef.current = document.activeElement as HTMLElement | null;
+    } else if (triggerRef.current) {
+      triggerRef.current.focus();
+      triggerRef.current = null;
+    }
+  }, [isOpen]);
+
   // Handle keyboard events
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {

@@ -37,21 +37,6 @@ import scoring
 client = TestClient(app)
 
 
-def _clear():
-    _CONTRIBUTIONS.clear()
-    _REFUNDS.clear()
-    _CAMPAIGN_RECORDS.clear()
-    _QUEUE.clear()
-    scoring._last_duplicate_scan_at = 0.0
-    # Drain the scoring queue
-    while not _scoring_queue.empty():
-        try:
-            _scoring_queue.get_nowait()
-            _scoring_queue.task_done()
-        except asyncio.QueueEmpty:
-            break
-
-
 # ── Dead-code regression guards (#900) ───────────────────────────────────────
 
 def test_no_dead_feature_flag_branches():
@@ -137,8 +122,6 @@ def test_scoring_regression_fixed_transaction_set():
     Any change to thresholds or heuristics that alters this output MUST be
     accompanied by an intentional update to the expected values below.
     """
-    _clear()
-
     # Wash-contribution fixture: 3 wash cycles within the window
     for i in range(WASH_MIN_OCCURRENCES):
         _CONTRIBUTIONS.append(ContributionEvent("CAMP_WASH", "GWASH", 1000, _FIXED_NOW + i * 10))
@@ -173,98 +156,9 @@ def test_scoring_regression_fixed_transaction_set():
     assert dup_flags[0].campaign_id == "DUP_B"
 
 
-# ── Wash contribution ─────────────────────────────────────────────────────────
-
-def test_wash_contribution_flagged():
-    _clear()
-    now = time.time()
-    for i in range(WASH_MIN_OCCURRENCES):
-        _CONTRIBUTIONS.append(ContributionEvent("camp1", "GWASH", 1000, now + i * 10))
-        _REFUNDS.append(RefundEvent("camp1", "GWASH", now + i * 10 + 60))
-
-    flags = scan_wash_contributions()
-    assert len(flags) == 1
-    assert flags[0].reason == FlagReason.WASH_CONTRIBUTION
-    assert flags[0].wallet == "GWASH"
-
-
-def test_wash_below_threshold_not_flagged():
-    _clear()
-    now = time.time()
-    # WASH_MIN_OCCURRENCES - 1 pairs.  Each contribution must only match its
-    # own refund.  Space pairs by > WASH_WINDOW_SECONDS so contributions can't
-    # cross-match refunds from other pairs (the heuristic counts every
-    # contribution→refund pair within the window, not just 1-to-1 pairings).
-    step = WASH_WINDOW_SECONDS + 60  # step wider than the wash window
-    for i in range(WASH_MIN_OCCURRENCES - 1):
-        t = now + i * step
-        _CONTRIBUTIONS.append(ContributionEvent("camp2b", "GCLEAN2", 1000, t))
-        _REFUNDS.append(RefundEvent("camp2b", "GCLEAN2", t + 60))
-
-    flags = scan_wash_contributions()
-    assert flags == []
-
-
-def test_wash_refund_outside_window_not_flagged():
-    _clear()
-    now = time.time()
-    for i in range(WASH_MIN_OCCURRENCES):
-        _CONTRIBUTIONS.append(ContributionEvent("camp3", "GSLOW", 1000, now + i * 10))
-        # Refund after window expires
-        _REFUNDS.append(RefundEvent("camp3", "GSLOW", now + WASH_WINDOW_SECONDS + 3600))
-
-    flags = scan_wash_contributions()
-    assert flags == []
-
-
-# ── Contribution spike ────────────────────────────────────────────────────────
-
-def test_spike_flagged():
-    _clear()
-    now = time.time()
-    for i in range(SPIKE_MAX_CONTRIBUTIONS + 1):
-        _CONTRIBUTIONS.append(ContributionEvent("campSpike", f"G{i}", 100, now + i))
-
-    flags = scan_contribution_spikes()
-    assert len(flags) == 1
-    assert flags[0].reason == FlagReason.CONTRIBUTION_SPIKE
-
-
-def test_spike_below_threshold_not_flagged():
-    _clear()
-    now = time.time()
-    for i in range(SPIKE_MAX_CONTRIBUTIONS - 1):
-        _CONTRIBUTIONS.append(ContributionEvent("campOk", f"G{i}", 100, now + i))
-
-    flags = scan_contribution_spikes()
-    assert flags == []
-
-
-# ── Duplicate content ─────────────────────────────────────────────────────────
-
-def test_duplicate_title_flagged():
-    _clear()
-    _CAMPAIGN_RECORDS.append(CampaignRecord("x1", "Fund a Solar Farm Project", "desc"))
-    _CAMPAIGN_RECORDS.append(CampaignRecord("x2", "Fund a Solar Farm Project", "desc2"))
-
-    flags = scan_duplicate_content()
-    assert len(flags) == 1
-    assert flags[0].reason == FlagReason.DUPLICATE_CONTENT
-
-
-def test_different_titles_not_flagged():
-    _clear()
-    _CAMPAIGN_RECORDS.append(CampaignRecord("y1", "Community Garden Initiative", ""))
-    _CAMPAIGN_RECORDS.append(CampaignRecord("y2", "Open Source Wallet Development", ""))
-
-    flags = scan_duplicate_content()
-    assert flags == []
-
-
 # ── Moderation queue endpoint ─────────────────────────────────────────────────
 
 def test_moderation_queue_returns_flags():
-    _clear()
     now = time.time()
     for i in range(WASH_MIN_OCCURRENCES):
         _CONTRIBUTIONS.append(ContributionEvent("cq", "GQ", 1000, now + i * 5))
@@ -286,7 +180,6 @@ def test_contributions_endpoint_returns_queued():
     POST /contributions must return {"status": "queued"} immediately and
     NOT store the contribution synchronously (async path only).
     """
-    _clear()
     initial_count = len(_CONTRIBUTIONS)
 
     payload = {
@@ -306,13 +199,9 @@ def test_contributions_endpoint_returns_queued():
         "Contribution should not be stored synchronously in the async path"
     )
 
-    # Clean up queue
-    _clear()
-
 
 def test_contributions_endpoint_returns_queued_with_queue_depth():
     """queue_depth reported by /metrics must be a non-negative integer."""
-    _clear()
     payload = {
         "campaignId": "CTEST2",
         "contributor": "GASYNC2",
@@ -325,7 +214,6 @@ def test_contributions_endpoint_returns_queued_with_queue_depth():
     depth = client.get("/metrics").json()["queue_depth"]
     assert isinstance(depth, int)
     assert depth >= 0
-    _clear()
 
 
 def test_contributions_endpoint_invalid_payload():
@@ -351,8 +239,6 @@ def test_metrics_queue_depth_reflects_enqueued_jobs():
     After enqueuing N jobs (without a running worker to drain them),
     queue_depth in /metrics should equal N.
     """
-    _clear()
-
     # Enqueue several jobs directly into the queue without a worker draining them.
     n = 3
     for i in range(n):
@@ -371,8 +257,6 @@ def test_metrics_queue_depth_reflects_enqueued_jobs():
         f"Expected queue_depth >= {n}, got {body['queue_depth']}"
     )
 
-    _clear()
-
 
 def test_full_async_path_enqueue_process_result_applied():
     """
@@ -385,8 +269,6 @@ def test_full_async_path_enqueue_process_result_applied():
     synchronous and deterministic: we manually put a job in the queue, call
     the worker body once, and assert the expected side effects.
     """
-    _clear()
-
     # Set up conditions for a wash-contribution flag: 2 existing cycles
     now = time.time()
     for i in range(WASH_MIN_OCCURRENCES - 1):
@@ -440,7 +322,6 @@ def test_full_async_path_enqueue_process_result_applied():
 
 def test_scan_endpoint_still_works():
     """POST /scan should still trigger an async full scan (manual trigger path)."""
-    _clear()
     r = client.post("/scan")
     assert r.status_code == 200
     assert r.json()["status"] == "scan_scheduled"
@@ -458,7 +339,6 @@ def test_duplicate_scan_is_rate_limited_across_repeated_calls():
     worker does, once per contribution) must not re-run the O(N^2)
     duplicate-content scan every time.
     """
-    _clear()
     _CAMPAIGN_RECORDS.append(CampaignRecord("DUP_A", "Fund the Open Commons", "desc"))
     _CAMPAIGN_RECORDS.append(CampaignRecord("DUP_B", "Fund the Open Commons", "desc2"))
 
@@ -483,7 +363,6 @@ def test_duplicate_scan_is_rate_limited_across_repeated_calls():
 
 def test_duplicate_scan_runs_again_after_interval_elapses():
     """Once DUPLICATE_SCAN_MIN_INTERVAL_SECONDS has passed, the duplicate scan runs again."""
-    _clear()
     _CAMPAIGN_RECORDS.append(CampaignRecord("DUP_A", "Fund the Open Commons", "desc"))
     _CAMPAIGN_RECORDS.append(CampaignRecord("DUP_B", "Fund the Open Commons", "desc2"))
 
@@ -497,7 +376,6 @@ def test_duplicate_scan_runs_again_after_interval_elapses():
 
 def test_scan_endpoint_forces_duplicate_scan_bypassing_rate_limit():
     """POST /scan (explicit manual trigger) must bypass the rate limit."""
-    _clear()
     _CAMPAIGN_RECORDS.append(CampaignRecord("DUP_A", "Fund the Open Commons", "desc"))
     _CAMPAIGN_RECORDS.append(CampaignRecord("DUP_B", "Fund the Open Commons", "desc2"))
 

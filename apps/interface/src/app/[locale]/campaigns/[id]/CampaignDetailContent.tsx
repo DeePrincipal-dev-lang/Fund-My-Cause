@@ -35,7 +35,7 @@ import { GoalSuccessModal } from "@/components/ui/GoalSuccessModal";
 import { GoalSuccessBadge } from "@/components/ui/GoalSuccessBadge";
 import { ShareModal } from "@/components/ui/ShareModal";
 import { PausedBanner } from "@/components/ui/PausedBanner";
-import { CampaignAnalytics } from "@/components/ui/CampaignAnalytics";
+import { LazyCampaignAnalytics } from "@/lib/lazy-components";
 import { CampaignDetailSkeleton } from "@fund-my-cause/components";
 import { useTranslations } from "next-intl";
 
@@ -234,7 +234,7 @@ export function CampaignDetailContent({ contractId }: { contractId: string }) {
           </div>
         </div>
 
-        <CampaignAnalytics stats={stats} info={info} />
+        <LazyCampaignAnalytics stats={stats} info={info} />
 
         <p className="leading-relaxed text-gray-700 dark:text-gray-300">
           {info.description}

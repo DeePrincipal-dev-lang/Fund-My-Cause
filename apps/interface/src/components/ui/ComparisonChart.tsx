@@ -3,8 +3,9 @@
 import React, { useState } from "react";
 import type { Campaign } from "@/types/campaign";
 import { cn } from "@/lib/utils";
+import { getComparisonValue, type ComparisonMetric } from "@/lib/comparison";
 
-type ChartMetric = "raised" | "goal" | "progress" | "contributors";
+type ChartMetric = ComparisonMetric;
 
 const CHART_METRICS: { label: string; value: ChartMetric }[] = [
   { label: "Amount Raised", value: "raised" },
@@ -19,23 +20,6 @@ const BAR_COLORS = [
   "hsl(30, 90%, 60%)",
   "hsl(340, 75%, 60%)",
 ];
-
-function getMetricValue(campaign: Campaign, metric: ChartMetric): number {
-  switch (metric) {
-    case "raised":
-      return campaign.raised;
-    case "goal":
-      return campaign.goal;
-    case "progress":
-      return campaign.goal > 0
-        ? Math.round((campaign.raised / campaign.goal) * 100)
-        : 0;
-    case "contributors":
-      return campaign.contributorCount ?? 0;
-    default:
-      return 0;
-  }
-}
 
 function formatValue(value: number, metric: ChartMetric): string {
   switch (metric) {
@@ -60,7 +44,7 @@ export function ComparisonChart({ campaigns }: ComparisonChartProps) {
 
   if (campaigns.length === 0) return null;
 
-  const values = campaigns.map((c) => getMetricValue(c, metric));
+  const values = campaigns.map((c) => getComparisonValue(c, metric));
   const maxValue = Math.max(...values, 1);
 
   return (

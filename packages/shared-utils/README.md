@@ -47,3 +47,5 @@ After running with `--coverage`, reports are written to the `coverage/` director
 | `mappers`      | Raw Soroban contract data → typed DTO mapping |
 | `trace`        | X-Trace-ID generation, validation, and resolution |
 | `db-config`    | Database pool configuration loader with env-based overrides |
+| `retry`        | Exponential backoff retry helper with caller-defined retryability |
+| `circuit-breaker` | Shared three-state circuit breaker with injectable clock and error factory |

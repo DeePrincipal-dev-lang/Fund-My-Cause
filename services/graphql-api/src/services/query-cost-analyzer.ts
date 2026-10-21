@@ -6,6 +6,7 @@ import {
   FragmentDefinitionNode,
 } from "graphql";
 import type { GraphQLSchema } from "graphql";
+import { AppError } from "../errors/AppError.js";
 
 /**
  * Query cost analyzer — calculates the estimated computational cost of a GraphQL query
@@ -112,15 +113,31 @@ export class QueryCostAnalyzer {
     const metrics = this.analyze(document);
 
     if (metrics.exceededLimit) {
-      throw new Error(
+      throw new AppError(
         `Query cost limit exceeded: ${metrics.totalCost} > ${this.maxCost} ` +
           `(${metrics.fieldCount} fields, depth ${metrics.maxDepth})`,
+        {
+          code: "QUERY_TOO_COMPLEX",
+          details: {
+            totalCost: metrics.totalCost,
+            maxCost: this.maxCost,
+            fieldCount: metrics.fieldCount,
+            maxDepth: metrics.maxDepth,
+          },
+        },
       );
     }
 
     if (metrics.maxDepth > this.maxDepth) {
-      throw new Error(
+      throw new AppError(
         `Query depth limit exceeded: ${metrics.maxDepth} > ${this.maxDepth}`,
+        {
+          code: "QUERY_TOO_COMPLEX",
+          details: {
+            depth: metrics.maxDepth,
+            maxDepth: this.maxDepth,
+          },
+        },
       );
     }
   }

@@ -1,5 +1,5 @@
 """
-Fraud-detection scoring layer (#1122).
+Fraud-detection scoring layer (#1122, #1527).
 
 This module contains the pure heuristic logic that detects suspicious
 patterns over contribution and campaign data.  It has NO dependency on
@@ -8,6 +8,12 @@ functions exposed in ``repository.py``.
 
 This separation means that every scoring rule can be unit-tested without
 starting an HTTP server, mocking request contexts, or touching asyncio.
+
+Configuration
+──────────────
+Thresholds are loaded from FraudDetectionConfig at module import time via
+the pipeline module (see pipeline.py). This ensures all configuration is
+validated before any service starts processing requests.
 
 Public API
 ──────────
@@ -50,20 +56,14 @@ from repository import (
 
 log: structlog.BoundLogger = structlog.get_logger("fraud_detection.scoring")
 
-# ---------------------------------------------------------------------------
-# Tuneable thresholds (see docs/fraud-detection-heuristics.md)
-# ---------------------------------------------------------------------------
-
-WASH_WINDOW_SECONDS: int = 3600           # contributions that refund within 1 h
-WASH_MIN_OCCURRENCES: int = 3             # flag after 3 wash cycles
-SPIKE_WINDOW_SECONDS: int = 600           # 10-minute rolling window
-SPIKE_MAX_CONTRIBUTIONS: int = 50         # > 50 contributions in 10 min → spike
-DUPLICATE_JACCARD_THRESHOLD: float = 0.8  # titles ≥ 80 % token overlap → duplicate
-
-# The O(N²) duplicate-content pass is rate-limited so it is not re-run on
-# every single queued contribution.  The worker's per-contribution calls skip
-# it unless this many seconds have passed since the last run.
-# POST /scan bypasses the limit for an explicit on-demand full scan.
+# Configuration is loaded at module import time by pipeline.py
+# These module-level variables are initialized when the module is imported
+# and can be updated for testing via the pipeline module's configuration
+WASH_WINDOW_SECONDS: int = 3600
+WASH_MIN_OCCURRENCES: int = 3
+SPIKE_WINDOW_SECONDS: int = 600
+SPIKE_MAX_CONTRIBUTIONS: int = 50
+DUPLICATE_JACCARD_THRESHOLD: float = 0.8
 DUPLICATE_SCAN_MIN_INTERVAL_SECONDS: int = 30
 
 #: Unix timestamp of the last time scan_duplicate_content() actually ran.

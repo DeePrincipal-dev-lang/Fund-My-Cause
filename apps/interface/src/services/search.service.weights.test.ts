@@ -20,7 +20,7 @@ import {
   loadScoringWeights,
   validateScoringWeights,
   type ScoringWeights,
-} from "@/services/search-weights.config";
+} from "@/services/search.service";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

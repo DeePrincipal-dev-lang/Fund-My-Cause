@@ -64,17 +64,17 @@ struct CampaignSnapshot {
 fn read_campaign_snapshot(env: &Env) -> CampaignSnapshot {
     let inst = env.storage().instance();
     CampaignSnapshot {
-        status: inst.get(&KEY_STATUS).unwrap(),
-        min: inst.get(&KEY_MIN).unwrap(),
+        status: inst.get(&KEY_STATUS).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound)),
+        min: inst.get(&KEY_MIN).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound)),
         max: inst.get(&KEY_MAX).unwrap_or(0),
-        deadline: inst.get(&KEY_DEADLINE).unwrap(),
-        default_token: inst.get(&KEY_TOKEN).unwrap(),
+        deadline: inst.get(&KEY_DEADLINE).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound)),
+        default_token: inst.get(&KEY_TOKEN).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound)),
         rate_limit: inst.get(&KEY_RATE_LIMIT),
         visibility: inst.get(&KEY_VISIBILITY).unwrap_or(Visibility::Public),
         accepted_tokens: inst.get(&DataKey::AcceptedTokens),
-        total: inst.get(&KEY_TOTAL).unwrap(),
-        count: inst.get(&DataKey::ContributorCount).unwrap(),
-        largest: inst.get(&DataKey::LargestContribution).unwrap(),
+        total: inst.get(&KEY_TOTAL).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound)),
+        count: inst.get(&DataKey::ContributorCount).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound)),
+        largest: inst.get(&DataKey::LargestContribution).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound)),
         platform_config: inst.get(&KEY_PLATFORM),
         gross_total: inst.get(&KEY_GROSS_TOTAL).unwrap_or(0),
         insurance_config: inst.get(&KEY_INSURANCE),
@@ -181,7 +181,7 @@ fn enforce_rate_limit(
         .ok_or(ContractError::Overflow)?;
     if new_period > rl.max_amount {
         env.events().publish(
-            ("campaign", "rate_limit_hit"),
+            ("crowdfund", "rate_limit_hit"),
             EventRateLimitHit {
                 contributor: contributor.clone(),
                 attempted: amount,
@@ -421,7 +421,7 @@ fn assign_reward_tier(env: &Env, contributor: &Address, new_contrib: i128) {
 
     if let Some(tier) = best {
         env.events().publish(
-            ("campaign", "tier_assigned"),
+            ("crowdfund", "tier_assigned"),
             EventTierAssigned {
                 contributor: contributor.clone(),
                 tier_name: tier.name.clone(),
@@ -451,7 +451,7 @@ fn emit_contribution_events(
     updated_count: u32,
 ) {
     env.events().publish(
-        ("campaign", "contribution_recorded"),
+        ("crowdfund", "contribution_recorded"),
         EventContributionRecorded {
             contributor: contributor.clone(),
             amount,
@@ -461,7 +461,7 @@ fn emit_contribution_events(
     );
 
     env.events().publish(
-        ("campaign", "contributed"),
+        ("crowdfund", "contributed"),
         EventContributed {
             contributor: contributor.clone(),
             amount,
@@ -472,7 +472,7 @@ fn emit_contribution_events(
     );
 
     env.events().publish(
-        ("campaign", "qf_contribution"),
+        ("crowdfund", "qf_contribution"),
         EventQfContribution {
             contributor,
             amount,
@@ -505,7 +505,7 @@ pub(crate) fn contribute(
     token: Address,
     message: Option<String>,
 ) -> Result<(), ContractError> {
-    contributor.require_auth();
+    common::AccessControl::require_role_auth(&contributor);
 
     validate_positive_amount(amount)?;
 
@@ -587,7 +587,7 @@ pub(crate) fn delegate_contribution(
     delegate: Address,
     amount: i128,
 ) -> Result<(), ContractError> {
-    delegator.require_auth();
+    common::AccessControl::require_role_auth(&delegator);
 
     validate_delegation(amount)?;
 
@@ -606,7 +606,7 @@ pub(crate) fn delegate_contribution(
         TTL_PERSISTENT_ENTRY,
     );
     env.events().publish(
-        ("campaign", "delegation_created"),
+        ("crowdfund", "delegation_created"),
         EventDelegationCreated {
             delegator,
             delegate,
@@ -634,7 +634,7 @@ pub(crate) fn contribute_on_behalf(
     amount: i128,
     token: Address,
 ) -> Result<(), ContractError> {
-    delegate.require_auth();
+    common::AccessControl::require_role_auth(&delegate);
 
     let delegation: Delegation = env
         .storage()
@@ -656,15 +656,15 @@ pub(crate) fn contribute_on_behalf(
     }
 
     // Perform the contribution as if delegator is contributing
-    let min: i128 = env.storage().instance().get(&KEY_MIN).unwrap();
+    let min: i128 = env.storage().instance().get(&KEY_MIN).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound));
     validate_min_contribution(amount, min)?;
 
-    let status: Status = env.storage().instance().get(&KEY_STATUS).unwrap();
+    let status: Status = env.storage().instance().get(&KEY_STATUS).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound));
     if status != Status::Active {
         return Err(ContractError::NotActive);
     }
 
-    let deadline: u64 = env.storage().instance().get(&KEY_DEADLINE).unwrap();
+    let deadline: u64 = env.storage().instance().get(&KEY_DEADLINE).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound));
     validate_deadline_not_passed(env.ledger().timestamp(), deadline)?;
 
     // ── Per-contributor cap (#927: this path previously never enforced ────
@@ -729,7 +729,7 @@ pub(crate) fn contribute_on_behalf(
         TTL_PERSISTENT_ENTRY,
     );
 
-    let total: i128 = env.storage().instance().get(&KEY_TOTAL).unwrap();
+    let total: i128 = env.storage().instance().get(&KEY_TOTAL).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound));
     let new_total = total.checked_add(amount).ok_or(ContractError::Overflow)?;
     env.storage().instance().set(&KEY_TOTAL, &new_total);
 
@@ -750,7 +750,7 @@ pub(crate) fn contribute_on_behalf(
             .storage()
             .instance()
             .get(&DataKey::ContributorCount)
-            .unwrap();
+            .unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound));
         // O(1) indexed write, same pattern as contribute()
         let index_key = DataKey::ContributorIndex(count);
         env.storage().persistent().set(&index_key, &delegator);
@@ -766,7 +766,7 @@ pub(crate) fn contribute_on_behalf(
     }
 
     env.events().publish(
-        ("campaign", "delegated_contribution"),
+        ("crowdfund", "delegated_contribution"),
         EventDelegatedContribution {
             delegator,
             delegate,
@@ -785,7 +785,7 @@ pub(crate) fn contribute_on_behalf(
 /// # Returns
 /// * `Ok(())` on success
 pub(crate) fn revoke_delegation(env: Env, delegator: Address) -> Result<(), ContractError> {
-    delegator.require_auth();
+    common::AccessControl::require_role_auth(&delegator);
 
     let mut delegation: Delegation = env
         .storage()
@@ -797,8 +797,13 @@ pub(crate) fn revoke_delegation(env: Env, delegator: Address) -> Result<(), Cont
     env.storage()
         .persistent()
         .set(&DataKey::Delegation(delegator.clone()), &delegation);
+    env.storage().persistent().extend_ttl(
+        &DataKey::Delegation(delegator.clone()),
+        TTL_PERSISTENT_ENTRY,
+        TTL_PERSISTENT_ENTRY,
+    );
     env.events().publish(
-        ("campaign", "delegation_revoked"),
+        ("crowdfund", "delegation_revoked"),
         EventDelegationRevoked { delegator },
     );
     Ok(())

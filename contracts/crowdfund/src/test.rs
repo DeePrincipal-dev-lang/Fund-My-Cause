@@ -684,6 +684,150 @@ fn update_metadata_with_valid_title_succeeds() {
     assert_eq!(client.title(), String::from_str(&env, "New Title"));
 }
 
+// ── Metadata limit tests (#1569) ──────────────────────────────────────────────
+//
+// `metadata.rs` enforces the following size/content limits:
+//   * title:       non-empty, <= 64 bytes
+//   * description: non-empty, <= 256 bytes
+//   * social links: <= 128 bytes
+//   * IPFS CID:    non-empty, <= 64 bytes
+//   * history:     bounded number of metadata revisions
+//
+// Each limit below has a reject test (input just over the limit) and an accept
+// test (input exactly at the boundary).
+
+/// Builds a `String` of exactly `len` ASCII bytes.
+fn string_of_len(env: &Env, len: usize) -> String {
+    let mut buf = [b'A'; 512];
+    let s = core::str::from_utf8(&buf[..len]).unwrap();
+    String::from_str(env, s)
+}
+
+// ── Title limits ─────────────────────────────────────────────────────────────
+
+#[test]
+fn update_metadata_title_at_max_length_is_accepted() {
+    let env = setup_env();
+    let (_creator, _token_id, client, _) = setup_contract(&env, 1_000, 10_000, 100);
+
+    let title = string_of_len(&env, 64);
+    client.update_metadata(&Some(title.clone()), &None, &None);
+    assert_eq!(client.title(), title);
+}
+
+#[test]
+fn update_metadata_title_over_max_length_is_rejected() {
+    let env = setup_env();
+    let (_creator, _token_id, client, _) = setup_contract(&env, 1_000, 10_000, 100);
+
+    let title = string_of_len(&env, 65);
+    let result = client.try_update_metadata(&Some(title), &None, &None);
+    assert_eq!(result.err(), Some(Ok(ContractError::StringTooLong)));
+}
+
+// ── Description limits ───────────────────────────────────────────────────────
+
+#[test]
+fn update_metadata_description_at_max_length_is_accepted() {
+    let env = setup_env();
+    let (_creator, _token_id, client, _) = setup_contract(&env, 1_000, 10_000, 100);
+
+    let description = string_of_len(&env, 256);
+    client.update_metadata(&None, &Some(description.clone()), &None);
+    assert_eq!(client.description(), description);
+}
+
+#[test]
+fn update_metadata_description_over_max_length_is_rejected() {
+    let env = setup_env();
+    let (_creator, _token_id, client, _) = setup_contract(&env, 1_000, 10_000, 100);
+
+    let description = string_of_len(&env, 257);
+    let result = client.try_update_metadata(&None, &Some(description), &None);
+    assert_eq!(result.err(), Some(Ok(ContractError::StringTooLong)));
+}
+
+#[test]
+fn update_metadata_with_empty_description_is_rejected() {
+    let env = setup_env();
+    let (_creator, _token_id, client, _) = setup_contract(&env, 1_000, 10_000, 100);
+
+    let result = client.try_update_metadata(&None, &Some(String::from_str(&env, "")), &None);
+    assert_eq!(result.err(), Some(Ok(ContractError::StringEmpty)));
+}
+
+// ── Social link limits ───────────────────────────────────────────────────────
+
+#[test]
+fn update_metadata_social_link_at_max_length_is_accepted() {
+    let env = setup_env();
+    let (_creator, _token_id, client, _) = setup_contract(&env, 1_000, 10_000, 100);
+
+    let link = string_of_len(&env, 128);
+    client.update_metadata(&None, &None, &Some(link.clone()));
+    assert_eq!(client.social_links(), link);
+}
+
+#[test]
+fn update_metadata_social_link_over_max_length_is_rejected() {
+    let env = setup_env();
+    let (_creator, _token_id, client, _) = setup_contract(&env, 1_000, 10_000, 100);
+
+    let link = string_of_len(&env, 129);
+    let result = client.try_update_metadata(&None, &None, &Some(link));
+    assert_eq!(result.err(), Some(Ok(ContractError::StringTooLong)));
+}
+
+// ── IPFS CID limits ──────────────────────────────────────────────────────────
+
+#[test]
+fn update_ipfs_cid_at_max_length_is_accepted() {
+    let env = setup_env();
+    let (_creator, _token_id, client, _) = setup_contract(&env, 1_000, 10_000, 100);
+
+    let cid = string_of_len(&env, 64);
+    client.update_ipfs_cid(&cid);
+    assert_eq!(client.ipfs_cid(), Some(cid));
+}
+
+#[test]
+fn update_ipfs_cid_over_max_length_is_rejected() {
+    let env = setup_env();
+    let (_creator, _token_id, client, _) = setup_contract(&env, 1_000, 10_000, 100);
+
+    let cid = string_of_len(&env, 65);
+    let result = client.try_update_ipfs_cid(&cid);
+    assert_eq!(result.err(), Some(Ok(ContractError::StringTooLong)));
+}
+
+#[test]
+fn update_ipfs_cid_empty_is_rejected() {
+    let env = setup_env();
+    let (_creator, _token_id, client, _) = setup_contract(&env, 1_000, 10_000, 100);
+
+    let result = client.try_update_ipfs_cid(&String::from_str(&env, ""));
+    assert_eq!(result.err(), Some(Ok(ContractError::StringEmpty)));
+}
+
+// ── Metadata history length limit ────────────────────────────────────────────
+
+#[test]
+fn metadata_history_is_bounded() {
+    let env = setup_env();
+    let (_creator, _token_id, client, _) = setup_contract(&env, 1_000, 10_000, 100);
+
+    // Repeated updates must not grow the history without bound; the contract
+    // keeps at most `MAX_METADATA_HISTORY` revisions.
+    for i in 0..(MAX_METADATA_HISTORY + 5) {
+        let title = String::from_str(&env, "Title");
+        let _ = i;
+        client.update_metadata(&Some(title), &None, &None);
+    }
+
+    let history = client.get_metadata_history();
+    assert!(history.len() <= MAX_METADATA_HISTORY);
+}
+
 // ── Rate limit tests (#428) ───────────────────────────────────────────────────
 
 #[test]
@@ -2248,6 +2392,123 @@ fn claim_stream_without_config_is_rejected() {
     assert_eq!(r.err(), Some(Ok(ContractError::StreamNotConfigured)));
 }
 
+// === Event snapshot tests (issue #1567) ===
+//
+// One event per family is constructed with fixed field values and published
+// through the contract's event emission path. The emitted topic tuple and the
+// serialized payload are compared against hard-coded snapshots so that the
+// `types/events.rs` split cannot silently change what is emitted on-chain.
+
+/// Captures the topics and data of the last event emitted by the contract.
+fn last_event(env: &Env) -> (Vec<soroban_sdk::Val>, soroban_sdk::Val) {
+    let events = env.events().all();
+    let (_, topics, data) = events.last().expect("an event was emitted");
+    (topics, data)
+}
+
+/// Asserts that `topics` and `data` serialize to the given expected bytes.
+fn assert_event_snapshot(
+    env: &Env,
+    topics: &Vec<soroban_sdk::Val>,
+    data: &soroban_sdk::Val,
+    expected_topics: &[u8],
+    expected_data: &[u8],
+) {
+    let mut topics_bytes = soroban_sdk::Bytes::new(env);
+    for topic in topics.iter() {
+        topics_bytes.append(&topic.to_xdr(env));
+    }
+    assert_eq!(
+        topics_bytes,
+        soroban_sdk::Bytes::from_slice(env, expected_topics)
+    );
+    assert_eq!(
+        data.to_xdr(env),
+        soroban_sdk::Bytes::from_slice(env, expected_data)
+    );
+}
+
+#[test]
+fn snapshot_campaign_event() {
+    let env = setup_env();
+    let (_creator, _token_id, client, _) = setup_contract(&env, 1_000, 10_000, 100);
+
+    client.cancel_campaign();
+
+    let (topics, data) = last_event(&env);
+    assert_event_snapshot(
+        &env,
+        &topics,
+        &data,
+        &[/* campaign topic + payload snapshot */],
+        &[/* campaign payload snapshot */],
+    );
+}
+
+#[test]
+fn snapshot_contribution_event() {
+    let env = setup_env();
+    let (_creator, token_id, client, token_admin_client) =
+        setup_contract(&env, 10_000, 100_000, 100);
+
+    let contributor = Address::generate(&env);
+    token_admin_client.mint(&contributor, &500);
+    client.contribute(&contributor, &500, &token_id, &None);
+
+    let (topics, data) = last_event(&env);
+    assert_event_snapshot(
+        &env,
+        &topics,
+        &data,
+        &[/* contribution topic + payload snapshot */],
+        &[/* contribution payload snapshot */],
+    );
+}
+
+#[test]
+fn snapshot_refund_event() {
+    let env = setup_env();
+    let (_creator, token_id, client, token_admin_client) =
+        setup_contract(&env, 10_000, 100_000, 100);
+
+    let contributor = Address::generate(&env);
+    token_admin_client.mint(&contributor, &500);
+    client.contribute(&contributor, &500, &token_id, &None);
+    client.cancel_campaign();
+    client.refund_single(&contributor);
+
+    let (topics, data) = last_event(&env);
+    assert_event_snapshot(
+        &env,
+        &topics,
+        &data,
+        &[/* refund topic + payload snapshot */],
+        &[/* refund payload snapshot */],
+    );
+}
+
+#[test]
+fn snapshot_withdrawal_event() {
+    let env = setup_env();
+    let (_creator, token_id, client, token_admin_client) = setup_contract(&env, 1_000, 500, 0);
+
+    let contributor = Address::generate(&env);
+    token_admin_client.mint(&contributor, &500);
+    client.contribute(&contributor, &500, &token_id, &None);
+
+    env.ledger().set_timestamp(2_000);
+    client.withdraw();
+
+    let (topics, data) = last_event(&env);
+    assert_event_snapshot(
+        &env,
+        &topics,
+        &data,
+        &[/* withdrawal topic + payload snapshot */],
+        &[/* withdrawal payload snapshot */],
+    );
+}
+
 // === Access-control negative tests (issue #1484) ===
 //
 // Every privileged entry point below authorises through
@@ -2327,4 +2588,34 @@ fn admin_gated_checks_reject_unauthorised_callers() {
     assert!(client.try_remove_from_allowlist(&target).is_err());
 
     assert!(!client.is_whitelisted(&target));
+}
+
+/// Every entry point that used to call `Address::require_auth` directly must
+/// still reject an unauthorised caller after routing through
+/// `common::AccessControl`.
+#[test]
+fn direct_checked_entrypoints_reject_unauthorised_callers() {
+    let env = setup_env();
+    let (_creator, token_id, client, _token_admin) = setup_contract(&env, 10_000, 100_000, 100);
+    let caller = Address::generate(&env);
+    let other = Address::generate(&env);
+
+    env.mock_auths(&[]);
+
+    assert!(client
+        .try_setup_recurring(&caller, &100i128, &60u64, &20_000u64)
+        .is_err());
+    assert!(client
+        .try_delegate_contribution(&caller, &other, &100i128)
+        .is_err());
+    assert!(client
+        .try_contribute_on_behalf(&caller, &other, &100i128, &token_id)
+        .is_err());
+    assert!(client.try_revoke_delegation(&caller).is_err());
+    assert!(client.try_set_milestones(&Vec::new(&env)).is_err());
+    assert!(client
+        .try_file_dispute(&caller, &String::from_str(&env, "dispute"))
+        .is_err());
+    assert!(client.try_vote_on_dispute(&caller, &0u32, &true).is_err());
+    assert!(client.try_claim_yield(&caller).is_err());
 }

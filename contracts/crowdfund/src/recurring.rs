@@ -22,7 +22,7 @@ pub(crate) fn setup(
     interval: u64,
     end_date: u64,
 ) -> Result<(), ContractError> {
-    contributor.require_auth();
+    common::AccessControl::require_role_auth(&contributor);
     validate_recurring_plan(amount, interval, end_date, env.ledger().timestamp())?;
 
     let plan = RecurringPlan {
@@ -38,7 +38,7 @@ pub(crate) fn setup(
         .extend_ttl(&key, TTL_PERSISTENT_ENTRY, TTL_PERSISTENT_ENTRY);
 
     env.events().publish(
-        ("campaign", "recurring_setup"),
+        ("crowdfund", "recurring_setup"),
         EventRecurringSetup {
             contributor,
             amount,
@@ -58,7 +58,11 @@ pub(crate) fn execute(env: &Env, contributor: Address) -> Result<(), ContractErr
         .ok_or(ContractError::InvalidRecurringPlan)?;
 
     let now = env.ledger().timestamp();
-    if now > plan.end_date || now < plan.last_executed + plan.interval {
+    let next_execution = plan
+        .last_executed
+        .checked_add(plan.interval)
+        .ok_or(ContractError::InvalidRecurringPlan)?;
+    if now > plan.end_date || now < next_execution {
         return Err(ContractError::InvalidRecurringPlan);
     }
 
@@ -91,7 +95,7 @@ pub(crate) fn execute(env: &Env, contributor: Address) -> Result<(), ContractErr
     );
 
     env.events().publish(
-        ("campaign", "recurring_executed"),
+        ("crowdfund", "recurring_executed"),
         EventRecurringExecuted {
             contributor,
             amount: plan.amount,
@@ -101,11 +105,11 @@ pub(crate) fn execute(env: &Env, contributor: Address) -> Result<(), ContractErr
 }
 
 pub(crate) fn cancel(env: &Env, contributor: Address) -> Result<(), ContractError> {
-    contributor.require_auth();
+    common::AccessControl::require_role_auth(&contributor);
     let key = DataKey::RecurringPlan(contributor.clone());
     env.storage().persistent().remove(&key);
     env.events().publish(
-        ("campaign", "recurring_cancelled"),
+        ("crowdfund", "recurring_cancelled"),
         EventRecurringCancelled { contributor },
     );
     Ok(())

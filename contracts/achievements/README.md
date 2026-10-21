@@ -37,7 +37,7 @@ gamification on the Fund My Cause platform.
 | `src/points.rs` | `award_points`, `get_user_points`, `get_user_level`, `calculate_level_from_points`, `deduct_points` *(dead code)*, `reset_points` *(dead code)* | Partial | ~60% | `deduct_points` and `reset_points` are `#[allow(dead_code)]` — no tests exist for them |
 | `src/lib.rs` | All public entry points + `store_achievement`, `try_auto_unlock`, `generate_nft_id` | Partial | ~80% | `update_streak` and `record_referral` are not tested by integration tests |
 | `src/validation.rs` | Achievement type validation, point calculation | All | ~95% | Covered by unlock tests (valid/invalid type, boundary values) |
-| `src/errors.rs` | `ContractError` | All variants reachable | ~100% | All error paths exercised via `try_*` calls |
+| `src/errors.rs` | `ContractError` (re-export of `common::AchievementsError`) | All variants reachable | ~100% | Shared enum in `common`; all error paths exercised via `try_*` calls |
 | `src/storage.rs` | `DataKey` variants | All | ~90% | Storage keys exercised through all entry points |
 | `src/types.rs` | Type definitions | ~85% | ~85% | `AchievementNFT` v1 compatibility path in `read_achievement_entry` not tested |
 | **Combined estimate** | | | **~80%** | Two modules below 70% — see follow-up issues below |

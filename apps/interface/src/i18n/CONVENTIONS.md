@@ -37,3 +37,10 @@ Before deleting a key, confirm it isn't referenced:
 
 Then remove it from **all** locale files in the same change so they stay in
 sync.
+
+## Unused keys
+
+Checked against `messages/en.json`: every key's leaf name appears in the source under
+`src/`, so no key is unused. Keys are read with `t("…")`, `t.raw("…")`, or through a
+namespace. Before removing a key, search for its leaf name in `src/` and check the dynamic
+`t(\`…${x}\`)` forms too.

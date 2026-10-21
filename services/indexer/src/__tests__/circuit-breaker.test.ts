@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { CircuitBreaker, CircuitOpenError } from '../circuit-breaker.js';
+import { CircuitBreaker, CircuitOpenError } from '@fund-my-cause/shared-utils';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

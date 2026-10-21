@@ -1,20 +1,10 @@
 import "dotenv/config";
 import express, { Express } from "express";
-import pino from "pino";
+import { createLogger } from "@fund-my-cause/shared-utils";
 import { SorobanRPCClient } from "./rpc-client.js";
 import { HealthChecker } from "./health-checker.js";
 import { EventStore } from "./event-store.js";
-import {
-  AchievementHandler,
-  AchievementPointsAwardedHandler,
-  AchievementUnlockedHandler,
-  CampaignHandler,
-  DonationHandler,
-  EventDispatcher,
-  QFCalculatedHandler,
-  RegisteredHandler,
-} from "./handlers/index.js";
-import type { EventHandler } from "./handlers/index.js";
+import { createEventDispatcher } from "./handlers/index.js";
 import {
   buildPage,
   resolvePaginationArgs,
@@ -39,7 +29,6 @@ const CONTRACT_IDS = [
 ].filter(
   (id): id is string => id.length > 0,
 );
-const LOG_LEVEL = process.env.LOG_LEVEL ?? "info";
 
 // Resolve store / RPC capacity configuration from environment (#902)
 const storeConfig = loadStoreConfig();
@@ -51,8 +40,7 @@ const storeConfig = loadStoreConfig();
 // docs/db-pool-conventions.md.
 const dbPoolConfig = loadDbPoolConfig();
 
-// Logger
-const logger = pino({ level: LOG_LEVEL });
+const logger = createLogger("indexer:main");
 
 // Express app
 const app: Express = express();
@@ -79,20 +67,11 @@ const eventRepository: EventRepository = new EventStoreRepository(
 // scan for the lifetime of the process.
 runMigrations(eventStore, "up", logger);
 
-// Build the dispatcher once at startup, registering one handler per
-// (contractType, eventType) pair (#896, modularized by contract type in
-// #1125). Unknown event types fall back to `eventRepository` directly so no
-// event is ever lost.
-const handlers: EventHandler[] = [
-  new CampaignHandler(logger),
-  new DonationHandler(logger),
-  new AchievementHandler(logger),
-  new QFCalculatedHandler(logger),
-  new AchievementUnlockedHandler(logger),
-  new AchievementPointsAwardedHandler(logger),
-  new RegisteredHandler(logger),
-];
-const dispatcher = new EventDispatcher(handlers, eventRepository, logger);
+// Build the dispatcher once at startup from the canonical event-type registry
+// (#896, modularized by contract type in #1125, per-event registry in #1517).
+// Unknown event types fall back to `eventRepository` directly so no event is
+// ever lost.
+const dispatcher = createEventDispatcher(logger, eventRepository);
 
 let isRunning = false;
 

@@ -14,6 +14,6 @@ Step-by-step guides for building on Fund-My-Cause.
 ## Prerequisites
 
 All tutorials assume:
-- Node.js 18+ installed
+- Node.js 20+ installed
 - [Freighter wallet](https://www.freighter.app) browser extension
 - A funded Stellar testnet account — get one at [Stellar Laboratory](https://laboratory.stellar.org/#account-creator?network=testnet)

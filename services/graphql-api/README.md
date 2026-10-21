@@ -117,7 +117,8 @@ npm test
 ```
 
 Covers:
-- Resolver unit tests (`src/resolvers.test.ts`)
+- Resolver unit tests (`src/resolvers/*.test.ts`)
+- Fraud-client timeout/retry/breaker tests (`src/services/fraud-client.test.ts`)
 - Rate-limiter unit tests (`src/services/rate-limiter.test.ts`)
 - Per-mutation rate-limit tests (`src/services/mutation-rate-limiter.test.ts`)
 - Middleware tests (`src/middleware/rate-limiter.test.ts`)

@@ -4,6 +4,7 @@
 //! or are cancelled. Implements a pull-based refund model where contributors claim their
 //! own refunds individually, avoiding gas limits and single points of failure.
 
+use common::math::proportional;
 use soroban_sdk::{token, Address, Env, Vec};
 
 use crate::{
@@ -72,10 +73,7 @@ pub(crate) fn refund_single(env: Env, contributor: Address) -> Result<(), Contra
                 // unreleased_ratio = (total - released) / total
                 // contributor_refund = amount * unreleased_ratio
                 let unreleased = total.saturating_sub(released).max(0);
-                amount
-                    .checked_mul(unreleased)
-                    .ok_or(ContractError::Overflow)?
-                    / total
+                proportional(unreleased, total, amount).map_err(|_| ContractError::Overflow)?
             } else {
                 amount
             }
@@ -93,7 +91,7 @@ pub(crate) fn refund_single(env: Env, contributor: Address) -> Result<(), Contra
         }
         env.storage().persistent().set(&key, &0i128);
         env.events().publish(
-            ("campaign", "refunded"),
+            ("crowdfund", "refunded"),
             EventRefunded {
                 contributor,
                 amount: refund_amount,
@@ -157,7 +155,7 @@ pub(crate) fn refund_batch(env: Env, contributors: Vec<Address>) -> Result<u32, 
             token_client.transfer(&env.current_contract_address(), &contributor, &amount);
             env.storage().persistent().set(&key, &0i128);
             env.events().publish(
-                ("campaign", "refunded"),
+                ("crowdfund", "refunded"),
                 EventRefunded {
                     contributor,
                     amount,
@@ -170,7 +168,7 @@ pub(crate) fn refund_batch(env: Env, contributors: Vec<Address>) -> Result<u32, 
 
     // Issue #422: emit a single batch-level event summarising the run
     env.events().publish(
-        ("campaign", "batch_refund_completed"),
+        ("crowdfund", "batch_refund_completed"),
         EventBatchRefundCompleted {
             total_refunded: refunded,
             batch_size: limit,
@@ -195,7 +193,7 @@ pub(crate) fn refund_partial(
     contributor: Address,
     amount: i128,
 ) -> Result<(), ContractError> {
-    contributor.require_auth();
+    common::AccessControl::require_role_auth(&contributor);
 
     let contrib_key = DataKey::Contribution(contributor.clone());
     let total_contrib: i128 = env.storage().persistent().get(&contrib_key).unwrap_or(0);
@@ -217,7 +215,7 @@ pub(crate) fn refund_partial(
     inst.set(&KEY_TOTAL, &(total - amount));
 
     env.events().publish(
-        ("campaign", "partial_refund"),
+        ("crowdfund", "partial_refund"),
         EventPartialRefund {
             contributor,
             amount,
@@ -255,7 +253,7 @@ pub(crate) fn refund_matching_sponsor(env: Env) -> Result<(), ContractError> {
     let creator: Address = inst
         .get(&KEY_CREATOR)
         .ok_or(ContractError::InvalidAddress)?;
-    creator.require_auth();
+    common::AccessControl::require_role_auth(&creator);
 
     let token_address: Address = inst.get(&KEY_TOKEN).ok_or(ContractError::InvalidAddress)?;
     token::Client::new(&env, &token_address).transfer(
@@ -268,7 +266,7 @@ pub(crate) fn refund_matching_sponsor(env: Env) -> Result<(), ContractError> {
     inst.extend_ttl(TTL_INSTANCE_EXTEND_MIN, TTL_INSTANCE_EXTEND_MAX);
 
     env.events().publish(
-        ("campaign", "matching_sponsor_refunded"),
+        ("crowdfund", "matching_sponsor_refunded"),
         (config.sponsor, pool),
     );
     Ok(())

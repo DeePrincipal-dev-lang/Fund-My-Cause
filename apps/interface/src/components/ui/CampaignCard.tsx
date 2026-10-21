@@ -2,7 +2,7 @@
 
 import React from "react";
 import { motion } from "framer-motion";
-import { calculateProgress, isCampaignEnded } from "@fund-my-cause/shared-utils";
+import { calculateCampaignProgress, calculateIsEnded } from "@/lib/campaignProgress";
 import type { Campaign } from "@/types/campaign";
 import { useComparison } from "@/context/ComparisonContext";
 import { useBookmarks } from "@/context/BookmarkContext";
@@ -42,12 +42,12 @@ function CampaignCardComponent({
   query,
 }: CampaignCardProps) {
   const progress = React.useMemo(
-    () => calculateProgress(campaign.raised, campaign.goal),
+    () => calculateCampaignProgress(campaign.raised, campaign.goal),
     [campaign.raised, campaign.goal],
   );
   const isFunded = progress >= 100;
   const isEnded = React.useMemo(
-    () => isCampaignEnded(campaign.deadline, campaign.raised, campaign.goal),
+    () => calculateIsEnded(campaign.deadline, campaign.raised, campaign.goal),
     [campaign.deadline, campaign.raised, campaign.goal],
   );
 

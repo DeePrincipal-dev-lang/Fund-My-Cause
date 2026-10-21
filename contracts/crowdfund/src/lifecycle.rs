@@ -12,6 +12,7 @@ use crate::{
         DataKey, KEY_ADMIN, KEY_ARCHIVED, KEY_CATEGORY, KEY_CREATOR, KEY_DEADLINE, KEY_DESC,
         KEY_GOAL, KEY_GOAL_HISTORY, KEY_MAX, KEY_META_HIST, KEY_MIN, KEY_PLATFORM, KEY_SOCIAL,
         KEY_START_TIME, KEY_STATUS, KEY_TITLE, KEY_TOKEN, KEY_TOTAL, KEY_VESTING, KEY_VISIBILITY,
+        TTL_PERSISTENT_ENTRY,
     },
     types::{
         CampaignTemplate, Category, EventArchived, EventCampaignCloned, EventCancelled,
@@ -56,7 +57,7 @@ pub(crate) fn initialize(
     if env.storage().instance().has(&KEY_CREATOR) {
         return Err(ContractError::AlreadyInitialized);
     }
-    creator.require_auth();
+    common::AccessControl::require_role_auth(&creator);
 
     validate_initialization(
         goal,
@@ -119,6 +120,11 @@ pub(crate) fn initialize(
         timestamp: env.ledger().timestamp(),
     });
     env.storage().persistent().set(&KEY_GOAL_HISTORY, &history);
+    env.storage().persistent().extend_ttl(
+        &KEY_GOAL_HISTORY,
+        TTL_PERSISTENT_ENTRY,
+        TTL_PERSISTENT_ENTRY,
+    );
 
     // Seed metadata version history with version 0 (initial state)
     let mut meta_hist: Vec<MetadataVersion> = Vec::new(&env);
@@ -129,9 +135,14 @@ pub(crate) fn initialize(
         timestamp: env.ledger().timestamp(),
     });
     env.storage().persistent().set(&KEY_META_HIST, &meta_hist);
+    env.storage().persistent().extend_ttl(
+        &KEY_META_HIST,
+        TTL_PERSISTENT_ENTRY,
+        TTL_PERSISTENT_ENTRY,
+    );
 
     env.events().publish(
-        ("campaign", "initialized"),
+        ("crowdfund", "initialized"),
         EventInitialized {
             creator,
             goal,
@@ -172,7 +183,7 @@ pub(crate) fn initialize_from_template(
     if env.storage().instance().has(&KEY_CREATOR) {
         return Err(ContractError::AlreadyInitialized);
     }
-    creator.require_auth();
+    common::AccessControl::require_role_auth(&creator);
 
     // === Validate template
     if template.suggested_min < 0 {
@@ -255,9 +266,14 @@ pub(crate) fn initialize_from_template(
         timestamp: env.ledger().timestamp(),
     });
     env.storage().persistent().set(&KEY_GOAL_HISTORY, &history);
+    env.storage().persistent().extend_ttl(
+        &KEY_GOAL_HISTORY,
+        TTL_PERSISTENT_ENTRY,
+        TTL_PERSISTENT_ENTRY,
+    );
 
     env.events().publish(
-        ("campaign", "initialized"),
+        ("crowdfund", "initialized"),
         EventInitialized {
             creator,
             goal,
@@ -267,7 +283,7 @@ pub(crate) fn initialize_from_template(
         },
     );
     env.events().publish(
-        ("campaign", "template_applied"),
+        ("crowdfund", "template_applied"),
         EventTemplateApplied {
             template_type: template.template_type,
             suggested_min: template.suggested_min,
@@ -335,6 +351,11 @@ pub(crate) fn clone_campaign(
         timestamp: env.ledger().timestamp(),
     });
     env.storage().persistent().set(&KEY_GOAL_HISTORY, &history);
+    env.storage().persistent().extend_ttl(
+        &KEY_GOAL_HISTORY,
+        TTL_PERSISTENT_ENTRY,
+        TTL_PERSISTENT_ENTRY,
+    );
 
     // Reset metadata version history
     let mut meta_hist: Vec<MetadataVersion> = Vec::new(&env);
@@ -345,9 +366,14 @@ pub(crate) fn clone_campaign(
         timestamp: env.ledger().timestamp(),
     });
     env.storage().persistent().set(&KEY_META_HIST, &meta_hist);
+    env.storage().persistent().extend_ttl(
+        &KEY_META_HIST,
+        TTL_PERSISTENT_ENTRY,
+        TTL_PERSISTENT_ENTRY,
+    );
 
     env.events().publish(
-        ("campaign", "cloned"),
+        ("crowdfund", "cloned"),
         EventCampaignCloned {
             original_creator: creator,
             new_creator,
@@ -382,14 +408,14 @@ pub(crate) fn cancel_campaign(env: Env) -> Result<(), ContractError> {
     let old_status = status;
     inst.set(&KEY_STATUS, &Status::Cancelled);
     env.events().publish(
-        ("campaign", "cancelled"),
+        ("crowdfund", "cancelled"),
         EventCancelled {
             creator,
             total_raised,
         },
     );
     env.events().publish(
-        ("campaign", "status_changed"),
+        ("crowdfund", "status_changed"),
         EventStatusChanged {
             old_status,
             new_status: Status::Cancelled,
@@ -425,7 +451,7 @@ pub(crate) fn archive(env: Env) -> Result<(), ContractError> {
     inst.set(&KEY_ARCHIVED, &now);
 
     env.events().publish(
-        ("campaign", "archived"),
+        ("crowdfund", "archived"),
         EventArchived {
             creator,
             total_raised,

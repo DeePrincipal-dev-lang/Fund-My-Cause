@@ -1,4 +1,4 @@
-.PHONY: help test-contract deploy-testnet dev-frontend test-frontend lint install-deps clean format fmt-check build size test docs docs-open docs-check
+.PHONY: contracts-size contracts\:coverage help test-contract deploy-testnet dev-frontend test-frontend lint install-deps clean format fmt-check build size test docs docs-open docs-check
 
 # Default target - show help
 help: ## Show this help
@@ -27,8 +27,11 @@ size: ## Build contracts and report WASM binary sizes
 	@echo "=== WASM Binary Sizes ==="
 	@ls -lh target/wasm32-unknown-unknown/release/*.wasm
 	@echo ""
-	@echo "=== Size Budget (256 KiB per contract) ==="
-	@python3 scripts/check_wasm_size.py target/wasm32-unknown-unknown/release/*.wasm
+	@echo "=== Size Budget ($$(cat contracts/crowdfund/WASM_BUDGET_BYTES) bytes per contract, see contracts/crowdfund/README.md) ==="
+	@python3 scripts/check_wasm_size.py --budget $$(cat contracts/crowdfund/WASM_BUDGET_BYTES) target/wasm32-unknown-unknown/release/*.wasm
+
+# Same check as `size`, under the name the contracts docs use. Fails when any WASM exceeds the budget.
+contracts-size: size ## Alias for `size`: fail if any contract WASM is over the budget
 
 # Run all tests
 test: test-contract test-frontend ## Run all tests (contracts + frontend)
@@ -110,6 +113,38 @@ fmt-check: ## Verify Rust formatting without modifying files
 	@echo "Checking benchmarks formatting..."
 	cargo fmt --manifest-path contracts/benchmarks/Cargo.toml -- --check
 	@echo "Formatting check passed."
+
+# ── Coverage ──────────────────────────────────────────────────────────────────
+
+# Measure line coverage for the crowdfund contract and enforce a 90% floor.
+#
+# Requirements:
+#   cargo install cargo-llvm-cov
+#
+# The target produces an LCOV report in coverage/ and exits non-zero when the
+# measured line coverage for src/ falls below 90%.
+contracts\:coverage: ## Measure crowdfund contract coverage and fail if below 90%
+	@echo "Measuring coverage for contracts/crowdfund..."
+	@mkdir -p coverage
+	cargo llvm-cov \
+		--package crowdfund \
+		--features testutils \
+		--lcov \
+		--output-path coverage/crowdfund.lcov
+	@echo ""
+	@LINE_COV=$$(cargo llvm-cov \
+		--package crowdfund \
+		--features testutils \
+		--summary-only \
+		2>/dev/null \
+		| grep "^TOTAL" | awk '{print $$NF}' | tr -d '%' | cut -d. -f1); \
+	echo "Line coverage: $${LINE_COV}%"; \
+	if [ "$${LINE_COV}" -lt 90 ]; then \
+		echo "ERROR: coverage $${LINE_COV}% is below the 90% floor (issue #1531)."; \
+		exit 1; \
+	else \
+		echo "Coverage OK ($${LINE_COV}% >= 90%)."; \
+	fi
 
 # ── Documentation ─────────────────────────────────────────────────────────────
 

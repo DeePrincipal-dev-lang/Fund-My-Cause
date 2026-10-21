@@ -26,7 +26,7 @@ jobs:
         run: |
           for wasm in target/wasm32-unknown-unknown/release/*.wasm; do
             name=$(basename "$wasm" .wasm)
-            python3 scripts/check_wasm_size.py --artifact "$wasm" --budget 512000 || exit 1
+            python3 scripts/check_wasm_size.py --artifact "$wasm" --budget "$(cat contracts/crowdfund/WASM_BUDGET_BYTES)" || exit 1
           done
 
       # ── Contract size check ────────────────────────────────────────────────

@@ -45,8 +45,17 @@
 //!
 //! The individual single-field getters are unchanged — they remain cheap and
 //! callers that need only one field should continue using them directly.
+//!
+//! ### Batched header view (issue #1561)
+//! `get_campaign_snapshot` returns the creator, status, total raised, goal,
+//! deadline and metadata in one `CampaignSnapshot` value. It also uses
+//! [`CachedInstanceView::load`], so a dashboard that previously made three or
+//! more cross-contract getter calls pays for one invocation and one
+//! instance-storage read instead. `tests/view_gas.rs` pins the saving against
+//! the individual `creator`/`status`/`total_raised` calls.
 
-use soroban_sdk::{Address, Env, String, Vec};
+use crate::errors::ContractError;
+use soroban_sdk::{contracttype, Address, Env, String, Vec};
 
 use crate::{
     storage::{
@@ -60,7 +69,7 @@ use crate::{
     },
 };
 
-use common::math::{apply_bps, apply_bps_saturating};
+use common::math::{apply_bps, apply_bps_saturating, proportional};
 
 // =============================================================================
 // Per-call instance-storage cache (issue #1148)
@@ -110,11 +119,11 @@ impl CachedInstanceView {
     pub(crate) fn load(env: &Env) -> Self {
         let inst = env.storage().instance();
 
-        let creator: Address = inst.get(&KEY_CREATOR).unwrap();
-        let token: Address = inst.get(&KEY_TOKEN).unwrap();
-        let goal: i128 = inst.get(&KEY_GOAL).unwrap();
-        let deadline: u64 = inst.get(&KEY_DEADLINE).unwrap();
-        let min_contribution: i128 = inst.get(&KEY_MIN).unwrap();
+        let creator: Address = inst.get(&KEY_CREATOR).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound));
+        let token: Address = inst.get(&KEY_TOKEN).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound));
+        let goal: i128 = inst.get(&KEY_GOAL).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound));
+        let deadline: u64 = inst.get(&KEY_DEADLINE).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound));
+        let min_contribution: i128 = inst.get(&KEY_MIN).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound));
         let max_contribution: i128 = inst.get(&KEY_MAX).unwrap_or(0);
         let title: String = inst
             .get(&KEY_TITLE)
@@ -122,7 +131,7 @@ impl CachedInstanceView {
         let description: String = inst
             .get(&KEY_DESC)
             .unwrap_or_else(|| String::from_str(env, ""));
-        let status: Status = inst.get(&KEY_STATUS).unwrap();
+        let status: Status = inst.get(&KEY_STATUS).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound));
         let category: Category = inst.get(&KEY_CATEGORY).unwrap_or(Category::Other);
         let total: i128 = inst.get(&KEY_TOTAL).unwrap_or(0);
         let platform_config: Option<PlatformConfig> = inst.get(&KEY_PLATFORM);
@@ -149,6 +158,7 @@ impl CachedInstanceView {
     ///
     /// Returns `0` when no platform config is set.
     /// This is a pure in-memory computation — no additional storage reads.
+    #[cfg(test)]
     #[inline]
     pub(crate) fn platform_fee_for(&self, amount: i128) -> i128 {
         self.platform_config
@@ -160,6 +170,7 @@ impl CachedInstanceView {
     /// Return the current fee mode.
     ///
     /// Pure in-memory — no storage reads.
+    #[cfg(test)]
     #[inline]
     pub(crate) fn fee_mode(&self) -> FeeMode {
         self.platform_config
@@ -175,6 +186,7 @@ impl CachedInstanceView {
     ///
     /// # Arguments
     /// * `now` — current ledger timestamp (obtained once by the caller).
+    #[cfg(test)]
     #[inline]
     pub(crate) fn vested_amount(&self, now: u64) -> i128 {
         if self.total <= 0 {
@@ -189,11 +201,56 @@ impl CachedInstanceView {
         if now < v.cliff {
             return 0;
         }
-        if v.duration == 0 || now >= v.cliff + v.duration {
+        if v.duration == 0 || now >= v.cliff.saturating_add(v.duration) {
             return payout;
         }
-        let elapsed = now - v.cliff;
-        payout * elapsed as i128 / v.duration as i128
+        let elapsed = now.saturating_sub(v.cliff);
+        proportional(elapsed as i128, v.duration as i128, payout).unwrap_or(payout)
+    }
+}
+
+/// Everything a dashboard needs for its campaign header, loaded in one pass.
+///
+/// Issue #1561: callers that need creator, status and total raised (plus the
+/// rest of the header) can make one cross-contract call instead of three or
+/// more. All fields come from a single [`CachedInstanceView::load`], so the
+/// host meters one instance-storage read footprint entry rather than one per
+/// getter.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CampaignSnapshot {
+    pub creator: Address,
+    pub token: Address,
+    pub goal: i128,
+    pub deadline: u64,
+    pub total_raised: i128,
+    pub status: Status,
+    pub title: String,
+    pub description: String,
+    pub min_contribution: i128,
+    pub max_contribution: i128,
+    pub category: Category,
+}
+
+/// Returns the campaign header snapshot.
+///
+/// `total_raised` reflects the live `KEY_TOTAL` value, including contributions
+/// made since initialization. The field set intentionally matches the
+/// single-field views so callers can swap multiple calls for this one.
+pub(crate) fn get_campaign_snapshot(env: Env) -> CampaignSnapshot {
+    let c = CachedInstanceView::load(&env);
+    CampaignSnapshot {
+        creator: c.creator,
+        token: c.token,
+        goal: c.goal,
+        deadline: c.deadline,
+        total_raised: c.total,
+        status: c.status,
+        title: c.title,
+        description: c.description,
+        min_contribution: c.min_contribution,
+        max_contribution: c.max_contribution,
+        category: c.category,
     }
 }
 
@@ -208,22 +265,22 @@ pub(crate) fn total_raised(env: Env) -> i128 {
 
 /// Returns the campaign creator's Stellar address.
 pub(crate) fn creator(env: Env) -> Address {
-    env.storage().instance().get(&KEY_CREATOR).unwrap()
+    env.storage().instance().get(&KEY_CREATOR).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound))
 }
 
 /// Returns the current campaign status.
 pub(crate) fn status(env: Env) -> Status {
-    env.storage().instance().get(&KEY_STATUS).unwrap()
+    env.storage().instance().get(&KEY_STATUS).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound))
 }
 
 /// Returns the campaign funding goal in stroops.
 pub(crate) fn goal(env: Env) -> i128 {
-    env.storage().instance().get(&KEY_GOAL).unwrap()
+    env.storage().instance().get(&KEY_GOAL).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound))
 }
 
 /// Returns the campaign deadline as a Unix timestamp (seconds).
 pub(crate) fn deadline(env: Env) -> u64 {
-    env.storage().instance().get(&KEY_DEADLINE).unwrap()
+    env.storage().instance().get(&KEY_DEADLINE).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound))
 }
 
 /// Returns the total contribution amount for a specific contributor in stroops.
@@ -245,7 +302,7 @@ pub(crate) fn is_contributor(env: Env, address: Address) -> bool {
 
 /// Returns the minimum contribution amount in stroops.
 pub(crate) fn min_contribution(env: Env) -> i128 {
-    env.storage().instance().get(&KEY_MIN).unwrap()
+    env.storage().instance().get(&KEY_MIN).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound))
 }
 
 /// Returns the maximum contribution amount per contributor in stroops (0 = no limit).
@@ -405,12 +462,7 @@ pub(crate) fn get_vested_amount(env: Env) -> i128 {
         return payout;
     }
     let elapsed = now.saturating_sub(v.cliff);
-    let duration = v.duration as i128;
-    // Issue #1145: use checked_mul to prevent overflow on large payout * elapsed
-    payout
-        .checked_mul(elapsed as i128)
-        .and_then(|product| product.checked_div(duration))
-        .unwrap_or(payout)
+    proportional(elapsed as i128, v.duration as i128, payout).unwrap_or(payout)
 }
 
 // =============================================================================
