@@ -74,6 +74,7 @@ mod access;
 mod analytics;
 mod contribute;
 mod errors;
+mod events;
 mod helpers;
 mod lifecycle;
 mod metadata;

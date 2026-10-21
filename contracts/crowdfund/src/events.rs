@@ -19,7 +19,10 @@
 
 pub use common::events::{EventEmitter, topics};
 
+use crate::types::{EventInvariantViolated, EventStateValidated};
+
 /// Re-export for backward compatibility
+#[allow(unused_imports)]
 pub use topics as Topics;
 
 /// Crowdfund-specific event helpers
@@ -124,12 +127,45 @@ impl CrowdfundEvents {
     ) {
         EventEmitter::milestone_released(env, campaign_id, milestone_id, recipient, amount);
     }
+
+    /// Emit the analytics state-validation summary.
+    pub fn state_validated(
+        env: &soroban_sdk::Env,
+        valid: bool,
+        checks_passed: u32,
+        checks_failed: u32,
+        timestamp: u64,
+    ) {
+        EventEmitter::state_validated(
+            env,
+            EventStateValidated {
+                valid,
+                checks_passed,
+                checks_failed,
+                timestamp,
+            },
+        );
+    }
+
+    /// Emit an analytics invariant violation.
+    pub fn invariant_violated(env: &soroban_sdk::Env, invariant_id: u32, timestamp: u64) {
+        EventEmitter::invariant_violated(
+            env,
+            EventInvariantViolated {
+                invariant_id,
+                timestamp,
+            },
+        );
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use soroban_sdk::{testutils::Address as _, Address, Env, String};
+    use soroban_sdk::{
+        testutils::{Address as _, Events as _},
+        Address, Env, String, Symbol, TryFromVal,
+    };
 
     /// All crowdfund event names must be `snake_case` (no uppercase letters,
     /// no `Crowdfund` prefix) so a single indexer handler can serve both
@@ -159,6 +195,8 @@ mod tests {
             "milestone_added",
             "milestone_verified",
             "milestone_released",
+            "state_validated",
+            "invariant_violated",
         ];
         for name in names {
             assert_snake_case(name);
@@ -190,5 +228,45 @@ mod tests {
         CrowdfundEvents::milestone_released(&env, 1, 1, creator, 500);
 
         assert!(!env.events().all().is_empty());
+    }
+
+    #[test]
+    fn analytics_helpers_snapshot_topics_and_payloads() {
+        let env = Env::default();
+
+        CrowdfundEvents::invariant_violated(&env, 4, 123);
+        CrowdfundEvents::state_validated(&env, false, 4, 1, 123);
+
+        let events = env.events().all();
+        assert_eq!(events.len(), 2);
+
+        let namespace = Symbol::new(&env, "contract");
+        let (_, violated_topics, violated_data) = events.get(0).unwrap();
+        assert_eq!(
+            Symbol::try_from_val(&env, &violated_topics.get(0).unwrap()).unwrap(),
+            namespace
+        );
+        assert_eq!(
+            Symbol::try_from_val(&env, &violated_topics.get(1).unwrap()).unwrap(),
+            Symbol::new(&env, "invariant_violated")
+        );
+        let violated = EventInvariantViolated::try_from_val(&env, &violated_data).unwrap();
+        assert_eq!(violated.invariant_id, 4);
+        assert_eq!(violated.timestamp, 123);
+
+        let (_, validated_topics, validated_data) = events.get(1).unwrap();
+        assert_eq!(
+            Symbol::try_from_val(&env, &validated_topics.get(0).unwrap()).unwrap(),
+            namespace
+        );
+        assert_eq!(
+            Symbol::try_from_val(&env, &validated_topics.get(1).unwrap()).unwrap(),
+            Symbol::new(&env, "state_validated")
+        );
+        let validated = EventStateValidated::try_from_val(&env, &validated_data).unwrap();
+        assert!(!validated.valid);
+        assert_eq!(validated.checks_passed, 4);
+        assert_eq!(validated.checks_failed, 1);
+        assert_eq!(validated.timestamp, 123);
     }
 }
