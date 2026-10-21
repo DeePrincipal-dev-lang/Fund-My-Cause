@@ -22,7 +22,7 @@ pub(crate) fn setup(
     interval: u64,
     end_date: u64,
 ) -> Result<(), ContractError> {
-    contributor.require_auth();
+    common::AccessControl::require_role_auth(&contributor);
     validate_recurring_plan(amount, interval, end_date, env.ledger().timestamp())?;
 
     let plan = RecurringPlan {
@@ -101,7 +101,7 @@ pub(crate) fn execute(env: &Env, contributor: Address) -> Result<(), ContractErr
 }
 
 pub(crate) fn cancel(env: &Env, contributor: Address) -> Result<(), ContractError> {
-    contributor.require_auth();
+    common::AccessControl::require_role_auth(&contributor);
     let key = DataKey::RecurringPlan(contributor.clone());
     env.storage().persistent().remove(&key);
     env.events().publish(

@@ -4,13 +4,13 @@
 //! social links and the anchored IPFS CID. Every metadata update appends a versioned
 //! snapshot (issue #423) so the full edit history stays auditable on-chain.
 
-use soroban_sdk::{Address, Env, String, Vec};
+use soroban_sdk::{Env, String, Vec};
 
 use crate::{
     errors::ContractError,
     helpers::require_auth_creator,
     storage::{
-        metadata_field_key, MetadataField, KEY_CREATOR, KEY_STATUS, TTL_PERSISTENT_ENTRY,
+        metadata_field_key, MetadataField, KEY_STATUS, TTL_PERSISTENT_ENTRY,
     },
     types::{
         EventIpfsCidUpdated, EventMetadataUpdated, EventMetadataVersioned, MetadataVersion, Status,
@@ -153,8 +153,6 @@ pub(crate) fn update_ipfs_cid(env: Env, cid: String) -> Result<(), ContractError
         return Err(ContractError::NotActive);
     }
     require_auth_creator(&env)?;
-    let creator: Address = inst.get(&KEY_CREATOR).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound));
-    creator.require_auth();
     let ipfs_key = metadata_field_key(MetadataField::IpfsCid);
 
     // Validate CID length: v0 (base58 "Qm…", len 46) or v1 (base32 "bafy…", len >= 59).

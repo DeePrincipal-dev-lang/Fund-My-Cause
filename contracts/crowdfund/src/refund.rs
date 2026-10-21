@@ -193,7 +193,7 @@ pub(crate) fn refund_partial(
     contributor: Address,
     amount: i128,
 ) -> Result<(), ContractError> {
-    contributor.require_auth();
+    common::AccessControl::require_role_auth(&contributor);
 
     let contrib_key = DataKey::Contribution(contributor.clone());
     let total_contrib: i128 = env.storage().persistent().get(&contrib_key).unwrap_or(0);
@@ -253,7 +253,7 @@ pub(crate) fn refund_matching_sponsor(env: Env) -> Result<(), ContractError> {
     let creator: Address = inst
         .get(&KEY_CREATOR)
         .ok_or(ContractError::InvalidAddress)?;
-    creator.require_auth();
+    common::AccessControl::require_role_auth(&creator);
 
     let token_address: Address = inst.get(&KEY_TOKEN).ok_or(ContractError::InvalidAddress)?;
     token::Client::new(&env, &token_address).transfer(

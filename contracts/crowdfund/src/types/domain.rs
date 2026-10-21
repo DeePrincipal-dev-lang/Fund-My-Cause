@@ -124,4 +124,9 @@ pub enum DataKey {
     EmergencyPauseApproval(Address),
     /// Running emergency pause approval count
     EmergencyPauseApprovals,
+    /// KYC/AML verification status for a specific address.
+    ///
+    /// Kept separate from `Contribution` so updating verification cannot
+    /// overwrite the contributor's i128 amount (issue #1560).
+    Verification(Address),
 }

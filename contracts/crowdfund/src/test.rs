@@ -2589,3 +2589,33 @@ fn admin_gated_checks_reject_unauthorised_callers() {
 
     assert!(!client.is_whitelisted(&target));
 }
+
+/// Every entry point that used to call `Address::require_auth` directly must
+/// still reject an unauthorised caller after routing through
+/// `common::AccessControl`.
+#[test]
+fn direct_checked_entrypoints_reject_unauthorised_callers() {
+    let env = setup_env();
+    let (_creator, token_id, client, _token_admin) = setup_contract(&env, 10_000, 100_000, 100);
+    let caller = Address::generate(&env);
+    let other = Address::generate(&env);
+
+    env.mock_auths(&[]);
+
+    assert!(client
+        .try_setup_recurring(&caller, &100i128, &60u64, &20_000u64)
+        .is_err());
+    assert!(client
+        .try_delegate_contribution(&caller, &other, &100i128)
+        .is_err());
+    assert!(client
+        .try_contribute_on_behalf(&caller, &other, &100i128, &token_id)
+        .is_err());
+    assert!(client.try_revoke_delegation(&caller).is_err());
+    assert!(client.try_set_milestones(&Vec::new(&env)).is_err());
+    assert!(client
+        .try_file_dispute(&caller, &String::from_str(&env, "dispute"))
+        .is_err());
+    assert!(client.try_vote_on_dispute(&caller, &0u32, &true).is_err());
+    assert!(client.try_claim_yield(&caller).is_err());
+}

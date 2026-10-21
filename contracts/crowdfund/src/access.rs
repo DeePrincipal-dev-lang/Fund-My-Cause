@@ -3,6 +3,28 @@
 //! This module handles visibility, whitelist, blacklist, allow-list, and deny-list
 //! management, plus ownership transfer, pause/resume and the per-address rate limit.
 //! It controls who can contribute to a campaign and the campaign's visibility level.
+//!
+//! ## Issue #1559 — every crowdfund authorization check
+//!
+//! Crowdfund no longer performs ad-hoc `Address::require_auth()` calls. Every
+//! check is routed through [`common::AccessControl`] so there is one auditable
+//! authorization path:
+//!
+//! | Module / entry points | Authorization check | Address source | Shared helper |
+//! |---|---|---|---|
+//! | `lifecycle::initialize`, `initialize_from_template` | creator | function argument | `AccessControl::require_role_auth` |
+//! | `lifecycle::clone_campaign`, `cancel_campaign`, `archive` | creator | `KEY_CREATOR` | `require_auth_creator` → `require_stored_auth` |
+//! | `access::*` (lists, visibility, pause, rate limit, ownership) | creator or admin | `KEY_CREATOR` / `KEY_ADMIN` | `require_auth_creator` / `auth_admin` |
+//! | `access::transfer_ownership` | creator | `KEY_CREATOR` | `require_auth_creator` |
+//! | `contribute::contribute`, `delegate_contribution`, `contribute_on_behalf`, `revoke_delegation` | contributor / delegator / delegate | function argument | `AccessControl::require_role_auth` |
+//! | `refund::refund_partial`, `refund_matching_sponsor` | contributor / creator | argument / `KEY_CREATOR` | `AccessControl::require_role_auth` |
+//! | `withdraw::*` | creator or admin | `KEY_CREATOR` / `KEY_ADMIN` | `require_auth_creator` / `auth_admin` |
+//! | `metadata::update_metadata`, `update_ipfs_cid` | creator | `KEY_CREATOR` | `require_auth_creator` |
+//! | `recurring::setup`, `cancel` | contributor | function argument | `AccessControl::require_role_auth` |
+//! | `lib.rs` privileged endpoints (deadline, goal, category, emergency, matching, insurance, milestones, disputes, governance, yield, caps) | creator / admin / approver / sponsor / filer / voter / proposer / governor | `KEY_CREATOR` / `KEY_ADMIN` / function argument | `require_auth_creator` / `auth_admin` / `AccessControl::require_role_auth` |
+//!
+//! The `access_control_audit` integration test fails if a direct
+//! `.require_auth()` call is reintroduced anywhere under `src/`.
 
 use soroban_sdk::{Address, Env};
 
