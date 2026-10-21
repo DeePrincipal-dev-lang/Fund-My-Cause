@@ -55,16 +55,6 @@ from scoring import (
 )
 
 
-@pytest.fixture(autouse=True)
-def isolated_state():
-    """Isolate each test with clean state, fixing the shared mutable state issues."""
-    clear_all()
-    scoring._last_duplicate_scan_at = 0.0
-    yield
-    clear_all()
-    scoring._last_duplicate_scan_at = 0.0
-
-
 def _wash(campaign: str, wallet: str, cycles: int, delay: float = 60.0) -> None:
     """Add wash cycles with safe spacing to prevent cross-pairing."""
     gap = WASH_WINDOW_SECONDS * 3
