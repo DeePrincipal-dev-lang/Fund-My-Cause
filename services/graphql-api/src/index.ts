@@ -19,6 +19,7 @@ import { typeDefs } from "./schema.js";
 import { resolvers } from "./resolvers.js";
 import { logger, requestLogger } from "./logger.js";
 import { resolveTraceId, TRACE_ID_HEADER } from "@fund-my-cause/shared-utils";
+import { requestIdMiddleware } from "./middleware/request-id.js";
 import type { Context } from "./types.js";
 
 const PORT = process.env.GRAPHQL_PORT
@@ -112,6 +113,7 @@ async function startServer() {
 
     app.use(cors(corsOptions));
     app.use(express.json({ limit: "10mb" }));
+    app.use(requestIdMiddleware);
 
     // Health check endpoint
     app.get("/health", (req, res) => {
