@@ -483,3 +483,36 @@ describe("search.service resilience", () => {
     expect(r3.items.length).toBe(r1.items.length);
   });
 });
+
+// ── Merged campaign search (formerly lib/search/search.service, #1576) ───────
+
+
+describe("searchCampaigns (merged module)", () => {
+  it("returns a paginated SearchResult shape", async () => {
+    const res = await searchCampaigns({ query: "", page: 1, pageSize: 5 });
+    expect(res).toHaveProperty("campaigns");
+    expect(res).toHaveProperty("total");
+    expect(res).toHaveProperty("page", 1);
+    expect(res).toHaveProperty("pageSize", 5);
+    expect(res).toHaveProperty("hasMore");
+    expect(res).toHaveProperty("provider");
+    expect(res).toHaveProperty("durationMs");
+    expect(Array.isArray(res.campaigns)).toBe(true);
+  });
+});
+
+// ── Merged campaign search (formerly lib/search/search.service, #1576) ───────
+
+describe("searchCampaigns (merged module)", () => {
+  it("returns a paginated SearchResult shape", async () => {
+    const res = await searchCampaigns({ query: "", page: 1, pageSize: 5 });
+    expect(res).toHaveProperty("campaigns");
+    expect(res).toHaveProperty("total");
+    expect(res).toHaveProperty("page", 1);
+    expect(res).toHaveProperty("pageSize", 5);
+    expect(res).toHaveProperty("hasMore");
+    expect(res).toHaveProperty("provider");
+    expect(res).toHaveProperty("durationMs");
+    expect(Array.isArray(res.campaigns)).toBe(true);
+  });
+});
