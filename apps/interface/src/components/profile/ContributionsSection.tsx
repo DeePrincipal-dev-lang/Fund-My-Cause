@@ -3,7 +3,7 @@
 import React from "react";
 import { Loader2, RefreshCw } from "lucide-react";
 import { useInfiniteList } from "@/hooks/useInfiniteList";
-import { fetchContribution, fetchAllCampaigns } from "@/lib/soroban";
+import { fetchContribution, fetchAllCampaigns } from "@/lib/graphql/client";
 import type { ContributionEntry } from "@/hooks/useContributions";
 
 interface ContributionsSectionProps {
