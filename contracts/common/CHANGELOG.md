@@ -5,6 +5,15 @@ All notable changes to the common crate are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- `ratio_bps` helper for capped basis-point progress/success-rate calculations.
+
+### Changed
+- Moved the achievements error enum into `common::error` as `AchievementsError`; the achievements contract re-exports it as `ContractError` with codes 1–17 unchanged (#1557).
+- Added overflow and property tests for the shared proportional/basis-point helpers (#1558).
+
 ## [0.1.0] - 2026-03-28
 
 ### Added

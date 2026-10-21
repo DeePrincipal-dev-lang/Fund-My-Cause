@@ -4,6 +4,7 @@
 //! or are cancelled. Implements a pull-based refund model where contributors claim their
 //! own refunds individually, avoiding gas limits and single points of failure.
 
+use common::math::proportional;
 use soroban_sdk::{token, Address, Env, Vec};
 
 use crate::{
@@ -72,10 +73,7 @@ pub(crate) fn refund_single(env: Env, contributor: Address) -> Result<(), Contra
                 // unreleased_ratio = (total - released) / total
                 // contributor_refund = amount * unreleased_ratio
                 let unreleased = total.saturating_sub(released).max(0);
-                amount
-                    .checked_mul(unreleased)
-                    .ok_or(ContractError::Overflow)?
-                    / total
+                proportional(unreleased, total, amount).map_err(|_| ContractError::Overflow)?
             } else {
                 amount
             }

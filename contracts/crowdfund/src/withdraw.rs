@@ -24,7 +24,7 @@ use crate::{
     validation::validate_deadline_passed,
 };
 
-use common::math::apply_bps;
+use common::math::{apply_bps, proportional};
 
 // === Shared helpers
 
@@ -78,10 +78,8 @@ fn apply_vesting_schedule(
         Ok(payout)
     } else {
         let elapsed = now.checked_sub(v.cliff).ok_or(ContractError::Overflow)?;
-        Ok(payout
-            .checked_mul(elapsed as i128)
-            .ok_or(ContractError::Overflow)?
-            / v.duration as i128)
+        proportional(elapsed as i128, v.duration as i128, payout)
+            .map_err(|_| ContractError::Overflow)
     }
 }
 
@@ -227,11 +225,8 @@ pub(crate) fn claim_stream(env: Env) -> Result<(), ContractError> {
     } else {
         let elapsed = now.checked_sub(stream.start_time).ok_or(ContractError::Overflow)?;
         let duration = stream.end_time.checked_sub(stream.start_time).ok_or(ContractError::Overflow)?;
-        // Issue #1145: use checked_mul to prevent overflow when total is large
-        total
-            .checked_mul(elapsed as i128)
-            .and_then(|v| v.checked_div(duration as i128))
-            .unwrap_or(total) // saturate to full total on overflow (extremely rare)
+        // Saturate to the full total on overflow (extremely rare).
+        proportional(elapsed as i128, duration as i128, total).unwrap_or(total)
     };
 
     let claimable = vested_fraction.checked_sub(stream.claimed).ok_or(ContractError::Overflow)?;

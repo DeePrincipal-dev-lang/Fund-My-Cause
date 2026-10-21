@@ -4,6 +4,7 @@
 //! campaign statistics, performance and velocity metrics, quadratic-funding inputs,
 //! and the invariant self-check used for on-chain state validation (issue #458).
 
+use common::math::ratio_bps;
 use soroban_sdk::{Address, Env, Vec};
 
 use crate::{
@@ -36,18 +37,7 @@ pub(crate) fn get_stats(env: Env) -> CampaignStats {
 
     // Progress is measured against the soft_cap when set, otherwise the hard goal.
     let progress_target = if soft_cap > 0 { soft_cap } else { goal };
-    let progress_bps = if progress_target > 0 {
-        // Use saturating_mul to avoid overflow on very large total_raised values;
-        // if the result saturates we cap at 10_000 (100%) anyway.
-        let raw = (total_raised.saturating_mul(10_000)) / progress_target;
-        if raw > 10_000 {
-            10_000
-        } else {
-            raw as u32
-        }
-    } else {
-        0
-    };
+    let progress_bps = ratio_bps(total_raised, progress_target);
 
     let average_contribution = if contributor_count == 0 {
         0
@@ -111,19 +101,8 @@ pub(crate) fn get_performance_metrics(env: Env) -> PerformanceMetrics {
         .unwrap_or(env.ledger().timestamp());
     let now = env.ledger().timestamp();
 
-    // Calculate success rate in basis points.
-    // Use saturating_mul to prevent overflow on very large total_raised; the
-    // result is capped at 10_000 anyway so saturation is the correct behaviour.
-    let success_rate_bps = if goal > 0 {
-        let raw = total_raised.saturating_mul(10_000) / goal;
-        if raw > 10_000 {
-            10_000
-        } else {
-            raw as u32
-        }
-    } else {
-        0
-    };
+    // Calculate success rate in basis points, capped at 100% by the shared helper.
+    let success_rate_bps = ratio_bps(total_raised, goal);
 
     // Calculate time elapsed
     let time_elapsed = now.saturating_sub(start_time);

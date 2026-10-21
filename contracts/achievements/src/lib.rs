@@ -100,6 +100,7 @@ pub use storage::*;
 pub use types::*;
 pub use validation::*;
 
+use common::math::{proportional, REWARD_DIVISOR};
 use common::{AccessControl, CommonError, EventEmitter, EVENT_SCHEMA_VERSION};
 use soroban_sdk::{contract, contractimpl, Address, Bytes, Env, String, Vec};
 
@@ -665,8 +666,10 @@ fn get_achievement_points(achievement_type: u32) -> u32 {
 
 /// Calculate contribution points
 fn calculate_contribution_points(amount: i128) -> u32 {
-    // 1 point per stroop (0.0000001 XLM)
-    ((amount / 1_000_000) as u32).clamp(1, 1000)
+    // 1 point per 1,000,000 stroops (0.1 XLM), clamped to the documented range.
+    proportional(amount, REWARD_DIVISOR, 1)
+        .unwrap_or(0)
+        .clamp(1, 1000) as u32
 }
 
 /// Store contribution record

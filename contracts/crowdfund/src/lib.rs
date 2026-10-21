@@ -68,6 +68,8 @@
 // for every off-chain consumer, not a lint cleanup, and is tracked separately.
 #![allow(deprecated)]
 
+use common::math::{proportional, REWARD_DIVISOR};
+
 mod access;
 mod analytics;
 mod contribute;
@@ -2535,11 +2537,8 @@ impl CrowdfundContract {
             return Err(ContractError::BelowMinimum);
         }
 
-        let reward_amount = contribution
-            .checked_mul(config.reward_per_unit)
-            .ok_or(ContractError::Overflow)?
-            .checked_div(1_000_000)
-            .ok_or(ContractError::Overflow)?;
+        let reward_amount = proportional(contribution, REWARD_DIVISOR, config.reward_per_unit)
+            .map_err(|_| ContractError::Overflow)?;
 
         let already_claimed: i128 = env
             .storage()

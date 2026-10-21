@@ -34,6 +34,7 @@
 //! ```
 
 #![no_std]
+use common::math::proportional;
 use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, Vec, Map, String};
 
 // ================================================================
@@ -199,11 +200,8 @@ impl QuadraticFunding {
 
             // Calculate matching allocation
             // matching = pool * (sqrt(contributor_count)) / total_sqrt_sum
-            let matching = input.matching_pool
-                .checked_mul(sqrt)
-                .ok_or(QFError::Overflow)?
-                .checked_div(total_sqrt_sum)
-                .ok_or(QFError::Overflow)?;
+            let matching = proportional(sqrt, total_sqrt_sum, input.matching_pool)
+                .map_err(|_| QFError::Overflow)?;
 
             // Total = original contribution + matching
             let total = contrib

@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Re-exported `common::AchievementsError` as `ContractError`, keeping achievement error codes 1–17 stable while removing the duplicate local enum (#1557).
+- Reused `common::math::proportional` and `REWARD_DIVISOR` for contribution point conversion (#1558).
 - Aligned event naming and topic conventions with the crowdfund contract per issue #1572
   - Event symbols now follow the documented convention in `docs/adr/` (see ADR on event naming)
   - **Migration note:** off-chain indexers and consumers must update event/topic filters to match the

@@ -10,5 +10,8 @@ testutils = ["soroban-sdk/testutils"]
 [dependencies]
 soroban-sdk = { workspace = true }
 
+[dev-dependencies]
+proptest = "1.4"
+
 [lib]
 crate-type = ["cdylib", "rlib"]
