@@ -58,7 +58,11 @@ pub(crate) fn execute(env: &Env, contributor: Address) -> Result<(), ContractErr
         .ok_or(ContractError::InvalidRecurringPlan)?;
 
     let now = env.ledger().timestamp();
-    if now > plan.end_date || now < plan.last_executed + plan.interval {
+    let next_execution = plan
+        .last_executed
+        .checked_add(plan.interval)
+        .ok_or(ContractError::InvalidRecurringPlan)?;
+    if now > plan.end_date || now < next_execution {
         return Err(ContractError::InvalidRecurringPlan);
     }
 

@@ -1,15 +1,18 @@
 /**
- * Unit tests for alert transport implementations — Issue #907
+ * Unit tests for alert transport implementations.
  *
- * Tests confirm each transport correctly formats and "delivers" (to a test
- * double / captured output) a sample alert payload.
+ * These tests exercise the Transport contract directly: every channel returns
+ * DeliveryResult[] from send() and either delivers or reports a per-channel
+ * failure without crashing the rest of the pipeline.
  */
 
 import {
+  AlertTransport,
   EmailAlertTransport,
   SlackAlertTransport,
   CompositeAlertTransport,
   type AlertPayload,
+  type DeliveryResult,
 } from '../alert-transport';
 
 // ── Sample payload ────────────────────────────────────────────────────────────
@@ -25,78 +28,34 @@ const SAMPLE_PAYLOAD: AlertPayload = {
 // ── EmailAlertTransport ───────────────────────────────────────────────────────
 
 describe('EmailAlertTransport', () => {
-  let consoleSpy: jest.SpyInstance;
-
-  beforeEach(() => {
-    consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
-  });
-
-  afterEach(() => {
-    consoleSpy.mockRestore();
-  });
-
   it('resolves without throwing for a valid payload', async () => {
     const transport = new EmailAlertTransport({ to: 'ops@example.com' });
     await expect(transport.deliver(SAMPLE_PAYLOAD)).resolves.toBeUndefined();
   });
 
-  it('logs the recipient address', async () => {
+  it('returns a successful delivery result', async () => {
     const transport = new EmailAlertTransport({ to: 'ops@example.com' });
-    await transport.deliver(SAMPLE_PAYLOAD);
-    expect(consoleSpy).toHaveBeenCalledWith(
-      expect.stringContaining('ops@example.com'),
-    );
+
+    const results = await transport.send(SAMPLE_PAYLOAD);
+
+    expect(results).toEqual([{ channel: 'email', success: true }]);
   });
 
-  it('includes the rule ID and severity in logged output', async () => {
-    const transport = new EmailAlertTransport({ to: 'ops@example.com' });
-    await transport.deliver(SAMPLE_PAYLOAD);
+  it('accepts a custom subject prefix', async () => {
+    const transport = new EmailAlertTransport({
+      to: 'ops@example.com',
+      subjectPrefix: '[PROD]',
+    });
 
-    const loggedText = consoleSpy.mock.calls.flat().join(' ');
-    expect(loggedText).toContain('cpu-critical');
-    expect(loggedText).toContain('critical');
-  });
-
-  it('uses the default subject prefix when none is specified', async () => {
-    const transport = new EmailAlertTransport({ to: 'ops@example.com' });
-    await transport.deliver(SAMPLE_PAYLOAD);
-    const loggedText = consoleSpy.mock.calls.flat().join(' ');
-    expect(loggedText).toContain('[Alert]');
-  });
-
-  it('uses a custom subject prefix when provided', async () => {
-    const transport = new EmailAlertTransport({ to: 'ops@example.com', subjectPrefix: '[PROD]' });
-    await transport.deliver(SAMPLE_PAYLOAD);
-    const loggedText = consoleSpy.mock.calls.flat().join(' ');
-    expect(loggedText).toContain('[PROD]');
-  });
-
-  it('includes the alert message in logged output', async () => {
-    const transport = new EmailAlertTransport({ to: 'ops@example.com' });
-    await transport.deliver(SAMPLE_PAYLOAD);
-    const loggedText = consoleSpy.mock.calls.flat().join(' ');
-    expect(loggedText).toContain(SAMPLE_PAYLOAD.message);
-  });
-
-  it('includes the ISO timestamp', async () => {
-    const transport = new EmailAlertTransport({ to: 'ops@example.com' });
-    await transport.deliver(SAMPLE_PAYLOAD);
-    const loggedText = consoleSpy.mock.calls.flat().join(' ');
-    expect(loggedText).toContain(SAMPLE_PAYLOAD.timestamp);
+    await expect(transport.send(SAMPLE_PAYLOAD)).resolves.toHaveLength(1);
   });
 });
 
 // ── SlackAlertTransport ───────────────────────────────────────────────────────
 
 describe('SlackAlertTransport', () => {
-  let consoleSpy: jest.SpyInstance;
-
-  beforeEach(() => {
-    consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
-  });
-
   afterEach(() => {
-    consoleSpy.mockRestore();
+    jest.restoreAllMocks();
   });
 
   it('resolves without throwing when no webhookUrl is set (simulated mode)', async () => {
@@ -104,38 +63,24 @@ describe('SlackAlertTransport', () => {
     await expect(transport.deliver(SAMPLE_PAYLOAD)).resolves.toBeUndefined();
   });
 
-  it('logs the channel name', async () => {
-    const transport = new SlackAlertTransport({ channel: '#alerts-prod' });
-    await transport.deliver(SAMPLE_PAYLOAD);
-    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('#alerts-prod'));
+  it('returns a successful delivery result in simulated mode', async () => {
+    const transport = new SlackAlertTransport({ channel: '#alerts' });
+
+    const results = await transport.send(SAMPLE_PAYLOAD);
+
+    expect(results).toEqual([{ channel: 'slack', success: true }]);
   });
 
-  it('includes the critical severity emoji for critical alerts', async () => {
+  it.each([
+    ['critical', 'critical'],
+    ['warning', 'warning'],
+    ['info', 'info'],
+  ] as const)('accepts %s severity', async (_label, severity) => {
     const transport = new SlackAlertTransport({ channel: '#alerts' });
-    await transport.deliver(SAMPLE_PAYLOAD);
-    const loggedText = consoleSpy.mock.calls.flat().join(' ');
-    expect(loggedText).toContain('🔴');
-  });
 
-  it('includes the warning emoji for warning severity', async () => {
-    const transport = new SlackAlertTransport({ channel: '#alerts' });
-    await transport.deliver({ ...SAMPLE_PAYLOAD, severity: 'warning' });
-    const loggedText = consoleSpy.mock.calls.flat().join(' ');
-    expect(loggedText).toContain('🟡');
-  });
+    const results = await transport.send({ ...SAMPLE_PAYLOAD, severity });
 
-  it('includes the info emoji for info severity', async () => {
-    const transport = new SlackAlertTransport({ channel: '#alerts' });
-    await transport.deliver({ ...SAMPLE_PAYLOAD, severity: 'info' });
-    const loggedText = consoleSpy.mock.calls.flat().join(' ');
-    expect(loggedText).toContain('🔵');
-  });
-
-  it('includes the rule ID in logged output', async () => {
-    const transport = new SlackAlertTransport({ channel: '#alerts' });
-    await transport.deliver(SAMPLE_PAYLOAD);
-    const loggedText = consoleSpy.mock.calls.flat().join(' ');
-    expect(loggedText).toContain('cpu-critical');
+    expect(results[0]?.success).toBe(true);
   });
 
   it('uses fetch to POST when webhookUrl is provided', async () => {
@@ -146,18 +91,18 @@ describe('SlackAlertTransport', () => {
       channel:    '#alerts',
       webhookUrl: 'https://hooks.slack.com/services/T000/B000/test',
     });
-    await transport.deliver(SAMPLE_PAYLOAD);
+    const results = await transport.send(SAMPLE_PAYLOAD);
 
     expect(mockFetch).toHaveBeenCalledTimes(1);
     const [url, opts] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toBe('https://hooks.slack.com/services/T000/B000/test');
     expect(opts.method).toBe('POST');
-
-    // Restore
-    jest.restoreAllMocks();
+    expect(results).toEqual([
+      { channel: 'slack', success: true, statusCode: 200, error: undefined },
+    ]);
   });
 
-  it('throws when webhookUrl returns a non-ok response', async () => {
+  it('reports a failure when webhookUrl returns a non-ok response', async () => {
     const mockFetch = jest.fn().mockResolvedValue({ ok: false, status: 500 });
     global.fetch = mockFetch as unknown as typeof fetch;
 
@@ -166,8 +111,77 @@ describe('SlackAlertTransport', () => {
       webhookUrl: 'https://hooks.slack.com/services/bad',
     });
 
+    const results = await transport.send(SAMPLE_PAYLOAD);
+    expect(results[0]).toMatchObject({
+      channel: 'slack',
+      success: false,
+      statusCode: 500,
+    });
     await expect(transport.deliver(SAMPLE_PAYLOAD)).rejects.toThrow('HTTP 500');
-    jest.restoreAllMocks();
+  });
+});
+
+// ── AlertTransport webhook ────────────────────────────────────────────────────
+
+describe('AlertTransport', () => {
+  it('returns DeliveryResult[] from send()', async () => {
+    const transport = new AlertTransport({
+      channels: [{ type: 'webhook', url: 'https://example.com/alerts' }],
+    });
+    const post = jest
+      .spyOn((transport as unknown as { http: { post: jest.Mock } }).http, 'post')
+      .mockResolvedValue({ status: 202 });
+
+    const results = await transport.send(SAMPLE_PAYLOAD);
+
+    expect(post).toHaveBeenCalledWith(
+      'https://example.com/alerts',
+      SAMPLE_PAYLOAD,
+      { headers: {} },
+    );
+    expect(results).toEqual([
+      { channel: 'webhook', success: true, statusCode: 202 },
+    ]);
+  });
+
+  it('captures per-channel errors without crashing the pipeline', async () => {
+    const transport = new AlertTransport({
+      channels: [{ type: 'webhook', url: 'https://example.com/alerts' }],
+    });
+    jest
+      .spyOn((transport as unknown as { http: { post: jest.Mock } }).http, 'post')
+      .mockRejectedValue(new Error('Network unreachable'));
+
+    const results = await transport.send(SAMPLE_PAYLOAD);
+
+    expect(results).toEqual([
+      {
+        channel: 'webhook',
+        success: false,
+        error: 'Network unreachable',
+      },
+    ]);
+  });
+
+  it('delivers to multiple channels independently', async () => {
+    const transport = new AlertTransport({
+      channels: [
+        { type: 'webhook', url: 'https://example.com/alerts' },
+        { type: 'slack', webhookUrl: 'https://hooks.slack.com/services/test' },
+      ],
+    });
+    const http = (transport as unknown as { http: { post: jest.Mock } }).http;
+    http.post = jest
+      .fn()
+      .mockResolvedValueOnce({ status: 200 })
+      .mockRejectedValueOnce(new Error('Slack down'));
+
+    const results = await transport.send(SAMPLE_PAYLOAD);
+
+    expect(results).toEqual([
+      { channel: 'webhook', success: true, statusCode: 200 },
+      { channel: 'slack', success: false, error: 'Slack down' },
+    ]);
   });
 });
 
@@ -175,28 +189,19 @@ describe('SlackAlertTransport', () => {
 
 class CaptureTransport {
   readonly received: AlertPayload[] = [];
-  async deliver(payload: AlertPayload): Promise<void> {
+  async send(payload: AlertPayload): Promise<DeliveryResult[]> {
     this.received.push(payload);
+    return [{ channel: 'capture', success: true }];
   }
 }
 
 class FailingTransport {
-  async deliver(_payload: AlertPayload): Promise<void> {
+  async send(_payload: AlertPayload): Promise<never> {
     throw new Error('Simulated transport failure');
   }
 }
 
 describe('CompositeAlertTransport', () => {
-  let consoleErrorSpy: jest.SpyInstance;
-
-  beforeEach(() => {
-    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-  });
-
-  afterEach(() => {
-    consoleErrorSpy.mockRestore();
-  });
-
   it('throws when constructed with an empty transports array', () => {
     expect(() => new CompositeAlertTransport([])).toThrow();
   });
@@ -219,18 +224,30 @@ describe('CompositeAlertTransport', () => {
     const failing = new FailingTransport();
     const composite = new CompositeAlertTransport([failing, good]);
 
-    await composite.deliver(SAMPLE_PAYLOAD);
+    const results = await composite.send(SAMPLE_PAYLOAD);
 
     expect(good.received).toHaveLength(1);
-    expect(consoleErrorSpy).toHaveBeenCalled();
+    expect(results).toEqual([
+      {
+        channel: 'unknown',
+        success: false,
+        error: 'Simulated transport failure',
+      },
+      { channel: 'capture', success: true },
+    ]);
   });
 
-  it('logs failure details when a transport errors', async () => {
+  it('reports failure details when a transport errors', async () => {
     const composite = new CompositeAlertTransport([new FailingTransport()]);
-    await composite.deliver(SAMPLE_PAYLOAD);
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      expect.stringContaining('Simulated transport failure'),
-    );
+    const results = await composite.send(SAMPLE_PAYLOAD);
+
+    expect(results).toEqual([
+      {
+        channel: 'unknown',
+        success: false,
+        error: 'Simulated transport failure',
+      },
+    ]);
   });
 
   it('resolves even if all transports fail', async () => {

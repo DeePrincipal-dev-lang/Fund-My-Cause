@@ -11,16 +11,17 @@ import {
   AlertRuleEvaluator,
   type AlertRuleContext,
 } from '../alert-rule';
-import type { AlertTransport, AlertPayload } from '../alert-transport';
+import type { DeliveryResult, Transport, AlertPayload } from '../alert-transport';
 
 // ── Test double ───────────────────────────────────────────────────────────────
 
 /** Captures all delivered payloads without side-effects. */
-class MockAlertTransport implements AlertTransport {
+class MockAlertTransport implements Transport {
   readonly delivered: AlertPayload[] = [];
 
-  async deliver(payload: AlertPayload): Promise<void> {
+  async send(payload: AlertPayload): Promise<DeliveryResult[]> {
     this.delivered.push(payload);
+    return [{ channel: 'mock', success: true }];
   }
 
   get callCount(): number {

@@ -158,7 +158,19 @@ pub(crate) fn validate_deadline_extension(
     Ok(())
 }
 
+/// Smallest accepted delay between recurring executions.
+pub const MIN_RECURRING_INTERVAL: u64 = 1;
+/// Largest accepted delay between recurring executions (366 days).
+pub const MAX_RECURRING_INTERVAL: u64 = 366 * 24 * 60 * 60;
+/// Largest number of executions a recurring plan may schedule.
+pub const MAX_RECURRING_EXECUTIONS: u64 = 1_000;
+
 /// Validates recurring plan parameters.
+///
+/// `current_time` is the plan start. The plan must end after it starts, the
+/// interval must be within [`MIN_RECURRING_INTERVAL`] and
+/// [`MAX_RECURRING_INTERVAL`], and the number of scheduled executions must not
+/// exceed [`MAX_RECURRING_EXECUTIONS`].
 ///
 /// # Arguments
 /// * `amount` - Contribution amount
@@ -175,9 +187,19 @@ pub(crate) fn validate_recurring_plan(
     end_date: u64,
     current_time: u64,
 ) -> Result<(), ContractError> {
-    if amount <= 0 || interval == 0 || end_date <= current_time {
+    if amount <= 0
+        || interval < MIN_RECURRING_INTERVAL
+        || interval > MAX_RECURRING_INTERVAL
+        || end_date <= current_time
+    {
         return Err(ContractError::InvalidRecurringPlan);
     }
+
+    let scheduled_executions = (end_date - current_time) / interval;
+    if scheduled_executions > MAX_RECURRING_EXECUTIONS {
+        return Err(ContractError::InvalidRecurringPlan);
+    }
+
     Ok(())
 }
 

@@ -1,4 +1,6 @@
-import { logger } from "./logger";
+import { createLogger } from "@fund-my-cause/shared-utils";
+
+const logger = createLogger("monitoring-service:incident-response");
 
 interface Incident {
   id: string;
@@ -579,6 +581,7 @@ export class IncidentResponseEngine {
         `${deploymentApiUrl}/rollback`,
         { deployment_id, incident_id },
         { timeout: 30_000 },
+      );
       logger.info(
         { incident_id, deployment_id },
         "Rolling back deployment for incident",
