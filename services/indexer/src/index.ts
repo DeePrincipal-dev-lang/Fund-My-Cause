@@ -1,6 +1,6 @@
 import "dotenv/config";
 import express, { Express } from "express";
-import pino from "pino";
+import { createLogger } from "@fund-my-cause/shared-utils";
 import { SorobanRPCClient } from "./rpc-client.js";
 import { HealthChecker } from "./health-checker.js";
 import { EventStore } from "./event-store.js";
@@ -39,7 +39,6 @@ const CONTRACT_IDS = [
 ].filter(
   (id): id is string => id.length > 0,
 );
-const LOG_LEVEL = process.env.LOG_LEVEL ?? "info";
 
 // Resolve store / RPC capacity configuration from environment (#902)
 const storeConfig = loadStoreConfig();
@@ -51,8 +50,7 @@ const storeConfig = loadStoreConfig();
 // docs/db-pool-conventions.md.
 const dbPoolConfig = loadDbPoolConfig();
 
-// Logger
-const logger = pino({ level: LOG_LEVEL });
+const logger = createLogger("indexer:main");
 
 // Express app
 const app: Express = express();

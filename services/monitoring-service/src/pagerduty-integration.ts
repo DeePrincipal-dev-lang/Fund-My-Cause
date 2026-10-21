@@ -1,6 +1,9 @@
 import axios, { AxiosInstance } from "axios";
-import { logger } from "./logger";
-import { logger } from "./logger";
+import { createLogger } from "@fund-my-cause/shared-utils";
+
+import type { AlertPayload, DeliveryResult, Transport } from "./alert-transport";
+
+const logger = createLogger("monitoring-service:pagerduty");
 
 interface PagerDutyIncidentRequest {
   title: string;
@@ -59,11 +62,9 @@ interface EscalateResponse {
 export class PagerDutyIntegration {
   private client: AxiosInstance;
   private readonly API_BASE_URL = "https://api.pagerduty.com";
-  private readonly _api_key: string;
   private readonly integration_key: string;
 
   constructor(api_key: string, integration_key?: string) {
-    this._api_key = api_key;
     this.integration_key =
       integration_key || process.env.PAGERDUTY_INTEGRATION_KEY || "";
 
@@ -448,4 +449,62 @@ export class PagerDutyIntegration {
       return false;
     }
   }
+}
+
+export interface PagerDutyTransportOptions {
+  integration: PagerDutyIntegration;
+  serviceId: string;
+  urgency?: "high" | "low";
+}
+
+export class PagerDutyTransport implements Transport {
+  private readonly integration: PagerDutyIntegration;
+  private readonly serviceId: string;
+  private readonly urgency: "high" | "low";
+
+  constructor(options: PagerDutyTransportOptions) {
+    this.integration = options.integration;
+    this.serviceId = options.serviceId;
+    this.urgency = options.urgency ?? "high";
+  }
+
+  async send(alert: AlertPayload): Promise<DeliveryResult[]> {
+    try {
+      await this.integration.createIncident({
+        title: `[${alert.severity.toUpperCase()}] ${alert.ruleId}`,
+        description: alert.message,
+        severity: alert.severity,
+        service_id: this.serviceId,
+        urgency: this.urgency,
+        labels: Object.fromEntries(
+          Object.entries(alert.context).map(([key, value]) => [key, String(value)]),
+        ),
+      });
+      return [{ channel: "pagerduty", success: true }];
+    } catch (error) {
+      return [
+        {
+          channel: "pagerduty",
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      ];
+    }
+  }
+}
+
+export function buildPagerDutyTransportFromEnv(): PagerDutyTransport | null {
+  const apiKey = process.env.PAGERDUTY_API_KEY;
+  const serviceId = process.env.PAGERDUTY_SERVICE_ID;
+  if (!apiKey || !serviceId) {
+    return null;
+  }
+
+  return new PagerDutyTransport({
+    integration: new PagerDutyIntegration(
+      apiKey,
+      process.env.PAGERDUTY_INTEGRATION_KEY,
+    ),
+    serviceId,
+  });
 }

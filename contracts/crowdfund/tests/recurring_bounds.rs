@@ -1,15 +1,14 @@
-//! Boundary tests for recurring-plan inputs (issue #1487).
+//! Boundary tests for recurring-plan inputs (issues #1487, #1562).
 //!
-//! `validate_recurring_plan` enforces three rules: `amount > 0`, `interval > 0`
-//! and `end_date > now`. These tests sit on each side of every rule, plus the
-//! top of the numeric range, so a change to any of them shows up here.
+//! `validate_recurring_plan` bounds the amount, interval, execution count and
+//! start/end ordering. These tests sit on each side of every bound.
 
 #![cfg(test)]
 #![allow(deprecated)]
 
 use soroban_sdk::{testutils::Address as _, Address, Env};
 
-use crowdfund::ContractError;
+use crowdfund::{ContractError, MAX_RECURRING_EXECUTIONS, MAX_RECURRING_INTERVAL};
 
 mod common;
 use common::setup;
@@ -74,21 +73,48 @@ fn interval_boundary_zero_rejected_one_accepted() {
 }
 
 #[test]
-fn interval_upper_bound_u64_max_is_accepted_at_setup() {
+fn interval_upper_bound_max_accepted_max_plus_one_rejected() {
     let env = Env::default();
     env.mock_all_auths();
     let (campaign, contributor) = campaign_at_now(&env);
+    let client = &campaign.client;
 
-    campaign
-        .client
-        .setup_recurring(&contributor, &100, &u64::MAX, &(NOW + 100));
+    client.setup_recurring(&contributor, &100, &MAX_RECURRING_INTERVAL, &(NOW + 100));
     assert_eq!(
-        campaign
-            .client
-            .get_recurring_plan(&contributor)
-            .unwrap()
-            .interval,
-        u64::MAX
+        client.get_recurring_plan(&contributor).unwrap().interval,
+        MAX_RECURRING_INTERVAL
+    );
+
+    let too_large = client.try_setup_recurring(
+        &contributor,
+        &100,
+        &(MAX_RECURRING_INTERVAL + 1),
+        &(NOW + 100),
+    );
+    assert_eq!(
+        too_large.err(),
+        Some(Ok(ContractError::InvalidRecurringPlan))
+    );
+}
+
+#[test]
+fn execution_count_max_accepted_max_plus_one_rejected() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (campaign, contributor) = campaign_at_now(&env);
+    let client = &campaign.client;
+
+    client.setup_recurring(&contributor, &100, &1, &(NOW + MAX_RECURRING_EXECUTIONS));
+
+    let too_many = client.try_setup_recurring(
+        &contributor,
+        &100,
+        &1,
+        &(NOW + MAX_RECURRING_EXECUTIONS + 1),
+    );
+    assert_eq!(
+        too_many.err(),
+        Some(Ok(ContractError::InvalidRecurringPlan))
     );
 }
 
@@ -113,22 +139,15 @@ fn end_date_boundary_equal_to_now_rejected_now_plus_one_accepted() {
 }
 
 #[test]
-fn end_date_upper_bound_u64_max_is_accepted() {
+fn end_date_that_schedules_too_many_executions_is_rejected() {
     let env = Env::default();
     env.mock_all_auths();
     let (campaign, contributor) = campaign_at_now(&env);
 
-    campaign
+    let too_far = campaign
         .client
-        .setup_recurring(&contributor, &100, &60, &u64::MAX);
-    assert_eq!(
-        campaign
-            .client
-            .get_recurring_plan(&contributor)
-            .unwrap()
-            .end_date,
-        u64::MAX
-    );
+        .try_setup_recurring(&contributor, &100, &60, &u64::MAX);
+    assert_eq!(too_far.err(), Some(Ok(ContractError::InvalidRecurringPlan)));
 }
 
 #[test]

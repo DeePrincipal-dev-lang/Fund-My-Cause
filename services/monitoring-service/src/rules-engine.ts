@@ -10,11 +10,7 @@
  * modifying source code, addressing the risk identified in Issue #1131.
  */
 
-import type {
-  AlertRule,
-  AlertRuleContext,
-  AlertRuleResult,
-} from "./alert-rule.js";
+import type { AlertRule } from "./alert-rule.js";
 import { ThresholdAlertRule, RateAlertRule } from "./alert-rule.js";
 
 /**

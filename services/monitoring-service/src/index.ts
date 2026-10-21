@@ -1,12 +1,24 @@
 import express, { Express, Request, Response } from "express";
-import { IncidentResponseEngine } from "./incident-response";
-import { PagerDutyIntegration } from "./pagerduty-integration";
+import { createLogger } from "@fund-my-cause/shared-utils";
 import { register, Counter, Histogram, Gauge } from "prom-client";
+import {
+  AlertRuleEvaluator,
+  type AlertmanagerWebhookPayload,
+} from "./alert-rule";
+import { buildAlertTransportFromEnv, type AlertPayload } from "./alert-transport";
+import { IncidentResponseEngine } from "./incident-response";
 import { emailTransport, slackTransport } from "./notifier";
-import { logger } from "./logger";
+import { PagerDutyIntegration } from "./pagerduty-integration";
 
+const logger = createLogger("monitoring-service:main");
 const app: Express = express();
 const port = process.env.PORT || 9091;
+
+function normalizeSeverity(severity: string): AlertPayload["severity"] {
+  return severity === "critical" || severity === "warning" || severity === "info"
+    ? severity
+    : "warning";
+}
 
 // Middleware
 app.use(express.json());
@@ -53,12 +65,6 @@ const alertCounter = new Counter({
   name: "alerts_processed_total",
   help: "Total alerts processed",
   labelNames: ["severity"],
-});
-
-const escalationHistogram = new Histogram({
-  name: "escalation_duration_seconds",
-  help: "Escalation duration in seconds",
-  labelNames: ["level"],
 });
 
 const responseTimeHistogram = new Histogram({
@@ -145,28 +151,28 @@ app.post("/incidents", async (req: Request, res: Response) => {
       }
     }
 
-    // Deliver alert to Email transport
+    const alertPayload: AlertPayload = {
+      ruleId: `incident:${incident.id}`,
+      severity: normalizeSeverity(severity),
+      message: description,
+      context: {
+        alert_name,
+        category: category || "application",
+        source: source || "alertmanager",
+        labels: labels || {},
+        annotations: annotations || {},
+      },
+      timestamp: incident.created_at,
+    };
+
     try {
-      await emailTransport.send({
-        title: alert_name,
-        description,
-        severity,
-        channel: "email",
-        timestamp: incident.created_at,
-      });
+      await emailTransport.send(alertPayload);
     } catch (error) {
       logger.error({ err: error }, "Failed to deliver email alert");
     }
 
-    // Deliver alert to Slack transport
     try {
-      await slackTransport.send({
-        title: alert_name,
-        description,
-        severity,
-        channel: "slack",
-        timestamp: incident.created_at,
-      });
+      await slackTransport.send(alertPayload);
     } catch (error) {
       logger.error({ err: error }, "Failed to deliver slack alert");
     }
@@ -174,12 +180,12 @@ app.post("/incidents", async (req: Request, res: Response) => {
     responseTimeHistogram
       .labels("/incidents", "POST")
       .observe((Date.now() - startTime) / 1000);
-    res.status(201).json(incident);
+    return res.status(201).json(incident);
   } catch (error) {
     responseTimeHistogram
       .labels("/incidents", "POST")
       .observe((Date.now() - startTime) / 1000);
-    res.status(500).json({ error: "Failed to create incident" });
+    return res.status(500).json({ error: "Failed to create incident" });
   }
 });
 
@@ -202,12 +208,12 @@ app.get("/incidents/:id", (req: Request, res: Response) => {
     responseTimeHistogram
       .labels("/incidents/:id", "GET")
       .observe((Date.now() - startTime) / 1000);
-    res.json(incident);
+    return res.json(incident);
   } catch (error) {
     responseTimeHistogram
       .labels("/incidents/:id", "GET")
       .observe((Date.now() - startTime) / 1000);
-    res.status(500).json({ error: "Failed to retrieve incident" });
+    return res.status(500).json({ error: "Failed to retrieve incident" });
   }
 });
 
@@ -242,12 +248,12 @@ app.put("/incidents/:id", (req: Request, res: Response) => {
     responseTimeHistogram
       .labels("/incidents/:id", "PUT")
       .observe((Date.now() - startTime) / 1000);
-    res.json(incident);
+    return res.json(incident);
   } catch (error) {
     responseTimeHistogram
       .labels("/incidents/:id", "PUT")
       .observe((Date.now() - startTime) / 1000);
-    res.status(500).json({ error: "Failed to update incident" });
+    return res.status(500).json({ error: "Failed to update incident" });
   }
 });
 
@@ -285,7 +291,7 @@ app.get("/incidents", (req: Request, res: Response) => {
  * delivers notifications over the configured transport channels.
  * This is the entry point wired from alertmanager.yml webhook_configs.
  */
-app.post("/alerts", (req: Request, res: Response) => {
+app.post("/alerts", async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
     // Support both bare single-alert objects (legacy) and the full
@@ -347,12 +353,12 @@ app.post("/alerts", (req: Request, res: Response) => {
     responseTimeHistogram
       .labels("/alerts", "POST")
       .observe((Date.now() - startTime) / 1000);
-    res.status(201).json(alert);
+    return res.status(201).json(alert);
   } catch (error) {
     responseTimeHistogram
       .labels("/alerts", "POST")
       .observe((Date.now() - startTime) / 1000);
-    res.status(500).json({ error: "Failed to create alert" });
+    return res.status(500).json({ error: "Failed to create alert" });
   }
 });
 
@@ -377,12 +383,12 @@ app.get("/alerts/:id", (req: Request, res: Response) => {
     responseTimeHistogram
       .labels("/alerts/:id", "GET")
       .observe((Date.now() - startTime) / 1000);
-    res.json(alert);
+    return res.json(alert);
   } catch (error) {
     responseTimeHistogram
       .labels("/alerts/:id", "GET")
       .observe((Date.now() - startTime) / 1000);
-    res.status(500).json({ error: "Failed to retrieve alert" });
+    return res.status(500).json({ error: "Failed to retrieve alert" });
   }
 });
 
@@ -415,20 +421,20 @@ app.post("/remediate", async (req: Request, res: Response) => {
     responseTimeHistogram
       .labels("/remediate", "POST")
       .observe((Date.now() - startTime) / 1000);
-    res.json(result);
+    return res.json(result);
   } catch (error) {
     remediationCounter.labels("unknown", "false").inc();
     responseTimeHistogram
       .labels("/remediate", "POST")
       .observe((Date.now() - startTime) / 1000);
-    res.status(500).json({ error: "Failed to execute remediation" });
+    return res.status(500).json({ error: "Failed to execute remediation" });
   }
 });
 
 /**
  * 8. GET /health - Service health
  */
-app.get("/health", (req: Request, res: Response) => {
+app.get("/health", (_req: Request, res: Response) => {
   const startTime = Date.now();
   try {
     const health = {
@@ -445,26 +451,26 @@ app.get("/health", (req: Request, res: Response) => {
     responseTimeHistogram
       .labels("/health", "GET")
       .observe((Date.now() - startTime) / 1000);
-    res.json(health);
+    return res.json(health);
   } catch (error) {
     responseTimeHistogram
       .labels("/health", "GET")
       .observe((Date.now() - startTime) / 1000);
-    res.status(500).json({ status: "unhealthy" });
+    return res.status(500).json({ status: "unhealthy" });
   }
 });
 
 /**
  * 8a. GET /healthz - Kubernetes liveness probe
  */
-app.get("/healthz", (req: Request, res: Response) => {
+app.get("/healthz", (_req: Request, res: Response) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
 /**
  * 8b. GET /readyz - Kubernetes readiness probe
  */
-app.get("/readyz", (req: Request, res: Response) => {
+app.get("/readyz", (_req: Request, res: Response) => {
   res.json({
     ready: true,
     checks: {
@@ -478,7 +484,7 @@ app.get("/readyz", (req: Request, res: Response) => {
 /**
  * 9. POST /analyze - Performance analysis
  */
-app.post("/analyze", (req: Request, res: Response) => {
+app.post("/analyze", async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
     const { metric, threshold, window } = req.body;
@@ -488,12 +494,12 @@ app.post("/analyze", (req: Request, res: Response) => {
     responseTimeHistogram
       .labels("/analyze", "POST")
       .observe((Date.now() - startTime) / 1000);
-    res.json(analysis);
+    return res.json(analysis);
   } catch (error) {
     responseTimeHistogram
       .labels("/analyze", "POST")
       .observe((Date.now() - startTime) / 1000);
-    res.status(500).json({ error: "Failed to analyze metric" });
+    return res.status(500).json({ error: "Failed to analyze metric" });
   }
 });
 
@@ -516,12 +522,12 @@ app.post("/costs", (req: Request, res: Response) => {
     responseTimeHistogram
       .labels("/costs", "POST")
       .observe((Date.now() - startTime) / 1000);
-    res.status(201).json(cost);
+    return res.status(201).json(cost);
   } catch (error) {
     responseTimeHistogram
       .labels("/costs", "POST")
       .observe((Date.now() - startTime) / 1000);
-    res.status(500).json({ error: "Failed to track cost" });
+    return res.status(500).json({ error: "Failed to track cost" });
   }
 });
 
@@ -529,7 +535,7 @@ app.post("/costs", (req: Request, res: Response) => {
 // Metrics Endpoint
 // ============================================================================
 
-app.get("/metrics", (req: Request, res: Response) => {
+app.get("/metrics", (_req: Request, res: Response) => {
   try {
     res.set("Content-Type", register.contentType);
     res.end(register.metrics());
@@ -544,7 +550,7 @@ app.get("/metrics", (req: Request, res: Response) => {
 // Health Check for Docker
 // ============================================================================
 
-app.get("/", (req: Request, res: Response) => {
+app.get("/", (_req: Request, res: Response) => {
   res.json({ message: "Fund My Cause Monitoring Service", version: "1.0.0" });
 });
 
@@ -552,7 +558,7 @@ app.get("/", (req: Request, res: Response) => {
 // Start Server
 // ============================================================================
 
-app.listen(port, () => {
+const server = app.listen(port, () => {
   logger.info({ port }, "Monitoring service running");
   logger.info({ url: `http://localhost:${port}/metrics` }, "Metrics available");
   logger.info(
@@ -567,4 +573,5 @@ process.on("SIGTERM", () => {
   process.exit(0);
 });
 
+export { server };
 export default app;

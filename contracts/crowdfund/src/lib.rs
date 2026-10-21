@@ -133,6 +133,9 @@ pub mod fuzz_api {
 
 pub use errors::ContractError;
 pub use security::{CircuitBreaker, ContributorGate, InputValidator, RateLimiter, ReentrancyGuard};
+pub use validation::{
+    MAX_RECURRING_EXECUTIONS, MAX_RECURRING_INTERVAL, MIN_RECURRING_INTERVAL,
+};
 
 use access::auth_admin;
 use helpers::require_auth_creator;
