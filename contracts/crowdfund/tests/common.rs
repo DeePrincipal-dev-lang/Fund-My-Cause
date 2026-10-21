@@ -66,3 +66,14 @@ pub fn setup(
 pub fn setup_upgrade_campaign(env: &Env) -> Campaign<'_> {
     setup(env, 10_000, 1_000_000, None)
 }
+
+/// Mint `amount` tokens to a fresh address and contribute them to the campaign.
+///
+/// Returns the contributor address so callers can make assertions about balances.
+#[allow(dead_code)] // used by refund_withdraw_coverage.rs and other test files
+pub fn fund(env: &Env, c: &Campaign<'_>, amount: i128) -> Address {
+    let contributor = Address::generate(env);
+    c.token_admin.mint(&contributor, &amount);
+    c.client.contribute(&contributor, &amount, &c.token_id, &None);
+    contributor
+}
