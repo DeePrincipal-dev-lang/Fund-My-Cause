@@ -9,7 +9,7 @@
  *  - EventStore end-state is unchanged vs. pre-refactor behavior (all events stored)
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import pino from "pino";
 import { EventDispatcher } from "./dispatcher.js";
 import { CampaignHandler } from "./crowdfund/campaign.handler.js";
@@ -134,9 +134,7 @@ describe("EventDispatcher — handler routing", () => {
       new AchievementPointsAwardedHandler(silentLogger),
       new RegisteredHandler(silentLogger),
     ];
-    const handlerSpies = handlers.map((handler) =>
-      vi.spyOn(handler, "handle"),
-    );
+    const handlerSpies = handlers.map((handler) => vi.spyOn(handler, "handle"));
     const dispatcher = new EventDispatcher(handlers, fallback, silentLogger);
 
     dispatcher.dispatch(newContractEvents);
@@ -144,7 +142,7 @@ describe("EventDispatcher — handler routing", () => {
     expect(handlerSpies.map((spy) => spy.mock.calls[0]?.[0])).toEqual(
       newContractEvents.map((event) => [event]),
     );
-    expect(fallback.addEvents).not.toHaveBeenCalled();
+    expect(fallback.addEvents).toHaveBeenCalledTimes(newContractEvents.length);
   });
 
   it("routes campaign events to the CampaignHandler", () => {
@@ -246,7 +244,7 @@ describe("EventDispatcher — backward-compat alias routing", () => {
     dispatcher.dispatch([legacyEvent]);
 
     expect(handleSpy).toHaveBeenCalledOnce();
-    expect(fallback.addEvents).not.toHaveBeenCalled();
+    expect(fallback.addEvents).toHaveBeenCalledWith([legacyEvent]);
   });
 
   it("routes 'Contribute' events to DonationHandler via alias", () => {

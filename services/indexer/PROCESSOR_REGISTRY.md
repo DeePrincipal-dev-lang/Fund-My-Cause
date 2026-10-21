@@ -1,5 +1,10 @@
 # Per-Event-Type Processor Registry
 
+`handlers/handler-registry.ts` is the single source of truth for the
+canonical event type to handler mapping. `createHandlers()` instantiates one
+handler per event type, and `createEventDispatcher()` wires those handlers
+into an `EventDispatcher`.
+
 `EventDispatcher` keeps a `Map<string, EventHandler>` keyed by event topic.
 It groups each incoming batch by topic and invokes the matching handler once
 per group. Aliases on a handler preserve support for older topic names.
@@ -16,8 +21,10 @@ per group. Aliases on a handler preserve support for older topic names.
 
 Handlers persist the original `IndexerEvent` objects through the shared
 repository; they do not reshape the indexed data. Their co-located tests use
-decoded event fixtures, and `handlers/dispatcher.test.ts` covers canonical
-topic routing, legacy aliases, and unknown topics.
+decoded event fixtures. `handlers/handler-registry.test.ts` verifies the
+registry covers every canonical type exactly once, and
+`handlers/dispatcher.test.ts` covers canonical topic routing, legacy aliases,
+and unknown topics.
 
 Unknown event types are logged and sent directly to the fallback repository,
 so adding processors does not change indexed output or discard events that
