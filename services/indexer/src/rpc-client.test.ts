@@ -1,8 +1,12 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { SorobanRPCClient, type IndexerEvent } from "./rpc-client";
 import pino from "pino";
 
 const logger = pino({ level: "silent" });
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("SorobanRPCClient", () => {
   it("should initialize with config", () => {
@@ -98,6 +102,48 @@ describe("SorobanRPCClient", () => {
       const date = new Date(ts);
 
       expect(date.toISOString()).toBe("2023-11-14T22:13:20.000Z");
+    });
+  });
+
+  describe("shared retry policy", () => {
+    it("retries a transient 500 through the shared helper and recovers", async () => {
+      const rawEvent = {
+        id: "4-0",
+        timestamp: 1_700_000_000,
+        type: "Contribute",
+        contractId: "CXXX",
+        data: {},
+      };
+      let calls = 0;
+      const fetchMock = vi.fn().mockImplementation(() => {
+        calls++;
+        if (calls === 1) {
+          return Promise.resolve({
+            ok: false,
+            status: 500,
+            json: () => Promise.resolve({}),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ result: { events: [rawEvent] } }),
+        });
+      });
+      vi.stubGlobal("fetch", fetchMock);
+
+      const sleep = vi.fn().mockResolvedValue(undefined);
+      const client = new SorobanRPCClient(
+        { url: "http://localhost:8000", contractId: "CXXX" },
+        logger,
+        sleep,
+      );
+
+      const events = await client.fetchEvents(1);
+
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(sleep).toHaveBeenCalledWith(500);
+      expect(events).toHaveLength(1);
     });
   });
 });

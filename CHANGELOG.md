@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **#1518/#1519 Shared resilience primitives** — moved the generic three-state circuit
+  breaker into `@fund-my-cause/shared-utils` and added a shared exponential-backoff retry
+  helper. Indexer HTTP/RPC clients and the Horizon wrapper now delegate to the shared
+  implementations; existing `@fund-my-cause/rpc-client` and indexer imports remain valid.
 - **Crowdfund event topics renamed from `("campaign", <event>)` to `("crowdfund", <event>)`** (see
   ADR-010). Event names and payloads are unchanged. Indexers must subscribe to the `crowdfund`
   scope for campaign events; events emitted before this release keep the old scope on the ledger.

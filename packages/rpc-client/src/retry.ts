@@ -1,3 +1,5 @@
+import { retryWithBackoff, sleep } from "@fund-my-cause/shared-utils";
+
 /** Retry configuration options. */
 export interface RetryOptions {
   /** Maximum number of retry attempts. @default 3 */
@@ -39,6 +41,10 @@ export class RetryExhaustedError extends Error {
  * - Retries on HTTP 5xx status codes listed in `retryableStatusCodes`
  * - Does NOT retry on 4xx status codes (client errors)
  * - Uses exponential backoff: baseDelay * multiplier^(attempt-1), capped at maxDelay
+ *
+ * The loop and backoff schedule are provided by
+ * `@fund-my-cause/shared-utils/retry`; this wrapper preserves the RPC client's
+ * existing result and error contract.
  */
 export async function withRetry<T>(
   fn: () => Promise<T>,
@@ -53,36 +59,45 @@ export async function withRetry<T>(
     retryOnTimeout = true,
   } = options;
 
-  let lastError: Error = new Error("No attempts made");
+  let attempts = 0;
   let totalDelayMs = 0;
+  let lastError: Error = new Error("No attempts made");
 
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      const data = await fn();
-      return { data, attempts: attempt + 1, totalDelayMs };
-    } catch (err) {
-      lastError = err instanceof Error ? err : new Error(String(err));
+  const data = await retryWithBackoff(
+    async (attempt) => {
+      attempts = attempt + 1;
 
-      if (attempt >= maxRetries) {
-        break;
-      }
+      try {
+        return await fn();
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error(String(err));
 
-      const shouldRetry = shouldRetryError(lastError, { retryableStatusCodes, retryOnTimeout });
-      if (!shouldRetry) {
+        if (attempt >= maxRetries) {
+          throw new RetryExhaustedError(
+            `All ${maxRetries + 1} retry attempts exhausted: ${lastError.message}`,
+            maxRetries + 1,
+            lastError,
+          );
+        }
+
         throw lastError;
       }
-
-      const delay = Math.min(baseDelayMs * Math.pow(backoffMultiplier, attempt), maxDelayMs);
-      await sleep(delay);
-      totalDelayMs += delay;
-    }
-  }
-
-  throw new RetryExhaustedError(
-    `All ${maxRetries + 1} retry attempts exhausted: ${lastError.message}`,
-    maxRetries + 1,
-    lastError,
+    },
+    {
+      maxRetries,
+      initialBackoffMs: baseDelayMs,
+      backoffMultiplier,
+      maxBackoffMs: maxDelayMs,
+      shouldRetry: (error) =>
+        shouldRetryError(error as Error, { retryableStatusCodes, retryOnTimeout }),
+      sleep: async (ms) => {
+        totalDelayMs += ms;
+        await sleep(ms);
+      },
+    },
   );
+
+  return { data, attempts, totalDelayMs };
 }
 
 function shouldRetryError(
@@ -107,8 +122,4 @@ function shouldRetryError(
   }
 
   return false;
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
