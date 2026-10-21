@@ -31,6 +31,6 @@ npm start
 
 ## Prerequisites
 
-- Node.js 18+
+- Node.js 20+
 - A funded Stellar **testnet** keypair
 - A deployed crowdfund contract (see [Getting Started](../docs/tutorials/getting-started.md))
