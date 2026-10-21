@@ -45,9 +45,17 @@
 //!
 //! The individual single-field getters are unchanged — they remain cheap and
 //! callers that need only one field should continue using them directly.
+//!
+//! ### Batched header view (issue #1561)
+//! `get_campaign_snapshot` returns the creator, status, total raised, goal,
+//! deadline and metadata in one `CampaignSnapshot` value. It also uses
+//! [`CachedInstanceView::load`], so a dashboard that previously made three or
+//! more cross-contract getter calls pays for one invocation and one
+//! instance-storage read instead. `tests/view_gas.rs` pins the saving against
+//! the individual `creator`/`status`/`total_raised` calls.
 
 use crate::errors::ContractError;
-use soroban_sdk::{Address, Env, String, Vec};
+use soroban_sdk::{contracttype, Address, Env, String, Vec};
 
 use crate::{
     storage::{
@@ -198,6 +206,51 @@ impl CachedInstanceView {
         }
         let elapsed = now.saturating_sub(v.cliff);
         proportional(elapsed as i128, v.duration as i128, payout).unwrap_or(payout)
+    }
+}
+
+/// Everything a dashboard needs for its campaign header, loaded in one pass.
+///
+/// Issue #1561: callers that need creator, status and total raised (plus the
+/// rest of the header) can make one cross-contract call instead of three or
+/// more. All fields come from a single [`CachedInstanceView::load`], so the
+/// host meters one instance-storage read footprint entry rather than one per
+/// getter.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CampaignSnapshot {
+    pub creator: Address,
+    pub token: Address,
+    pub goal: i128,
+    pub deadline: u64,
+    pub total_raised: i128,
+    pub status: Status,
+    pub title: String,
+    pub description: String,
+    pub min_contribution: i128,
+    pub max_contribution: i128,
+    pub category: Category,
+}
+
+/// Returns the campaign header snapshot.
+///
+/// `total_raised` reflects the live `KEY_TOTAL` value, including contributions
+/// made since initialization. The field set intentionally matches the
+/// single-field views so callers can swap multiple calls for this one.
+pub(crate) fn get_campaign_snapshot(env: Env) -> CampaignSnapshot {
+    let c = CachedInstanceView::load(&env);
+    CampaignSnapshot {
+        creator: c.creator,
+        token: c.token,
+        goal: c.goal,
+        deadline: c.deadline,
+        total_raised: c.total,
+        status: c.status,
+        title: c.title,
+        description: c.description,
+        min_contribution: c.min_contribution,
+        max_contribution: c.max_contribution,
+        category: c.category,
     }
 }
 

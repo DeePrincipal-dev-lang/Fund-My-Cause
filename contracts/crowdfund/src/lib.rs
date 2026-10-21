@@ -86,6 +86,8 @@ mod validation;
 mod views;
 mod withdraw;
 
+pub use views::CampaignSnapshot;
+
 /// Public `pub fn` wrappers around otherwise `pub(crate)` validation logic,
 /// compiled only under the `fuzz` feature so the `contracts/crowdfund/fuzz`
 /// harness (see its README section) can drive them directly without
@@ -631,7 +633,7 @@ impl CrowdfundContract {
             return Err(ContractError::NotActive);
         }
         let creator: Address = inst.get(&KEY_CREATOR).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound));
-        creator.require_auth();
+        common::AccessControl::require_role_auth(&creator);
 
         let old_deadline: u64 = inst.get(&KEY_DEADLINE).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound));
         validate_deadline_extension(new_deadline, old_deadline)?;
@@ -676,7 +678,7 @@ impl CrowdfundContract {
             return Err(ContractError::NotActive);
         }
         let creator: Address = inst.get(&KEY_CREATOR).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound));
-        creator.require_auth();
+        common::AccessControl::require_role_auth(&creator);
 
         if new_goal <= 0 {
             return Err(ContractError::InvalidGoal);
@@ -1006,6 +1008,11 @@ impl CrowdfundContract {
         env.storage()
             .persistent()
             .set(&DataKey::EmergencyApproversList, &approvers);
+        env.storage().persistent().extend_ttl(
+            &DataKey::EmergencyApproversList,
+            TTL_PERSISTENT_ENTRY,
+            TTL_PERSISTENT_ENTRY,
+        );
 
         env.events().publish(
             ("crowdfund", "multisig_configured"),
@@ -1033,7 +1040,7 @@ impl CrowdfundContract {
     /// * `Err(ContractError::Unauthorized)` if multi-sig is not configured or approver
     ///   is not in the authorised list
     pub fn approve_emergency_withdrawal(env: Env, approver: Address) -> Result<(), ContractError> {
-        approver.require_auth();
+        common::AccessControl::require_role_auth(&approver);
 
         let inst = env.storage().instance();
 
@@ -1075,6 +1082,11 @@ impl CrowdfundContract {
         env.storage()
             .persistent()
             .set(&DataKey::EmergencyApproval(approver.clone()), &lock_until);
+        env.storage().persistent().extend_ttl(
+            &DataKey::EmergencyApproval(approver.clone()),
+            TTL_PERSISTENT_ENTRY,
+            TTL_PERSISTENT_ENTRY,
+        );
 
         let count: u32 = inst.get(&DataKey::EmergencyApprovalCount).unwrap_or(0);
         let new_count = count.checked_add(1).ok_or(ContractError::Overflow)?;
@@ -1193,7 +1205,7 @@ impl CrowdfundContract {
         }
 
         // ── Escrow matching funds from sponsor into the contract ──────────────
-        sponsor.require_auth();
+        common::AccessControl::require_role_auth(&sponsor);
         let token_address: Address = inst.get(&KEY_TOKEN).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound));
         token::Client::new(&env, &token_address).transfer(
             &sponsor,
@@ -1274,7 +1286,7 @@ impl CrowdfundContract {
         }
         validate_category(&category)?;
         let creator: Address = inst.get(&KEY_CREATOR).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound));
-        creator.require_auth();
+        common::AccessControl::require_role_auth(&creator);
 
         let old_category: Category = inst.get(&KEY_CATEGORY).unwrap_or(Category::Other);
         inst.set(&KEY_CATEGORY, &category);
@@ -1477,7 +1489,7 @@ impl CrowdfundContract {
         contributor: Address,
         approve: bool,
     ) -> Result<(), ContractError> {
-        contributor.require_auth();
+        common::AccessControl::require_role_auth(&contributor);
 
         let inst = env.storage().instance();
         let mut proposal: ExtensionProposal = inst
@@ -2165,6 +2177,17 @@ impl CrowdfundContract {
         views::get_campaign_info(env)
     }
 
+    /// Returns the campaign header snapshot in a single storage pass (issue #1561).
+    ///
+    /// This is a drop-in replacement for calling `creator`, `status`,
+    /// `total_raised`, `goal`, `deadline`, `title`, `description`,
+    /// `min_contribution`, `max_contribution` and `get_category` separately.
+    /// All fields are loaded from one instance-storage read, so the
+    /// cross-contract read fee is paid once instead of once per getter.
+    pub fn get_campaign_snapshot(env: Env) -> CampaignSnapshot {
+        views::get_campaign_snapshot(env)
+    }
+
     /// Returns the campaign category.
     ///
     /// # Arguments
@@ -2421,7 +2444,7 @@ impl CrowdfundContract {
     /// * `Err(ContractError::GoalReached)` if goal was reached and campaign not cancelled
     /// * `Err(ContractError::InsufficientFunds)` if the pool is somehow below the fee
     pub fn claim_insurance_payout(env: Env, contributor: Address) -> Result<(), ContractError> {
-        contributor.require_auth();
+        common::AccessControl::require_role_auth(&contributor);
 
         let inst = env.storage().instance();
         let status: Status = inst.get(&KEY_STATUS).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound));
@@ -2566,6 +2589,11 @@ impl CrowdfundContract {
             &DataKey::RewardsClaimed(contributor.clone()),
             &reward_amount,
         );
+        env.storage().persistent().extend_ttl(
+            &DataKey::RewardsClaimed(contributor.clone()),
+            TTL_PERSISTENT_ENTRY,
+            TTL_PERSISTENT_ENTRY,
+        );
 
         env.events().publish(
             ("crowdfund", "rewards_distributed"),
@@ -2608,6 +2636,11 @@ impl CrowdfundContract {
         env.storage()
             .persistent()
             .set(&DataKey::SearchIndex, &index);
+        env.storage().persistent().extend_ttl(
+            &DataKey::SearchIndex,
+            TTL_PERSISTENT_ENTRY,
+            TTL_PERSISTENT_ENTRY,
+        );
 
         env.events().publish(
             ("crowdfund", "indexed"),
@@ -2991,13 +3024,18 @@ impl CrowdfundContract {
             .instance()
             .get(&KEY_CREATOR)
             .ok_or(ContractError::NotCreator)?;
-        creator.require_auth();
+        common::AccessControl::require_role_auth(&creator);
 
         if milestones.len() > storage::MAX_MILESTONES {
             return Err(ContractError::InvalidGoal);
         }
 
         env.storage().persistent().set(&KEY_MILESTONES, &milestones);
+        env.storage().persistent().extend_ttl(
+            &KEY_MILESTONES,
+            TTL_PERSISTENT_ENTRY,
+            TTL_PERSISTENT_ENTRY,
+        );
         Ok(())
     }
 
@@ -3019,7 +3057,7 @@ impl CrowdfundContract {
             .instance()
             .get(&KEY_CREATOR)
             .ok_or(ContractError::NotCreator)?;
-        creator.require_auth();
+        common::AccessControl::require_role_auth(&creator);
 
         let mut milestones: Vec<FundingMilestone> = env
             .storage()
@@ -3049,6 +3087,11 @@ impl CrowdfundContract {
         milestone.reached = true;
         milestones.set(milestone_index, milestone);
         env.storage().persistent().set(&KEY_MILESTONES, &milestones);
+        env.storage().persistent().extend_ttl(
+            &KEY_MILESTONES,
+            TTL_PERSISTENT_ENTRY,
+            TTL_PERSISTENT_ENTRY,
+        );
 
         env.events().publish(
             ("crowdfund", "milestone_verified"),
@@ -3076,11 +3119,16 @@ impl CrowdfundContract {
             .instance()
             .get(&KEY_CREATOR)
             .ok_or(ContractError::NotCreator)?;
-        creator.require_auth();
+        common::AccessControl::require_role_auth(&creator);
 
         env.storage()
             .persistent()
-            .set(&DataKey::Contribution(contributor.clone()), &status);
+            .set(&DataKey::Verification(contributor.clone()), &status);
+        env.storage().persistent().extend_ttl(
+            &DataKey::Verification(contributor.clone()),
+            TTL_PERSISTENT_ENTRY,
+            TTL_PERSISTENT_ENTRY,
+        );
 
         env.events().publish(
             ("crowdfund", "verification_updated"),
@@ -3097,7 +3145,7 @@ impl CrowdfundContract {
     pub fn get_verification(env: Env, contributor: Address) -> VerificationStatus {
         env.storage()
             .persistent()
-            .get(&DataKey::Contribution(contributor))
+            .get(&DataKey::Verification(contributor))
             .unwrap_or(VerificationStatus::Unverified)
     }
 
@@ -3121,7 +3169,7 @@ impl CrowdfundContract {
         filer: Address,
         description: String,
     ) -> Result<u32, ContractError> {
-        filer.require_auth();
+        common::AccessControl::require_role_auth(&filer);
 
         let mut dispute_id: u32 = env.storage().persistent().get(&KEY_DISPUTE_ID).unwrap_or(0);
         dispute_id = dispute_id.checked_add(1).ok_or(ContractError::Overflow)?;
@@ -3145,7 +3193,17 @@ impl CrowdfundContract {
         disputes.push_back(dispute);
 
         env.storage().persistent().set(&KEY_DISPUTES, &disputes);
+        env.storage().persistent().extend_ttl(
+            &KEY_DISPUTES,
+            TTL_PERSISTENT_ENTRY,
+            TTL_PERSISTENT_ENTRY,
+        );
         env.storage().persistent().set(&KEY_DISPUTE_ID, &dispute_id);
+        env.storage().persistent().extend_ttl(
+            &KEY_DISPUTE_ID,
+            TTL_PERSISTENT_ENTRY,
+            TTL_PERSISTENT_ENTRY,
+        );
 
         env.events().publish(
             ("crowdfund", "dispute_filed"),
@@ -3168,7 +3226,7 @@ impl CrowdfundContract {
         dispute_id: u32,
         in_favor: bool,
     ) -> Result<(), ContractError> {
-        voter.require_auth();
+        common::AccessControl::require_role_auth(&voter);
         let vote_weight: i128 = env
             .storage()
             .persistent()
@@ -3218,6 +3276,11 @@ impl CrowdfundContract {
         }
 
         env.storage().persistent().set(&KEY_DISPUTES, &disputes);
+        env.storage().persistent().extend_ttl(
+            &KEY_DISPUTES,
+            TTL_PERSISTENT_ENTRY,
+            TTL_PERSISTENT_ENTRY,
+        );
 
         env.events().publish(
             ("crowdfund", "dispute_voted"),
@@ -3243,7 +3306,7 @@ impl CrowdfundContract {
             .instance()
             .get(&KEY_CREATOR)
             .ok_or(ContractError::NotCreator)?;
-        creator.require_auth();
+        common::AccessControl::require_role_auth(&creator);
 
         let mut disputes: Vec<Dispute> = env
             .storage()
@@ -3285,6 +3348,11 @@ impl CrowdfundContract {
         }
 
         env.storage().persistent().set(&KEY_DISPUTES, &disputes);
+        env.storage().persistent().extend_ttl(
+            &KEY_DISPUTES,
+            TTL_PERSISTENT_ENTRY,
+            TTL_PERSISTENT_ENTRY,
+        );
         Ok(())
     }
 
@@ -3380,7 +3448,7 @@ impl CrowdfundContract {
         platform_address: Address,
         platform_fee_bps: u32,
     ) -> Result<u32, ContractError> {
-        proposer.require_auth();
+        common::AccessControl::require_role_auth(&proposer);
         let inst = env.storage().instance();
 
         let config: GovernanceConfig = inst
@@ -3412,6 +3480,11 @@ impl CrowdfundContract {
         env.storage()
             .persistent()
             .set(&DataKey::GovernanceProposal(new_nonce), &proposal);
+        env.storage().persistent().extend_ttl(
+            &DataKey::GovernanceProposal(new_nonce),
+            TTL_PERSISTENT_ENTRY,
+            TTL_PERSISTENT_ENTRY,
+        );
         inst.set(&KEY_GOVERNANCE_NONCE, &new_nonce);
 
         env.events().publish(
@@ -3449,7 +3522,7 @@ impl CrowdfundContract {
         governor: Address,
         proposal_nonce: u32,
     ) -> Result<(), ContractError> {
-        governor.require_auth();
+        common::AccessControl::require_role_auth(&governor);
         let inst = env.storage().instance();
 
         let config: GovernanceConfig = inst
@@ -3496,6 +3569,11 @@ impl CrowdfundContract {
         env.storage()
             .persistent()
             .set(&DataKey::GovernanceProposal(proposal_nonce), &proposal);
+        env.storage().persistent().extend_ttl(
+            &DataKey::GovernanceProposal(proposal_nonce),
+            TTL_PERSISTENT_ENTRY,
+            TTL_PERSISTENT_ENTRY,
+        );
 
         env.events().publish(
             ("governance", "voted"),
@@ -3561,6 +3639,11 @@ impl CrowdfundContract {
         env.storage()
             .persistent()
             .set(&DataKey::GovernanceProposal(proposal_nonce), &proposal);
+        env.storage().persistent().extend_ttl(
+            &DataKey::GovernanceProposal(proposal_nonce),
+            TTL_PERSISTENT_ENTRY,
+            TTL_PERSISTENT_ENTRY,
+        );
 
         env.events().publish(
             ("governance", "executed"),
@@ -3587,7 +3670,7 @@ impl CrowdfundContract {
     /// * `Ok(())` on success
     /// * `Err(ContractError::GovernanceNotGovernor)` if caller is not a governor
     pub fn emergency_pause(env: Env, governor: Address) -> Result<(), ContractError> {
-        governor.require_auth();
+        common::AccessControl::require_role_auth(&governor);
         let inst = env.storage().instance();
 
         let config: GovernanceConfig = inst
@@ -3640,7 +3723,7 @@ impl CrowdfundContract {
     /// * `Ok(())` on success
     /// * `Err(ContractError::GovernanceNotGovernor)` if caller is not a governor
     pub fn emergency_resume(env: Env, governor: Address) -> Result<(), ContractError> {
-        governor.require_auth();
+        common::AccessControl::require_role_auth(&governor);
         let inst = env.storage().instance();
 
         let config: GovernanceConfig = inst
@@ -3819,7 +3902,7 @@ impl CrowdfundContract {
     /// * `NoRewardsConfigured` — yield not configured
     /// * `InsufficientFunds` — pool exhausted
     pub fn claim_yield(env: Env, contributor: Address) -> Result<i128, ContractError> {
-        contributor.require_auth();
+        common::AccessControl::require_role_auth(&contributor);
 
         let inst = env.storage().instance();
         let config: YieldConfig = inst
@@ -3997,7 +4080,7 @@ impl CrowdfundContract {
             return Err(ContractError::NotActive);
         }
         let creator: Address = inst.get(&KEY_CREATOR).unwrap_or_else(|| soroban_sdk::panic_with_error!(&env, ContractError::NotFound));
-        creator.require_auth();
+        common::AccessControl::require_role_auth(&creator);
 
         if soft_cap < 0 || stretch_goal < 0 {
             return Err(ContractError::InvalidGoal);

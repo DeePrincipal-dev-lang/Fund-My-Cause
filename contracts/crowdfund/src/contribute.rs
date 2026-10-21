@@ -505,7 +505,7 @@ pub(crate) fn contribute(
     token: Address,
     message: Option<String>,
 ) -> Result<(), ContractError> {
-    contributor.require_auth();
+    common::AccessControl::require_role_auth(&contributor);
 
     validate_positive_amount(amount)?;
 
@@ -587,7 +587,7 @@ pub(crate) fn delegate_contribution(
     delegate: Address,
     amount: i128,
 ) -> Result<(), ContractError> {
-    delegator.require_auth();
+    common::AccessControl::require_role_auth(&delegator);
 
     validate_delegation(amount)?;
 
@@ -634,7 +634,7 @@ pub(crate) fn contribute_on_behalf(
     amount: i128,
     token: Address,
 ) -> Result<(), ContractError> {
-    delegate.require_auth();
+    common::AccessControl::require_role_auth(&delegate);
 
     let delegation: Delegation = env
         .storage()
@@ -785,7 +785,7 @@ pub(crate) fn contribute_on_behalf(
 /// # Returns
 /// * `Ok(())` on success
 pub(crate) fn revoke_delegation(env: Env, delegator: Address) -> Result<(), ContractError> {
-    delegator.require_auth();
+    common::AccessControl::require_role_auth(&delegator);
 
     let mut delegation: Delegation = env
         .storage()
@@ -797,6 +797,11 @@ pub(crate) fn revoke_delegation(env: Env, delegator: Address) -> Result<(), Cont
     env.storage()
         .persistent()
         .set(&DataKey::Delegation(delegator.clone()), &delegation);
+    env.storage().persistent().extend_ttl(
+        &DataKey::Delegation(delegator.clone()),
+        TTL_PERSISTENT_ENTRY,
+        TTL_PERSISTENT_ENTRY,
+    );
     env.events().publish(
         ("crowdfund", "delegation_revoked"),
         EventDelegationRevoked { delegator },

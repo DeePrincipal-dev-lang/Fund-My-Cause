@@ -12,6 +12,7 @@ use crate::{
         DataKey, KEY_ADMIN, KEY_ARCHIVED, KEY_CATEGORY, KEY_CREATOR, KEY_DEADLINE, KEY_DESC,
         KEY_GOAL, KEY_GOAL_HISTORY, KEY_MAX, KEY_META_HIST, KEY_MIN, KEY_PLATFORM, KEY_SOCIAL,
         KEY_START_TIME, KEY_STATUS, KEY_TITLE, KEY_TOKEN, KEY_TOTAL, KEY_VESTING, KEY_VISIBILITY,
+        TTL_PERSISTENT_ENTRY,
     },
     types::{
         CampaignTemplate, Category, EventArchived, EventCampaignCloned, EventCancelled,
@@ -56,7 +57,7 @@ pub(crate) fn initialize(
     if env.storage().instance().has(&KEY_CREATOR) {
         return Err(ContractError::AlreadyInitialized);
     }
-    creator.require_auth();
+    common::AccessControl::require_role_auth(&creator);
 
     validate_initialization(
         goal,
@@ -119,6 +120,11 @@ pub(crate) fn initialize(
         timestamp: env.ledger().timestamp(),
     });
     env.storage().persistent().set(&KEY_GOAL_HISTORY, &history);
+    env.storage().persistent().extend_ttl(
+        &KEY_GOAL_HISTORY,
+        TTL_PERSISTENT_ENTRY,
+        TTL_PERSISTENT_ENTRY,
+    );
 
     // Seed metadata version history with version 0 (initial state)
     let mut meta_hist: Vec<MetadataVersion> = Vec::new(&env);
@@ -129,6 +135,11 @@ pub(crate) fn initialize(
         timestamp: env.ledger().timestamp(),
     });
     env.storage().persistent().set(&KEY_META_HIST, &meta_hist);
+    env.storage().persistent().extend_ttl(
+        &KEY_META_HIST,
+        TTL_PERSISTENT_ENTRY,
+        TTL_PERSISTENT_ENTRY,
+    );
 
     env.events().publish(
         ("crowdfund", "initialized"),
@@ -172,7 +183,7 @@ pub(crate) fn initialize_from_template(
     if env.storage().instance().has(&KEY_CREATOR) {
         return Err(ContractError::AlreadyInitialized);
     }
-    creator.require_auth();
+    common::AccessControl::require_role_auth(&creator);
 
     // === Validate template
     if template.suggested_min < 0 {
@@ -255,6 +266,11 @@ pub(crate) fn initialize_from_template(
         timestamp: env.ledger().timestamp(),
     });
     env.storage().persistent().set(&KEY_GOAL_HISTORY, &history);
+    env.storage().persistent().extend_ttl(
+        &KEY_GOAL_HISTORY,
+        TTL_PERSISTENT_ENTRY,
+        TTL_PERSISTENT_ENTRY,
+    );
 
     env.events().publish(
         ("crowdfund", "initialized"),
@@ -335,6 +351,11 @@ pub(crate) fn clone_campaign(
         timestamp: env.ledger().timestamp(),
     });
     env.storage().persistent().set(&KEY_GOAL_HISTORY, &history);
+    env.storage().persistent().extend_ttl(
+        &KEY_GOAL_HISTORY,
+        TTL_PERSISTENT_ENTRY,
+        TTL_PERSISTENT_ENTRY,
+    );
 
     // Reset metadata version history
     let mut meta_hist: Vec<MetadataVersion> = Vec::new(&env);
@@ -345,6 +366,11 @@ pub(crate) fn clone_campaign(
         timestamp: env.ledger().timestamp(),
     });
     env.storage().persistent().set(&KEY_META_HIST, &meta_hist);
+    env.storage().persistent().extend_ttl(
+        &KEY_META_HIST,
+        TTL_PERSISTENT_ENTRY,
+        TTL_PERSISTENT_ENTRY,
+    );
 
     env.events().publish(
         ("crowdfund", "cloned"),

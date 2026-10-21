@@ -15,6 +15,44 @@ mod common;
 use common::setup;
 
 #[test]
+fn campaign_snapshot_matches_single_field_views() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let campaign = setup(&env, 50_000, 1_000_000, None);
+    let client = &campaign.client;
+
+    let snapshot = client.get_campaign_snapshot();
+
+    assert_eq!(snapshot.creator, client.creator());
+    assert_eq!(snapshot.token, campaign.token_id);
+    assert_eq!(snapshot.goal, client.goal());
+    assert_eq!(snapshot.deadline, client.deadline());
+    assert_eq!(snapshot.total_raised, client.total_raised());
+    assert_eq!(snapshot.status, client.status());
+    assert_eq!(snapshot.title, client.title());
+    assert_eq!(snapshot.description, client.description());
+    assert_eq!(snapshot.min_contribution, client.min_contribution());
+    assert_eq!(snapshot.max_contribution, client.max_contribution());
+    assert_eq!(snapshot.category, client.get_category());
+}
+
+#[test]
+fn campaign_snapshot_tracks_contributions() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let campaign = setup(&env, 50_000, 1_000_000, None);
+    let client = &campaign.client;
+
+    let contributor = Address::generate(&env);
+    campaign.token_admin.mint(&contributor, &2_500);
+    client.contribute(&contributor, &2_500, &campaign.token_id, &None);
+
+    let snapshot = client.get_campaign_snapshot();
+    assert_eq!(snapshot.total_raised, 2_500);
+    assert_eq!(snapshot.total_raised, client.total_raised());
+}
+
+#[test]
 fn campaign_info_matches_single_field_views() {
     let env = Env::default();
     env.mock_all_auths();

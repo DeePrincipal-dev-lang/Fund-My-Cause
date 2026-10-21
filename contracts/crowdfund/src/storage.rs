@@ -61,9 +61,34 @@
 //! | `KEY_PAUSE_TIMELOCK` | `PTLOCK` | instance | instance: contract-wide TTL_INSTANCE_EXTEND_MIN/MAX bump |
 //! | `KEY_UNPAUSE_AFTER` | `UNPAFTER` | instance | instance: contract-wide TTL_INSTANCE_EXTEND_MIN/MAX bump |
 //! | `KEY_GROSS_TOTAL` | `GROSST` | instance | instance: contract-wide TTL_INSTANCE_EXTEND_MIN/MAX bump |
-//! | `KEY_IPFS_CID` | `IPFSCID` | none | reserved: declared but not read or written |
+//! | `KEY_IPFS_CID` | `IPFSCID` | instance | instance: contract-wide TTL_INSTANCE_EXTEND_MIN/MAX bump (written via `MetadataField::IpfsCid`) |
 //! | `KEY_YIELD_CONFIG` | `YLDCFG` | instance | instance: contract-wide TTL_INSTANCE_EXTEND_MIN/MAX bump |
 //! | `KEY_YIELD_TOTAL` | `YLDTOT` | instance | instance: contract-wide TTL_INSTANCE_EXTEND_MIN/MAX bump |
+//!
+//! ## TTL rules
+//!
+//! * **instance** rows live in the shared contract instance entry, which is
+//!   extended with `TTL_INSTANCE_EXTEND_MIN`/`TTL_INSTANCE_EXTEND_MAX` at the
+//!   contract level. Individual instance keys must not call `extend_ttl`.
+//! * **persistent** rows must call `extend_ttl(key, TTL_PERSISTENT_ENTRY,
+//!   TTL_PERSISTENT_ENTRY)` immediately after every `set`, including updates to
+//!   an existing value. A missing bump can silently expire campaign history,
+//!   milestones or disputes.
+//! * **none** rows are reserved symbols. They must not be written until this
+//!   table and the TTL policy are updated together.
+//!
+//! `MetadataField` is an alias layer over existing keys, not a second key
+//! space: `Title`/`Description`/`SocialLinks` map to `KEY_TITLE`/`KEY_DESC`/
+//! `KEY_SOCIAL`, `History` maps to `KEY_META_HIST`, and `IpfsCid` maps to
+//! `KEY_IPFS_CID`. The `storage_key_audit` uniqueness test includes these
+//! aliases so a future alias cannot silently reuse an unrelated symbol.
+//!
+//! `DataKey` variants are typed ledger keys rather than `KEY_*` symbols. The
+//! same two rules apply: instance-scoped variants inherit the contract-wide
+//! instance bump, and every persistent variant must bump its own TTL on write.
+//! Each address-scoped value also needs its own variant: `DataKey::Verification`
+//! is deliberately separate from `DataKey::Contribution` so writing a
+//! verification status cannot overwrite the contribution amount.
 //!
 use soroban_sdk::Symbol;
 
