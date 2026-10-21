@@ -9,14 +9,14 @@ use soroban_sdk::{Address, Env, Vec};
 
 use crate::{
     errors::ContractError,
+    events::CrowdfundEvents,
     storage::{
         DataKey, KEY_DEADLINE, KEY_GOAL, KEY_GROSS_TOTAL, KEY_LAST_VALIDATION, KEY_SOFT_CAP,
         KEY_START_TIME, KEY_STRETCH_GOAL, KEY_TOTAL,
     },
     types::{
-        CampaignAnalytics, CampaignStats, ContributionHistory, EventInvariantViolated,
-        EventStateValidated, PerformanceMetrics, QfContributorInput, QfInputs,
-        StateValidationResult,
+        CampaignAnalytics, CampaignStats, ContributionHistory, PerformanceMetrics,
+        QfContributorInput, QfInputs, StateValidationResult,
     },
 };
 
@@ -267,13 +267,7 @@ pub(crate) fn validate_state(env: Env) -> StateValidationResult {
         passed += 1;
     } else {
         failed += 1;
-        env.events().publish(
-            ("contract", "invariant_violated"),
-            EventInvariantViolated {
-                invariant_id: 1,
-                timestamp: now,
-            },
-        );
+        CrowdfundEvents::invariant_violated(&env, 1, now);
     }
 
     // Invariant 2: goal > 0
@@ -281,13 +275,7 @@ pub(crate) fn validate_state(env: Env) -> StateValidationResult {
         passed += 1;
     } else {
         failed += 1;
-        env.events().publish(
-            ("contract", "invariant_violated"),
-            EventInvariantViolated {
-                invariant_id: 2,
-                timestamp: now,
-            },
-        );
+        CrowdfundEvents::invariant_violated(&env, 2, now);
     }
 
     // Invariant 3: deadline > 0
@@ -295,13 +283,7 @@ pub(crate) fn validate_state(env: Env) -> StateValidationResult {
         passed += 1;
     } else {
         failed += 1;
-        env.events().publish(
-            ("contract", "invariant_violated"),
-            EventInvariantViolated {
-                invariant_id: 3,
-                timestamp: now,
-            },
-        );
+        CrowdfundEvents::invariant_violated(&env, 3, now);
     }
 
     // Invariant 4: total_raised <= goal * 2 (overflow-safe)
@@ -310,13 +292,7 @@ pub(crate) fn validate_state(env: Env) -> StateValidationResult {
         passed += 1;
     } else {
         failed += 1;
-        env.events().publish(
-            ("contract", "invariant_violated"),
-            EventInvariantViolated {
-                invariant_id: 4,
-                timestamp: now,
-            },
-        );
+        CrowdfundEvents::invariant_violated(&env, 4, now);
     }
 
     // Invariant 5: contributor_count structural check (u32 is always >= 0)
@@ -332,15 +308,7 @@ pub(crate) fn validate_state(env: Env) -> StateValidationResult {
 
     inst.set(&KEY_LAST_VALIDATION, &result);
 
-    env.events().publish(
-        ("contract", "state_validated"),
-        EventStateValidated {
-            valid: result.valid,
-            checks_passed: passed,
-            checks_failed: failed,
-            timestamp: now,
-        },
-    );
+    CrowdfundEvents::state_validated(&env, result.valid, passed, failed, now);
 
     result
 }

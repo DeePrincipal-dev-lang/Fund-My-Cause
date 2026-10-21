@@ -2,8 +2,9 @@
 #![allow(deprecated)]
 
 //! Payload snapshot tests for the analytics events emitted by `validate_state`
-//! (issue #1489). These pin the topics and payloads that indexers consume, so
-//! any change to event names or fields fails here first.
+//! (issues #1489 and #1564). Emissions are routed through `CrowdfundEvents`;
+//! these tests pin the topics and payloads that indexers consume, so any change
+//! to event names or fields fails here first.
 
 use soroban_sdk::{
     testutils::{Events as _, Ledger},
