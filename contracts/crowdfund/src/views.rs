@@ -61,7 +61,7 @@ use crate::{
     },
 };
 
-use common::math::{apply_bps, apply_bps_saturating};
+use common::math::{apply_bps, apply_bps_saturating, proportional};
 
 // =============================================================================
 // Per-call instance-storage cache (issue #1148)
@@ -193,11 +193,11 @@ impl CachedInstanceView {
         if now < v.cliff {
             return 0;
         }
-        if v.duration == 0 || now >= v.cliff + v.duration {
+        if v.duration == 0 || now >= v.cliff.saturating_add(v.duration) {
             return payout;
         }
-        let elapsed = now - v.cliff;
-        payout * elapsed as i128 / v.duration as i128
+        let elapsed = now.saturating_sub(v.cliff);
+        proportional(elapsed as i128, v.duration as i128, payout).unwrap_or(payout)
     }
 }
 
@@ -409,12 +409,7 @@ pub(crate) fn get_vested_amount(env: Env) -> i128 {
         return payout;
     }
     let elapsed = now.saturating_sub(v.cliff);
-    let duration = v.duration as i128;
-    // Issue #1145: use checked_mul to prevent overflow on large payout * elapsed
-    payout
-        .checked_mul(elapsed as i128)
-        .and_then(|product| product.checked_div(duration))
-        .unwrap_or(payout)
+    proportional(elapsed as i128, v.duration as i128, payout).unwrap_or(payout)
 }
 
 // =============================================================================

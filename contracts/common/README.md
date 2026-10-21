@@ -14,14 +14,15 @@ All four deployable contracts now depend on this crate. Extracted per
 
 ## What's here
 
-- **`CommonError`** (`error.rs`) — a small set of base error variants
-  (`Unauthorized`, `NotFound`, `InvalidInput`, `AlreadyInitialized`,
+- **Errors** (`error.rs`) — a small set of base variants (`CommonError`:
+  `Unauthorized`, `NotFound`, `InvalidInput`, `AlreadyInitialized`,
   `AlreadyExists`, `NotInitialized`, `Paused`, `Overflow`) shared across
-  contracts. Each contract keeps its own `#[contracterror] ContractError` — so
-  its domain-specific variants and existing on-chain discriminants are
-  undisturbed — and implements `From<CommonError> for ContractError` to fold
-  these shared cases into its own error space. All four deployable contracts
-  (`crowdfund`, `registry`, `achievements`, `qf`) now implement this.
+  contracts, plus `AchievementsError`, the achievements contract's stable
+  on-chain codes 1–17. The achievements contract re-exports
+  `AchievementsError` as its `ContractError`; contracts with domain-specific
+  enums keep their own `#[contracterror] ContractError` and fold shared cases
+  in through `From<CommonError>`. All four deployable contracts (`crowdfund`,
+  `registry`, `achievements`, `qf`) consume these shared error definitions.
 - **`AccessControl`** (`access_control.rs`) — the "is the caller the one
   address allowed to do this" check duplicated across contracts
   (`require_role_auth`, `require_stored_auth`).
@@ -29,7 +30,9 @@ All four deployable contracts now depend on this crate. Extracted per
   shared event emission helpers so `services/indexer` can parse all contract
   events uniformly.
 - **`math`** (`math.rs`) — `apply_bps`, `apply_bps_saturating`, `proportional`,
-  `BASIS_POINTS_MAX`, `REWARD_DIVISOR` used by `crowdfund`.
+  `ratio_bps`, `BASIS_POINTS_MAX`, `REWARD_DIVISOR` used by `crowdfund` and
+  `achievements` for fees, vesting/refund proportions, analytics, and reward
+  point conversion.
 - **`validation`** (`validation.rs`) — `validate_positive_amount` used by
   `crowdfund` and `achievements`.
 - **`IssuanceValidator`** (`issuance.rs`) — NFT/achievement issuance checks
@@ -103,7 +106,7 @@ The interpretation for Soroban contract upgrades is as follows:
 ### Math Utilities Versioning
 
 The `common::math` module follows the same SemVer rules:
-- `apply_bps`, `apply_bps_saturating`, `proportional`, and `BASIS_POINTS_MAX` are stable public APIs.
+- `apply_bps`, `apply_bps_saturating`, `proportional`, `ratio_bps`, and `BASIS_POINTS_MAX` are stable public APIs.
 - New math utilities added will be minor version bumps if backward-compatible.
 - Changing calculation logic (e.g., rounding behavior) is a major version bump.
 
