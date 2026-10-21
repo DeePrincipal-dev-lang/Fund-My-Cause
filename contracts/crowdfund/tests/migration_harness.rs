@@ -7,79 +7,24 @@
 //! (v5) would have left it, then run the current binary's migration path
 //! (`migrate_version`) against it and verify that every critical storage key
 //! survives the upgrade unchanged.
+//!
+//! The seeding helper (`seed_old_schema`) and environment factory
+//! (`test_utils::setup_env`) now live in `common.rs` so that
+//! `storage_schema_test.rs` and any future upgrade-step test can share the
+//! same harness without copy-pasting (issue #1565).
 
-use common::test_utils::setup_env;
+mod common;
+use common::{seed_old_schema, test_utils::setup_env};
+
 use crowdfund::{
-    Category, CrowdfundContract, CrowdfundContractClient, DataKey, Status, VersionMigration,
-    Visibility, CONTRACT_VERSION, KEY_ADMIN, KEY_CATEGORY, KEY_CONTRACT_VERSION, KEY_CREATOR,
-    KEY_DEADLINE, KEY_DESC, KEY_GOAL, KEY_MAX, KEY_MIN, KEY_START_TIME, KEY_STATUS, KEY_TITLE,
-    KEY_TOKEN, KEY_TOTAL, KEY_VERSION_HISTORY, KEY_VISIBILITY, MIN_SUPPORTED_VERSION,
+    Category, CrowdfundContractClient, DataKey, Status, Visibility, CONTRACT_VERSION,
+    KEY_CATEGORY, KEY_CONTRACT_VERSION, KEY_CREATOR, KEY_DEADLINE, KEY_DESC, KEY_GOAL, KEY_MAX,
+    KEY_MIN, KEY_START_TIME, KEY_STATUS, KEY_TITLE, KEY_TOKEN, KEY_TOTAL, KEY_VISIBILITY,
 };
 use soroban_sdk::{
     testutils::{Address as _, Events as _, Ledger},
-    Address, Env, String, Vec,
+    Address, Env, String,
 };
-
-/// A campaign seeded with the storage layout of an older contract version.
-struct SeededCampaign {
-    contract_id: Address,
-    creator: Address,
-    token_id: Address,
-    contributor: Address,
-}
-
-/// Writes the instance + persistent storage keys exactly as `initialize`
-/// would have at schema v5, including a prior `4 → 5` migration record.
-///
-/// All writes happen inside `env.as_contract` so they land in the registered
-/// contract's storage, not the test's.
-fn seed_old_schema(env: &Env) -> SeededCampaign {
-    let creator = Address::generate(env);
-    let token_admin = Address::generate(env);
-    let token_id = env.register_stellar_asset_contract(token_admin);
-    let contract_id = env.register_contract(None, CrowdfundContract);
-    let contributor = Address::generate(env);
-
-    env.as_contract(&contract_id, || {
-        let inst = env.storage().instance();
-        inst.set(&KEY_CONTRACT_VERSION, &5u32);
-        inst.set(&KEY_ADMIN, &creator);
-        inst.set(&KEY_CREATOR, &creator);
-        inst.set(&KEY_TOKEN, &token_id);
-        inst.set(&KEY_GOAL, &10_000i128);
-        inst.set(&KEY_DEADLINE, &1_000_000u64);
-        inst.set(&KEY_TOTAL, &2_500i128);
-        inst.set(&KEY_STATUS, &Status::Active);
-        inst.set(&KEY_MIN, &100i128);
-        inst.set(&KEY_MAX, &0i128);
-        inst.set(&KEY_TITLE, &String::from_str(env, "Old Campaign"));
-        inst.set(&KEY_DESC, &String::from_str(env, "Seeded at schema v5"));
-        inst.set(&KEY_CATEGORY, &Category::Technology);
-        inst.set(&KEY_VISIBILITY, &Visibility::Public);
-        inst.set(&KEY_START_TIME, &100u64);
-        inst.set(&DataKey::ContributorCount, &1u32);
-        inst.set(&DataKey::LargestContribution, &2_500i128);
-
-        let pers = env.storage().persistent();
-        pers.set(&DataKey::Contribution(contributor.clone()), &2_500i128);
-        pers.set(&DataKey::ContributorPresence(contributor.clone()), &true);
-
-        let mut history: Vec<VersionMigration> = Vec::new(env);
-        history.push_back(VersionMigration {
-            from_version: 4,
-            to_version: 5,
-            timestamp: 100,
-        });
-        pers.set(&KEY_VERSION_HISTORY, &history);
-    });
-
-    SeededCampaign {
-        contract_id,
-        creator,
-        token_id,
-        contributor,
-    }
-}
 
 fn migrate(env: &Env, contract_id: &Address) {
     let client = CrowdfundContractClient::new(env, contract_id);
@@ -109,12 +54,12 @@ fn test_migration_preserves_all_storage_keys() {
         let version: u32 = inst.get(&KEY_CONTRACT_VERSION).unwrap();
         assert_eq!(version, CONTRACT_VERSION, "version must bump to current");
         assert_eq!(
-            inst.get::<_, Address>(&KEY_CREATOR).unwrap(),
+            inst.get::<_, soroban_sdk::Address>(&KEY_CREATOR).unwrap(),
             seeded.creator,
             "KEY_CREATOR must survive migration"
         );
         assert_eq!(
-            inst.get::<_, Address>(&KEY_TOKEN).unwrap(),
+            inst.get::<_, soroban_sdk::Address>(&KEY_TOKEN).unwrap(),
             seeded.token_id,
             "KEY_TOKEN must survive migration"
         );
@@ -242,6 +187,8 @@ fn test_migration_rejects_unauthorized() {
 
 #[test]
 fn test_check_version_flags_incompatible_versions() {
+    use crowdfund::MIN_SUPPORTED_VERSION;
+
     let env = setup_env();
     let seeded = seed_old_schema(&env);
     let client = CrowdfundContractClient::new(&env, &seeded.contract_id);
@@ -275,6 +222,7 @@ fn test_check_version_flags_incompatible_versions() {
 
 #[test]
 fn test_version_numbering_compatibility() {
+    use crowdfund::MIN_SUPPORTED_VERSION;
     assert!(CONTRACT_VERSION >= MIN_SUPPORTED_VERSION);
     assert!(
         CONTRACT_VERSION - MIN_SUPPORTED_VERSION >= 2,

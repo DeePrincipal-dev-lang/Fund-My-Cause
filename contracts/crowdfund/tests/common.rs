@@ -2,9 +2,26 @@
 // `register_stellar_asset_contract` helpers; migrating them is separate work.
 #![allow(deprecated)]
 
-use soroban_sdk::{testutils::Address as _, token, Address, Env, String};
+use soroban_sdk::{testutils::Address as _, token, Address, Env, String, Vec};
 
-use crowdfund::{Category, CrowdfundContract, CrowdfundContractClient, PlatformConfig};
+use crowdfund::{
+    Category, CrowdfundContract, CrowdfundContractClient, DataKey, PlatformConfig, Status,
+    VersionMigration, Visibility, KEY_ADMIN, KEY_CATEGORY, KEY_CONTRACT_VERSION, KEY_CREATOR,
+    KEY_DEADLINE, KEY_DESC, KEY_GOAL, KEY_MAX, KEY_MIN, KEY_START_TIME, KEY_STATUS, KEY_TITLE,
+    KEY_TOKEN, KEY_TOTAL, KEY_VERSION_HISTORY,
+};
+
+// ── Re-export common::test_utils::setup_env ──────────────────────────────────
+//
+// `migration_harness.rs` and `storage_schema_test.rs` both import
+// `common::test_utils::setup_env`.  Providing the re-export here means
+// those files can keep using the same `use common::test_utils::setup_env`
+// path while the actual implementation lives in the shared crate.
+pub mod test_utils {
+    pub use common::test_utils::setup_env;
+}
+
+// ── Campaign fixture ──────────────────────────────────────────────────────────
 
 #[allow(dead_code)] // fixture fields are used selectively across test files
 pub struct Campaign<'a> {
@@ -16,6 +33,10 @@ pub struct Campaign<'a> {
     pub creator: Address,
 }
 
+/// Deploy and fully initialize a campaign with sensible defaults.
+///
+/// Called by every file that previously copy-pasted its own `setup_campaign`
+/// helper (issue #1565).
 pub fn setup(
     env: &Env,
     goal: i128,
@@ -62,7 +83,7 @@ pub fn setup(
 ///
 /// Builds a campaign at the current schema version so every upgrade step test
 /// starts from the same setup instead of re-implementing it.
-#[allow(dead_code)] // used by upgrade_step_harness.rs only
+#[allow(dead_code)] // used by upgrade_step_harness.rs and upgrade_tests.rs
 pub fn setup_upgrade_campaign(env: &Env) -> Campaign<'_> {
     setup(env, 10_000, 1_000_000, None)
 }

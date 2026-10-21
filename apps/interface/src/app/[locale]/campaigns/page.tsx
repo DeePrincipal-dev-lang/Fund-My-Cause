@@ -1,13 +1,28 @@
 "use client";
 
+/**
+ * Campaigns page (App Router).
+ *
+ * Issue #1350 — Split CampaignsInner into focused components:
+ *
+ *   CampaignsContainer  (this file, below)
+ *     Owns all state, hooks, derived data, and event handlers.
+ *     Contains zero JSX beyond passing props to CampaignsView.
+ *
+ *   CampaignsView  (src/components/campaigns/CampaignsView.tsx)
+ *     Pure presentational component: receives data + callbacks via props,
+ *     renders the UI, has no hooks and no state of its own.
+ *
+ * This separation makes the view independently testable and previewable in
+ * Storybook without any routing, context, or data-fetching setup.
+ */
+
 import React, { Suspense, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { Navbar } from "@/components/layout/Navbar";
 import { LazyPledgeModal as PledgeModal } from "@/lib/lazy-components";
 import { ShareModal } from "@/components/ui/ShareModal";
 import { LoadingSkeletonGrid } from "@/components/ui/LoadingSkeleton";
-import { Campaign } from "@/types/campaign";
 import { ALL_CAMPAIGNS } from "@/lib/campaigns";
 import { GitCompare } from "lucide-react";
 import { useComparison } from "@/context/ComparisonContext";
@@ -58,6 +73,7 @@ function CampaignsContainer() {
   const { selected, clear } = useComparison();
   const t = useTranslations("campaigns");
 
+  // ── Filter hook ────────────────────────────────────────────────────────────
   const {
     filters,
     setParam,
@@ -78,29 +94,14 @@ function CampaignsContainer() {
     activeDateTo,
   } = useCampaignFilters();
 
+  // ── Modal state ────────────────────────────────────────────────────────────
   const [pledge, setPledge] = useState<string | null>(null);
   const [shareTarget, setShareTarget] = useState<{
     id: string;
     title: string;
   } | null>(null);
 
-  const FILTER_TABS: { label: string; value: FilterTab }[] = [
-    { label: t("filterAll"), value: "all" },
-    { label: t("filterActive"), value: "active" },
-    { label: t("filterFunded"), value: "funded" },
-    { label: t("filterEnded"), value: "ended" },
-  ];
-
-  const setPage = (p: number) => {
-    const params = new URLSearchParams();
-    if (p !== 1) params.set("page", String(p));
-    if (filters.filter !== "all") params.set("filter", filters.filter);
-    if (filters.sort !== "recent") params.set("sort", filters.sort);
-    if (filters.category) params.set("category", filters.category);
-    if (filters.query) params.set("q", filters.query);
-    router.replace(`/campaigns?${params.toString()}`, { scroll: false });
-  };
-
+  // ── Derived data ───────────────────────────────────────────────────────────
   const filtered = applySort(
     applyFilter(
       ALL_CAMPAIGNS.filter((c) => {
@@ -213,45 +214,64 @@ function CampaignsContainer() {
         </div>
       )}
 
-      {pledge && (
-        <PledgeModal
-          contractId={pledge}
-          campaignTitle={
-            ALL_CAMPAIGNS.find((c) => c.id === pledge)?.title ?? pledge
-          }
-          onClose={() => setPledge(null)}
-        />
-      )}
+  // ── Callbacks ─────────────────────────────────────────────────────────────
+  const handlePageChange = (p: number) => {
+    const params = new URLSearchParams();
+    if (p !== 1) params.set("page", String(p));
+    if (filters.filter !== "all") params.set("filter", filters.filter);
+    if (filters.sort !== "recent") params.set("sort", filters.sort);
+    if (filters.category) params.set("category", filters.category);
+    if (filters.query) params.set("q", filters.query);
+    router.replace(`/campaigns?${params.toString()}`, { scroll: false });
+  };
 
-      {shareTarget && (
-        <ShareModal
-          campaignId={shareTarget.id}
-          campaignTitle={shareTarget.title}
-          onClose={() => setShareTarget(null)}
-        />
-      )}
+  const pledgeTitle =
+    ALL_CAMPAIGNS.find((c) => c.id === pledge)?.title ?? pledge ?? "";
 
-      {selected.length > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-gray-900 border border-gray-700 rounded-2xl px-5 py-3 shadow-2xl">
-          <GitCompare size={16} className="text-indigo-400" />
-          <span className="text-sm text-gray-300">
-            {t("selected", { count: selected.length })}
-          </span>
-          <Link
-            href="/compare"
-            className="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-sm font-medium transition"
-          >
-            {t("compare")}
-          </Link>
-          <button
-            onClick={clear}
-            className="text-gray-500 hover:text-gray-300 text-xs transition"
-          >
-            {t("clear")}
-          </button>
-        </div>
-      )}
-    </>
+  return (
+    <CampaignsView
+      // Data
+      paginated={paginated}
+      filtered={filtered}
+      categories={CATEGORIES}
+      filters={filters}
+      filterTabs={filterTabs}
+      inputValue={inputValue}
+      showAdvanced={showAdvanced}
+      hasAdvanced={hasAdvanced}
+      currentPage={currentPage}
+      totalPages={totalPages}
+      // Comparison bar
+      selectedCount={selected.length}
+      // Modal state
+      pledge={pledge}
+      pledgeTitle={pledgeTitle}
+      shareTarget={shareTarget}
+      // Filter callbacks
+      onSearchChange={setInputValue}
+      onCategoryChange={(v) => setParam("category", v)}
+      onSortChange={(v) => setParam("sort", v)}
+      onFilterTabChange={(v) => setParam("filter", v)}
+      onToggleAdvanced={() => setShowAdvanced(!showAdvanced)}
+      onGoalMinChange={setGoalMin}
+      onGoalMaxChange={setGoalMax}
+      onDateFromChange={setDateFrom}
+      onDateToChange={setDateTo}
+      onApplyAdvanced={applyAdvanced}
+      onClearAdvanced={clearAdvanced}
+      onClearFilters={() => router.replace("/campaigns")}
+      // Pagination
+      onPageChange={handlePageChange}
+      // Card callbacks
+      onPledge={(id) => setPledge(id)}
+      onShare={(id, title) => setShareTarget({ id, title })}
+      onClosePledge={() => setPledge(null)}
+      onCloseShare={() => setShareTarget(null)}
+      // Comparison bar
+      onClearComparison={clear}
+      // i18n
+      t={t}
+    />
   );
 }
 
