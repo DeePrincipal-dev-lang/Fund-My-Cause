@@ -18,7 +18,7 @@ Before deploying to mainnet, ensure you have:
    rustup target add wasm32-unknown-unknown
    ```
 
-3. **Node.js 18+** for frontend deployment
+3. **Node.js 20+** for frontend deployment
 
 4. **Mainnet account** with sufficient XLM for deployment fees
    - Minimum: 10 XLM (for contract deployment + initialization)

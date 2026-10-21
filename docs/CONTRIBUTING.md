@@ -14,61 +14,7 @@ Thank you for your interest in contributing to Fund-My-Cause! This guide will he
 
 ## Setup Process
 
-### Prerequisites
-
-#### For Smart Contracts (Rust)
-
-- **Rust 1.70+** — [Install](https://rustup.rs/)
-  ```bash
-  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-  ```
-
-- **Soroban target**
-  ```bash
-  rustup target add wasm32-unknown-unknown
-  ```
-
-- **Stellar CLI 21.0+** — [Installation Guide](https://developers.stellar.org/docs/tools/developer-tools/cli/stellar-cli)
-  ```bash
-  curl https://stellar.org/install-cli | bash
-  ```
-
-#### For Frontend (TypeScript/Next.js)
-
-- **Node.js 18+** — [Download](https://nodejs.org)
-- **npm 9+** — Included with Node.js
-- **Freighter Wallet** — [Install](https://www.freighter.app/)
-
-### Initial Setup
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/Fund-My-Cause/Fund-My-Cause.git
-   cd Fund-My-Cause
-   ```
-
-2. **Install Rust dependencies**
-   ```bash
-   cargo build --release --target wasm32-unknown-unknown
-   ```
-
-3. **Install frontend dependencies**
-   ```bash
-   cd apps/interface
-   npm install
-   cd ../..
-   ```
-
-4. **Verify setup**
-   ```bash
-   # Test Rust build
-   cargo test --workspace
-
-   # Test frontend build
-   cd apps/interface && npm run build && cd ../..
-   ```
-
----
+Follow the single setup guide, **[docs/SETUP.md](./SETUP.md)**. It covers prerequisites, npm workspaces, the pinned Rust toolchain, Docker Compose, environment files, contract builds, and testnet seeding. Do not duplicate setup commands here.
 
 ## Development Workflow
 

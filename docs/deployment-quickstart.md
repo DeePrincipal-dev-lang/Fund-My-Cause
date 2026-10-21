@@ -75,9 +75,9 @@ EOF
 
 ### Step 4: Run Frontend
 
+From the repository root, after following [SETUP.md](./SETUP.md#npm-workspaces):
+
 ```bash
-cd apps/interface
-npm install
 npm run dev
 
 # Open http://localhost:3000
@@ -224,9 +224,7 @@ NEXT_PUBLIC_HORIZON_URL="https://horizon.stellar.org"
 NEXT_PUBLIC_NETWORK_NAME="mainnet"
 EOF
 
-# Build
-cd apps/interface
-npm install
+# Build from the repository root
 npm run build
 
 # Deploy to Vercel (recommended)
@@ -355,7 +353,7 @@ cargo clean
 cargo build --release --target wasm32-unknown-unknown
 
 # Check Rust version
-rustc --version  # Should be 1.70+
+rustc --version  # Should match rust-toolchain.toml (1.91.0)
 
 # Check for compilation errors
 cargo build --release --target wasm32-unknown-unknown 2>&1 | head -20

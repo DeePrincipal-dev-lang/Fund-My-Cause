@@ -30,9 +30,9 @@ cp apps/interface/.env.staging apps/interface/.env.local
 
 ### 3. Run Frontend Locally
 
+From the repository root, after following [SETUP.md](./SETUP.md):
+
 ```bash
-cd apps/interface
-npm install
 npm run dev
 ```
 
