@@ -44,9 +44,20 @@ from stages.routes import (
     trigger_scan, get_metrics_handler, moderation_queue_handler, mark_reviewed_handler,
     _IDEMPOTENCY_STORE, IdempotencyStore,  # noqa: F401
 )
+from config import load_fraud_detection_config  # noqa: F401
 
 configure_structlog()
 log: structlog.BoundLogger = structlog.get_logger("fraud_detection")
+
+# Load and validate fraud detection configuration at startup
+# Fails fast with a complete error report if any config is invalid
+try:
+    FRAUD_CONFIG = load_fraud_detection_config()
+    log.info("fraud_detection_config_loaded", config=repr(FRAUD_CONFIG))
+except ValueError as e:
+    log.fatal("fraud_detection_config_validation_failed", error=str(e))
+    sys.exit(1)
+
 DB_POOL_CONFIG = load_db_pool_config()
 log.info("db_pool_config_resolved", **DB_POOL_CONFIG.__dict__)
 
