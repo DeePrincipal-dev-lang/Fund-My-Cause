@@ -2,10 +2,7 @@
 
 import { useMemo } from "react";
 import type { ContributionEntry } from "@/hooks/useContributions";
-
-interface Campaign {
-  raised?: number;
-}
+import type { CampaignData } from "@fund-my-cause/types";
 
 interface ProfileStats {
   totalRaised: number;
@@ -19,17 +16,19 @@ interface ProfileStats {
  * Treats missing/undefined values as zero.
  */
 export function useProfileStats(
-  campaigns: Campaign[],
+  campaigns: Pick<CampaignData, "raised">[],
   contributions: ContributionEntry[],
 ): ProfileStats {
   return useMemo(() => {
     const totalRaised = campaigns.reduce(
-      (sum, c) => sum + (typeof c.raised === "number" && c.raised >= 0 ? c.raised : 0),
+      (sum, c) =>
+        sum + (typeof c.raised === "number" && c.raised >= 0 ? c.raised : 0),
       0,
     );
 
     const totalContributed = contributions.reduce(
-      (sum, c) => sum + (typeof c.amount === "number" && c.amount >= 0 ? c.amount : 0),
+      (sum, c) =>
+        sum + (typeof c.amount === "number" && c.amount >= 0 ? c.amount : 0),
       0,
     );
 
