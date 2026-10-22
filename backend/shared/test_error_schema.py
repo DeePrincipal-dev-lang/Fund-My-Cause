@@ -23,6 +23,7 @@ from error_schema import (
     internal_error,
     not_found,
     service_unavailable,
+    unprocessable_entity,
 )
 
 
@@ -44,6 +45,12 @@ class TestErrorEnvelopeShape:
         assert resp.status_code == 404
         data = self._parse_response(resp)
         assert data["error"]["code"] == ErrorCode.NOT_FOUND
+
+    def test_unprocessable_entity_status_and_code(self):
+        resp = unprocessable_entity("test unprocessable entity")
+        assert resp.status_code == 422
+        data = self._parse_response(resp)
+        assert data["error"]["code"] == ErrorCode.UNPROCESSABLE_ENTITY
 
     def test_internal_error_status_and_code(self):
         resp = internal_error("test internal error")
@@ -114,6 +121,7 @@ class TestErrorCodeConstants:
     def test_all_expected_codes_exist(self):
         assert ErrorCode.BAD_REQUEST == "BAD_REQUEST"
         assert ErrorCode.NOT_FOUND == "NOT_FOUND"
+        assert ErrorCode.UNPROCESSABLE_ENTITY == "UNPROCESSABLE_ENTITY"
         assert ErrorCode.INTERNAL_ERROR == "INTERNAL_ERROR"
         assert ErrorCode.SERVICE_UNAVAILABLE == "SERVICE_UNAVAILABLE"
 
@@ -121,6 +129,7 @@ class TestErrorCodeConstants:
         for code in [
             ErrorCode.BAD_REQUEST,
             ErrorCode.NOT_FOUND,
+            ErrorCode.UNPROCESSABLE_ENTITY,
             ErrorCode.INTERNAL_ERROR,
             ErrorCode.SERVICE_UNAVAILABLE,
         ]:

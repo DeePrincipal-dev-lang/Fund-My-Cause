@@ -14,6 +14,7 @@ import structlog
 from fastapi import BackgroundTasks, Request
 from fastapi.responses import JSONResponse
 
+from error_schema import bad_request, not_found, unprocessable_entity
 from repository import (
     ContributionEvent,
     FlagReason,
@@ -50,7 +51,7 @@ async def ingest_contribution(request: Request) -> JSONResponse:
     if idempotency_key is not None:
         if len(idempotency_key) > IDEMPOTENCY_KEY_MAX_LEN:
             log.warning("contributions_idempotency_key_too_long", key_length=len(idempotency_key))
-            return JSONResponse(status_code=400, content={"error": "Idempotency-Key exceeds maximum length"})
+            return bad_request("Idempotency-Key exceeds maximum length")
         cached = _IDEMPOTENCY_STORE.get(idempotency_key)
         if cached is not None:
             log.info("contributions_duplicate_rejected", idempotency_key=idempotency_key)
@@ -61,7 +62,7 @@ async def ingest_contribution(request: Request) -> JSONResponse:
         payload = ContributionPayload(**body)
     except Exception as exc:
         log.warning("contributions_ingest_invalid_payload", error=str(exc))
-        return JSONResponse(status_code=422, content={"error": "invalid payload"})
+        return unprocessable_entity("invalid payload")
 
     queue_depth = scoring_queue.qsize()
     log.info("contribution_queued", campaign_id=payload.campaignId, contributor=payload.contributor,
@@ -113,4 +114,4 @@ def mark_reviewed_handler(flag_id: str) -> dict:
         log.info("flag_marked_reviewed", flag_id=flag_id)
         return {"status": "updated", "id": flag_id}
     log.warning("flag_not_found", flag_id=flag_id)
-    return JSONResponse(status_code=404, content={"error": "flag not found"})
+    return not_found("flag not found")

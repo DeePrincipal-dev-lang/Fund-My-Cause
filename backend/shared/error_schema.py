@@ -43,6 +43,7 @@ from fastapi.responses import JSONResponse
 class ErrorCode:
     BAD_REQUEST: str = "BAD_REQUEST"
     NOT_FOUND: str = "NOT_FOUND"
+    UNPROCESSABLE_ENTITY: str = "UNPROCESSABLE_ENTITY"
     INTERNAL_ERROR: str = "INTERNAL_ERROR"
     SERVICE_UNAVAILABLE: str = "SERVICE_UNAVAILABLE"
 
@@ -86,6 +87,10 @@ def bad_request(message: str, detail: Optional[str] = None) -> JSONResponse:
 
 def not_found(message: str, detail: Optional[str] = None) -> JSONResponse:
     return _make_response(404, ErrorCode.NOT_FOUND, message, detail)
+
+
+def unprocessable_entity(message: str, detail: Optional[str] = None) -> JSONResponse:
+    return _make_response(422, ErrorCode.UNPROCESSABLE_ENTITY, message, detail)
 
 
 def internal_error(message: str = "An unexpected error occurred", detail: Optional[str] = None) -> JSONResponse:

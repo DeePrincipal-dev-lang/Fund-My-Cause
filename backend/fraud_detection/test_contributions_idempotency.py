@@ -204,7 +204,12 @@ class TestInputValidation:
             headers={IDEMPOTENCY_KEY_HEADER: oversized},
         )
         assert r.status_code == 400
-        assert "Idempotency-Key" in r.json()["error"]
+        assert r.json() == {
+            "error": {
+                "code": "BAD_REQUEST",
+                "message": "Idempotency-Key exceeds maximum length",
+            }
+        }
         # Must not have been stored.
         assert len(_CONTRIBUTIONS) == 0
 
@@ -224,6 +229,9 @@ class TestInputValidation:
             headers={IDEMPOTENCY_KEY_HEADER: _new_key()},
         )
         assert r.status_code == 422
+        assert r.json() == {
+            "error": {"code": "UNPROCESSABLE_ENTITY", "message": "invalid payload"}
+        }
         # Key must not have been stored for a failed request.
         assert len(_CONTRIBUTIONS) == 0
 
@@ -234,6 +242,9 @@ class TestInputValidation:
             headers={"Content-Type": "application/json"},
         )
         assert r.status_code == 422
+        assert r.json() == {
+            "error": {"code": "UNPROCESSABLE_ENTITY", "message": "invalid payload"}
+        }
 
 
 # ── IdempotencyStore unit tests ────────────────────────────────────────────────

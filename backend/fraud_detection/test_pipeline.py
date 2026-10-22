@@ -173,6 +173,12 @@ def test_moderation_queue_returns_flags():
     assert any(f["reason"] == FlagReason.WASH_CONTRIBUTION for f in body["flags"])
 
 
+def test_mark_missing_flag_returns_standard_error():
+    r = client.patch("/moderation-queue/missing-flag/reviewed")
+    assert r.status_code == 404
+    assert r.json() == {"error": {"code": "NOT_FOUND", "message": "flag not found"}}
+
+
 # ── Async job queue tests (#904) ──────────────────────────────────────────────
 
 def test_contributions_endpoint_returns_queued():
@@ -220,6 +226,9 @@ def test_contributions_endpoint_invalid_payload():
     """Malformed body must return 422."""
     r = client.post("/contributions", json={"bad": "data"})
     assert r.status_code == 422
+    assert r.json() == {
+        "error": {"code": "UNPROCESSABLE_ENTITY", "message": "invalid payload"}
+    }
 
 
 def test_metrics_endpoint_returns_expected_fields():
