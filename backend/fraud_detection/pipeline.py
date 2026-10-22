@@ -69,6 +69,23 @@ from stages.trace_id import (  # noqa: E402  (after stdlib/third-party imports)
     trace_id_var as _trace_id_var,
 )
 
+# ---------------------------------------------------------------------------
+# Idempotency — store protocol + helpers
+# ---------------------------------------------------------------------------
+
+from stages.idempotency import (  # noqa: E402
+    DEFAULT_TTL_SECONDS,
+    IdempotencyStore,
+    InMemoryIdempotencyStore,
+    check_idempotency,
+    record_idempotency,
+)
+
+# Application-wide idempotency store.
+# Swap for PostgresIdempotencyStore(pool) in production via dependency injection
+# or application lifespan configuration.
+_idempotency_store: IdempotencyStore = InMemoryIdempotencyStore()
+
 
 # ---------------------------------------------------------------------------
 # Tuneable thresholds (see docs/fraud-detection-heuristics.md for rationale)
