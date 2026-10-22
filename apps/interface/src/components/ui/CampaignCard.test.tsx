@@ -3,28 +3,60 @@ import { render, screen } from "@testing-library/react";
 import { CampaignCard } from "./CampaignCard";
 import type { Campaign } from "@/types/campaign";
 
-const mockCampaign: Campaign = {
-  id: "test-123",
-  contractId: "CTEST123",
-  title: "Save the Rainforest",
-  description: "Help us protect endangered species",
-  creator: "GCREATOR123",
-  goal: 100_000_000n,
-  totalRaised: 50_000_000n,
-  deadline: new Date(Date.now() + 86400000),
-  minContribution: 1_000_000n,
-  status: "active",
-  imageUrl: "https://example.com/image.jpg",
-  token: "native",
-  createdAt: new Date(),
-  updatedAt: new Date(),
-};
+// ── Mocks ─────────────────────────────────────────────────────────────────────
 
 jest.mock("next/link", () => {
   return ({ children, href }: { children: React.ReactNode; href: string }) => (
     <a href={href}>{children}</a>
   );
 });
+
+jest.mock("next/image", () => ({
+  __esModule: true,
+  default: ({ alt, src }: { alt: string; src: string }) => (
+    <img alt={alt} src={src} />
+  ),
+}));
+
+jest.mock("framer-motion", () => ({
+  motion: {
+    div: ({ children, ...rest }: React.HTMLAttributes<HTMLDivElement>) => (
+      <div {...rest}>{children}</div>
+    ),
+  },
+}));
+
+jest.mock("@/context/ComparisonContext", () => ({
+  useComparison: () => ({
+    toggle: jest.fn(),
+    isSelected: () => false,
+    selected: [],
+  }),
+}));
+
+jest.mock("@/context/BookmarkContext", () => ({
+  useBookmarks: () => ({
+    toggle: jest.fn(),
+    isBookmarked: () => false,
+  }),
+}));
+
+// ── Fixtures ──────────────────────────────────────────────────────────────────
+
+const mockCampaign: Campaign = {
+  id: "test-123",
+  contractId: "CTEST123",
+  title: "Save the Rainforest",
+  description: "Help us protect endangered species",
+  creator: "GCREATOR123",
+  goal: 100,
+  raised: 50,
+  deadline: new Date(Date.now() + 86400000).toISOString(),
+  status: "Active",
+  token: "native",
+};
+
+// ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe("CampaignCard", () => {
   it("renders campaign title", () => {
@@ -34,7 +66,9 @@ describe("CampaignCard", () => {
 
   it("renders campaign description", () => {
     render(<CampaignCard campaign={mockCampaign} />);
-    expect(screen.getByText("Help us protect endangered species")).toBeInTheDocument();
+    expect(
+      screen.getByText("Help us protect endangered species"),
+    ).toBeInTheDocument();
   });
 
   it("displays progress percentage", () => {
@@ -42,30 +76,23 @@ describe("CampaignCard", () => {
     expect(screen.getByText("50%")).toBeInTheDocument();
   });
 
-  it("renders campaign image", () => {
+  it("renders a pledge button", () => {
     render(<CampaignCard campaign={mockCampaign} />);
-    const img = screen.getByAltText("Save the Rainforest");
-    expect(img).toHaveAttribute("src", expect.stringContaining("image.jpg"));
+    const button = screen.getByRole("button", {
+      name: /Pledge to Save the Rainforest/i,
+    });
+    expect(button).toBeInTheDocument();
   });
 
-  it("links to campaign details", () => {
-    render(<CampaignCard campaign={mockCampaign} />);
-    const link = screen.getByRole("link");
-    expect(link).toHaveAttribute("href", expect.stringContaining("test-123"));
+  it("handles funded campaigns without crashing", () => {
+    const fundedCampaign: Campaign = { ...mockCampaign, raised: 100 };
+    render(<CampaignCard campaign={fundedCampaign} />);
+    expect(screen.getByText("Save the Rainforest")).toBeInTheDocument();
   });
 
-  it("shows active status badge", () => {
-    render(<CampaignCard campaign={mockCampaign} />);
-    expect(screen.getByText(/active/i)).toBeInTheDocument();
-  });
-
-  it("handles completed campaigns", () => {
-    const completedCampaign = {
-      ...mockCampaign,
-      status: "completed" as const,
-      totalRaised: 100_000_000n,
-    };
-    render(<CampaignCard campaign={completedCampaign} />);
-    expect(screen.getByText(/completed/i)).toBeInTheDocument();
+  it("shows category badge when category is set", () => {
+    const catCampaign: Campaign = { ...mockCampaign, category: "technology" };
+    render(<CampaignCard campaign={catCampaign} />);
+    expect(screen.getByText(/Technology/)).toBeInTheDocument();
   });
 });

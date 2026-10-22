@@ -12,9 +12,10 @@ const VALID_PERIODS: RollupPeriod[] = ['hourly', 'daily', 'weekly', 'monthly'];
 
 export async function POST(
   _req: NextRequest,
-  { params }: { params: { period: string } },
+  { params }: { params: Promise<{ period: string }> },
 ) {
-  const period = params.period as RollupPeriod;
+  const { period: rawPeriod } = await params;
+  const period = rawPeriod as RollupPeriod;
   if (!VALID_PERIODS.includes(period)) {
     return NextResponse.json(
       { success: false, error: { code: 'INVALID_PERIOD', message: `period must be one of: ${VALID_PERIODS.join(', ')}` } },

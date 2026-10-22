@@ -199,3 +199,34 @@ export interface RateLimitInfo {
   limit: number;
   resetAt: string;
 }
+
+/**
+ * Return type of the useWallet hook.
+ * Centralises wallet state so consumers can annotate return values precisely.
+ */
+export interface UseWalletReturn {
+  /** Connected wallet address, or null when disconnected. */
+  address: string | null;
+  /** Current XLM balance string, or null before first fetch. */
+  xlmBalance: string | null;
+  /** Manually re-fetch the XLM balance. */
+  refreshBalance: () => void;
+  /** Open the wallet-select modal to initiate a connection. */
+  connect: () => Promise<void>;
+  /** Disconnect the active wallet and clear session. */
+  disconnect: () => void;
+  /** Sign a Stellar XDR transaction string with the connected wallet. */
+  signTx: (xdr: string) => Promise<string>;
+  /** True while the wallet is connecting for the first time. */
+  isConnecting: boolean;
+  /** True during the silent session auto-restore on mount. */
+  isAutoConnecting: boolean;
+  /** True while a transaction is waiting for wallet signature. */
+  isSigning: boolean;
+  /** Last wallet error message, or null. */
+  error: string | null;
+  /** True when the wallet is on a different network than the app. */
+  networkMismatch: boolean;
+  /** Stellar network name reported by the wallet extension. */
+  walletNetwork: string | null;
+}

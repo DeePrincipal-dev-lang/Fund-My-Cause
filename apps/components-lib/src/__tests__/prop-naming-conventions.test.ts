@@ -25,9 +25,10 @@ describe("Component Prop Naming Conventions", () => {
   });
 
   it("Card should follow naming conventions", () => {
+    // variant: single union prop replaces boolean soup ✓
     // hoverable: feature flag ✓
-    // padding: size variant ✓
-    expect(["hoverable", "padding"]).toBeDefined();
+    // padding: size variant (deprecated, kept for backwards compat) ✓
+    expect(["variant", "hoverable", "padding"]).toBeDefined();
   });
 
   it("ProgressBar should follow naming conventions", () => {

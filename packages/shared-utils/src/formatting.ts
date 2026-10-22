@@ -1,7 +1,5 @@
 const STROOPS_PER_XLM = 10_000_000n;
 
-type Locale = string;
-
 // ── Locale Mapping ────────────────────────────────────────────────────────
 
 const LOCALE_MAP: Record<string, string> = {
@@ -16,7 +14,7 @@ const LOCALE_MAP: Record<string, string> = {
 
 const RTL_LOCALES = ["ar", "he"];
 
-function localeToIntlCode(locale: string): string {
+export function localeToIntlCode(locale: string): string {
   return LOCALE_MAP[locale] ?? locale;
 }
 
@@ -33,9 +31,15 @@ export function formatXLM(stroops: bigint, locale: string = "en"): string {
 }
 
 /** Locale-aware XLM amount formatter — returns a plain number string */
-export function formatXLMAmount(stroops: bigint, locale: string = "en"): string {
+export function formatXLMAmount(
+  stroops: bigint,
+  locale: string = "en",
+): string {
   const xlm = Number(stroops) / Number(STROOPS_PER_XLM);
-  return xlm.toLocaleString(localeToIntlCode(locale), { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return xlm.toLocaleString(localeToIntlCode(locale), {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
 // ── Currency Formatting ──────────────────────────────────────────────────
@@ -54,7 +58,7 @@ export function formatUSD(amount: number, locale: string = "en"): string {
 export function formatCurrency(
   amount: number,
   currency: string = "USD",
-  locale: string = "en"
+  locale: string = "en",
 ): string {
   const intlCode = localeToIntlCode(locale);
   const isRTL = isRTLLocale(locale);
@@ -77,7 +81,7 @@ export function formatCurrency(
 export function formatCurrencyRTL(
   amount: number,
   currency: string = "USD",
-  locale: string = "en"
+  locale: string = "en",
 ): string {
   const intlCode = localeToIntlCode(locale);
   const isRTL = isRTLLocale(locale);
@@ -97,7 +101,10 @@ export function formatCurrencyRTL(
 }
 
 /** Get currency symbol correctly positioned for locales */
-export function getCurrencySymbol(currency: string = "USD", locale: string = "en"): string {
+export function getCurrencySymbol(
+  currency: string = "USD",
+  locale: string = "en",
+): string {
   const intlCode = localeToIntlCode(locale);
   const parts = new Intl.NumberFormat(intlCode, {
     style: "currency",
@@ -114,14 +121,17 @@ export function getCurrencySymbol(currency: string = "USD", locale: string = "en
 export function formatNumber(
   value: number,
   locale: string = "en",
-  options?: Intl.NumberFormatOptions
+  options?: Intl.NumberFormatOptions,
 ): string {
   const intlCode = localeToIntlCode(locale);
   return new Intl.NumberFormat(intlCode, options).format(value);
 }
 
 /** Format compact number (e.g., "9,300+" → "9.3K" in some locales) */
-export function formatCompactNumber(value: number, locale: string = "en"): string {
+export function formatCompactNumber(
+  value: number,
+  locale: string = "en",
+): string {
   const intlCode = localeToIntlCode(locale);
   return new Intl.NumberFormat(intlCode, {
     notation: "compact",
@@ -134,7 +144,7 @@ export function formatCompactNumber(value: number, locale: string = "en"): strin
 export function formatPercentage(
   value: number,
   locale: string = "en",
-  fractionDigits: number = 1
+  fractionDigits: number = 1,
 ): string {
   const intlCode = localeToIntlCode(locale);
   return new Intl.NumberFormat(intlCode, {
@@ -148,18 +158,21 @@ export function formatPercentage(
 
 /** "Mar 19, 2026" — uses locale-aware date formatting */
 export function formatDate(timestamp: number, locale: string = "en"): string {
-  return new Date(timestamp * 1000).toLocaleDateString(localeToIntlCode(locale), {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  return new Date(timestamp * 1000).toLocaleDateString(
+    localeToIntlCode(locale),
+    {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    },
+  );
 }
 
 /** Format date with locale support */
 export function formatLocalDate(
   date: Date | number,
   locale: string = "en",
-  options?: Intl.DateTimeFormatOptions
+  options?: Intl.DateTimeFormatOptions,
 ): string {
   const dateObj = typeof date === "number" ? new Date(date * 1000) : date;
   const intlCode = localeToIntlCode(locale);
@@ -170,7 +183,7 @@ export function formatLocalDate(
 export function formatLocalTime(
   date: Date | number,
   locale: string = "en",
-  options?: Intl.DateTimeFormatOptions
+  options?: Intl.DateTimeFormatOptions,
 ): string {
   const dateObj = typeof date === "number" ? new Date(date * 1000) : date;
   const intlCode = localeToIntlCode(locale);
@@ -178,7 +191,10 @@ export function formatLocalTime(
 }
 
 /** Full locale-aware datetime string */
-export function formatDateTime(timestamp: number, locale: string = "en"): string {
+export function formatDateTime(
+  timestamp: number,
+  locale: string = "en",
+): string {
   return new Date(timestamp * 1000).toLocaleString(localeToIntlCode(locale), {
     dateStyle: "medium",
     timeStyle: "short",
@@ -189,7 +205,7 @@ export function formatDateTime(timestamp: number, locale: string = "en"): string
 export function formatLocalDateTime(
   date: Date | number,
   locale: string = "en",
-  options?: Intl.DateTimeFormatOptions
+  options?: Intl.DateTimeFormatOptions,
 ): string {
   const dateObj = typeof date === "number" ? new Date(date * 1000) : date;
   const intlCode = localeToIntlCode(locale);
@@ -213,11 +229,12 @@ export function formatTimeLeft(deadline: number): string {
 /** Format relative time (e.g., "2 days ago") */
 export function formatRelativeTime(
   pastDate: Date | number,
-  locale: string = "en"
+  locale: string = "en",
 ): string {
   const intlCode = localeToIntlCode(locale);
   const now = new Date();
-  const date = typeof pastDate === "number" ? new Date(pastDate * 1000) : pastDate;
+  const date =
+    typeof pastDate === "number" ? new Date(pastDate * 1000) : pastDate;
   const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 
   const rtf = new Intl.RelativeTimeFormat(intlCode, { numeric: "auto" });
@@ -234,21 +251,40 @@ export function formatRelativeTime(
 /** Get list format for items (e.g., "a, b, and c") */
 export function formatList(items: string[], locale: string = "en"): string {
   const intlCode = localeToIntlCode(locale);
-  const formatter = new Intl.ListFormat(intlCode, { style: "long", type: "conjunction" });
+  const formatter = new Intl.ListFormat(intlCode, {
+    style: "long",
+    type: "conjunction",
+  });
   return formatter.format(items);
 }
 
 /** Format as short list (e.g., "a, b, c") */
-export function formatListShort(items: string[], locale: string = "en"): string {
+export function formatListShort(
+  items: string[],
+  locale: string = "en",
+): string {
   const intlCode = localeToIntlCode(locale);
-  const formatter = new Intl.ListFormat(intlCode, { style: "short", type: "conjunction" });
+  const formatter = new Intl.ListFormat(intlCode, {
+    style: "short",
+    type: "conjunction",
+  });
   return formatter.format(items);
 }
 
 // ── Address Formatting ───────────────────────────────────────────────────
 
-/** "GABCD...WXYZ" */
-export function formatAddress(address: string): string {
-  if (address.length <= 10) return address;
-  return `${address.slice(0, 5)}...${address.slice(-4)}`;
+/**
+ * Truncate a Stellar address for display.
+ *
+ * @example
+ * formatAddress("GABCDEFGHIJKLMNOPQRSTUVWXYZ") // "GABCD...WXYZ"
+ * formatAddress("GABCDEFGHIJKLMNOPQRSTUVWXYZ", 6, 4) // "GABCDE...WXYZ"
+ */
+export function formatAddress(
+  address: string,
+  start: number = 5,
+  end: number = 4,
+): string {
+  if (address.length <= start + end) return address;
+  return `${address.slice(0, start)}...${address.slice(-end)}`;
 }

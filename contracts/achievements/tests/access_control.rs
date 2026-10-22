@@ -14,11 +14,11 @@
 
 mod common;
 
-use soroban_sdk::{testutils::Address as _, Address, Env, String};
+use soroban_sdk::{testutils::Address as _, Address, String};
 
+use ::common::test_utils::setup_env;
 use achievements::ContractError;
 use common::deploy_and_init;
-use ::common::test_utils::setup_env;
 
 // ── initialize() ──────────────────────────────────────────────────────────
 
@@ -63,7 +63,9 @@ fn unlock_achievement_requires_matching_user_auth() {
     let (client, _admin, _platform) = deploy_and_init(&env);
     let user = Address::generate(&env);
 
-    client.unlock_achievement(&user, &1, &String::from_str(&env, "meta"));
+    // Type 2 is self-unlockable. Types 1, 3, 4 and 7 are auto-only and are
+    // rejected before the auth this test is checking for can be observed.
+    client.unlock_achievement(&user, &2, &String::from_str(&env, "meta"));
 
     let auths = env.auths();
     assert!(auths.iter().any(|(addr, _)| *addr == user));

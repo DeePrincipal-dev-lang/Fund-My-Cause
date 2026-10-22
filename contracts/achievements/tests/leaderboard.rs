@@ -17,16 +17,15 @@ const ACHIEVEMENTS_LEADERBOARD: u32 = 3;
 #[test]
 fn leaderboard_and_rank_reflect_relative_scores() {
     let env = Env::default();
-    let (client, _admin, _platform) = deploy_and_init(&env);
+    // deploy_and_init calls `initialize`, which requires auth.
     env.mock_all_auths();
-
+    let (client, _admin, _platform) = deploy_and_init(&env);
     let low = Address::generate(&env);
     let mid = Address::generate(&env);
     let high = Address::generate(&env);
 
     client.unlock_achievement(&low, &11, &String::from_str(&env, "")); // 75 pts
-    client.unlock_achievement(&mid, &1, &String::from_str(&env, "")); // 50 pts
-    client.unlock_achievement(&mid, &5, &String::from_str(&env, "")); // +100 = 150 pts
+    client.unlock_achievement(&mid, &2, &String::from_str(&env, "")); // 150 pts
     client.unlock_achievement(&high, &13, &String::from_str(&env, "")); // 600 pts
 
     let entries = client.get_leaderboard_entries(&ACHIEVEMENTS_LEADERBOARD, &10);
@@ -46,10 +45,10 @@ fn leaderboard_and_rank_reflect_relative_scores() {
 #[test]
 fn leaderboard_limit_truncates_results() {
     let env = Env::default();
-    let (client, _admin, _platform) = deploy_and_init(&env);
+    // deploy_and_init calls `initialize`, which requires auth.
     env.mock_all_auths();
-
-    for achievement_type in [11u32, 1, 5, 13] {
+    let (client, _admin, _platform) = deploy_and_init(&env);
+    for achievement_type in [11u32, 2, 5, 13] {
         let user = Address::generate(&env);
         client.unlock_achievement(&user, &achievement_type, &String::from_str(&env, ""));
     }
@@ -63,6 +62,8 @@ fn leaderboard_limit_truncates_results() {
 #[test]
 fn rank_for_user_with_no_achievements_is_not_found() {
     let env = Env::default();
+    // deploy_and_init calls `initialize`, which requires auth.
+    env.mock_all_auths();
     let (client, _admin, _platform) = deploy_and_init(&env);
     let user = Address::generate(&env);
 
@@ -73,6 +74,8 @@ fn rank_for_user_with_no_achievements_is_not_found() {
 #[test]
 fn invalid_leaderboard_type_is_rejected() {
     let env = Env::default();
+    // deploy_and_init calls `initialize`, which requires auth.
+    env.mock_all_auths();
     let (client, _admin, _platform) = deploy_and_init(&env);
     let user = Address::generate(&env);
 
@@ -82,6 +85,10 @@ fn invalid_leaderboard_type_is_rejected() {
     let result = client.try_get_leaderboard_entries(&99, &10);
     assert_eq!(result, Err(Ok(ContractError::InvalidLeaderboardType)));
 }
+
+/// Achievement types that `unlock_achievement` accepts directly. Types 1, 3, 4
+/// and 7 unlock only through on-chain activity thresholds.
+const SELF_UNLOCKABLE: [u32; 9] = [2, 5, 6, 8, 9, 10, 11, 12, 13];
 
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(20))]
@@ -93,13 +100,16 @@ proptest! {
     /// across a range of score distributions, not just a hand-picked example.
     #[test]
     fn prop_leaderboard_rank_matches_sorted_scores(
-        subsets in prop::collection::vec(prop::collection::btree_set(1u32..=13, 1..=6), 2..=5),
+        subsets in prop::collection::vec(
+            prop::collection::btree_set(prop::sample::select(SELF_UNLOCKABLE.to_vec()), 1..=6),
+            2..=5,
+        ),
     ) {
         let env = Env::default();
-        let (client, _admin, _platform) = deploy_and_init(&env);
+        // deploy_and_init calls `initialize`, which requires auth.
         env.mock_all_auths();
-
-        let mut scored: Vec<(Address, u32)> = Vec::new();
+        let (client, _admin, _platform) = deploy_and_init(&env);
+            let mut scored: Vec<(Address, u32)> = Vec::new();
         for subset in subsets {
             let user = Address::generate(&env);
             for achievement_type in &subset {

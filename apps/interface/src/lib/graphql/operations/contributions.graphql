@@ -1,0 +1,21 @@
+query Contributions($campaignId: ID, $contributor: String) {
+  contributions(campaignId: $campaignId, contributor: $contributor) {
+    id
+    campaignId
+    contributor
+    amount
+    timestamp
+    transactionHash
+  }
+}
+
+query UserContributions($address: String!, $limit: Int) {
+  userContributions(address: $address, limit: $limit) {
+    id
+    campaignId
+    contributor
+    amount
+    timestamp
+    transactionHash
+  }
+}

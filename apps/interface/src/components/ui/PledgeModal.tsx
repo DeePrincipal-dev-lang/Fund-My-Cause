@@ -13,6 +13,7 @@ import { computePledgeSuggestions } from "@/lib/pledgeSuggestions";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { Input } from "@fund-my-cause/components";
 import { FORM_FIELD_CLS } from "@/lib/formStyles";
+import { xlmAmountSchema, firstSchemaError } from "@/lib/validationSchemas";
 
 const XLM_TO_STROOPS = 10_000_000n;
 const PLEDGE_DEBOUNCE_MS = 2000;
@@ -94,17 +95,20 @@ export function PledgeModal({
     }
     if (pendingTx) return;
 
-    const xlm = parseFloat(amount);
-    if (!amount || isNaN(xlm) || xlm <= 0) {
-      addToast(t("validationAmount"), "error");
+    const amountError = firstSchemaError(
+      xlmAmountSchema(minXlm, {
+        invalid: t("validationAmount"),
+        belowMinimum: t("validationMinimum", { min: minXlm }),
+      }),
+      amount,
+    );
+    if (amountError) {
+      addToast(amountError, "error");
       return;
     }
 
+    const xlm = parseFloat(amount);
     const stroops = BigInt(Math.round(xlm * 1e7));
-    if (stroops < minContribution) {
-      addToast(t("validationMinimum", { min: minXlm }), "error");
-      return;
-    }
 
     setErrorMessage("");
     setPendingTx(true);
@@ -227,6 +231,7 @@ export function PledgeModal({
                 placeholder={t("amountPlaceholder", { min: minXlm })}
                 value={amount}
                 min={minXlm}
+                aria-describedby={amountDescribedBy}
                 step="0.1"
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                   setAmount(e.target.value)

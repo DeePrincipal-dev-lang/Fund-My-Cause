@@ -1,20 +1,19 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Search, X, SlidersHorizontal, Sparkles } from "lucide-react";
-import { CATEGORY_TAXONOMY } from "@/lib/categories";
+import { useState } from "react";
+import { Search, X, SlidersHorizontal } from "lucide-react";
 import { SearchSuggestions } from "@/components/ui/SearchSuggestions";
 import { SavedSearchManager } from "@/components/search/SavedSearchManager";
 import type { SearchFilters } from "@/services/search.service";
 import type { SearchSuggestion } from "@/hooks/useSearchSuggestions";
 import type { SavedSearch } from "@/services/savedSearch.service";
-import { Input, Select } from "@fund-my-cause/components";
+import { Select } from "@fund-my-cause/components";
+import { FORM_FIELD_CLS, FORM_SELECT_CLS_INLINE } from "@/lib/formStyles";
+import { AdvancedFilterPanel } from "./AdvancedFilterPanel";
 import {
-  FORM_FIELD_CLS,
-  FORM_INPUT_CLS_COMPACT,
-  FORM_LABEL_CLS_XS,
-  FORM_SELECT_CLS_INLINE,
-} from "@/lib/formStyles";
+  SearchCategoryAndStatusTabs,
+  FILTER_TABS,
+} from "./SearchCategoryAndStatusTabs";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -60,21 +59,6 @@ const SORT_OPTIONS = [
   { label: "Trending", value: "trending" },
 ];
 
-const FILTER_TABS = [
-  { label: "All", value: "all" },
-  { label: "Active", value: "active" },
-  { label: "Funded", value: "funded" },
-  { label: "Ended", value: "ended" },
-];
-
-/** Styling handed to the shared form primitives in the advanced filter panel. */
-const filterFieldStyles = {
-  unstyled: true as const,
-  className: FORM_INPUT_CLS_COMPACT,
-  fieldClassName: FORM_FIELD_CLS,
-  labelClassName: FORM_LABEL_CLS_XS,
-};
-
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function AdvancedSearch({
@@ -101,24 +85,6 @@ export function AdvancedSearch({
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
 
-  // Local controlled state for advanced filter inputs (applied on "Apply")
-  const [goalMin, setGoalMin] = useState(
-    filters.goalMin !== undefined ? String(filters.goalMin) : "",
-  );
-  const [goalMax, setGoalMax] = useState(
-    filters.goalMax !== undefined ? String(filters.goalMax) : "",
-  );
-  const [dateFrom, setDateFrom] = useState(filters.dateFrom ?? "");
-  const [dateTo, setDateTo] = useState(filters.dateTo ?? "");
-
-  // Keep local advanced inputs in sync when URL changes externally
-  useEffect(() => {
-    setGoalMin(filters.goalMin !== undefined ? String(filters.goalMin) : "");
-    setGoalMax(filters.goalMax !== undefined ? String(filters.goalMax) : "");
-    setDateFrom(filters.dateFrom ?? "");
-    setDateTo(filters.dateTo ?? "");
-  }, [filters.goalMin, filters.goalMax, filters.dateFrom, filters.dateTo]);
-
   const hasQuery = inputValue.trim().length > 0;
   const hasAdvancedFilters = !!(
     filters.goalMin !== undefined ||
@@ -132,19 +98,6 @@ export function AdvancedSearch({
     onInputChange(s.title);
     setDropdownOpen(false);
     setActiveIndex(-1);
-  }
-
-  function handleApply() {
-    onApplyAdvanced({ goalMin, goalMax, dateFrom, dateTo });
-    onToggleAdvanced();
-  }
-
-  function handleClearAdvanced() {
-    setGoalMin("");
-    setGoalMax("");
-    setDateFrom("");
-    setDateTo("");
-    onClearAdvanced();
   }
 
   return (
@@ -315,67 +268,12 @@ export function AdvancedSearch({
 
       {/* ── Advanced filter panel ─────────────────────────────────────────── */}
       {showAdvanced && (
-        <div className="rounded-2xl border border-gray-700 bg-gray-900 p-5 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-gray-300">
-              Advanced Filters
-            </h3>
-            <span className="flex items-center gap-1 text-xs text-indigo-400">
-              <Sparkles size={12} />
-              Semantic search active
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Input
-              {...filterFieldStyles}
-              label="Min Goal (XLM)"
-              type="number"
-              min={0}
-              value={goalMin}
-              onChange={(e) => setGoalMin(e.target.value)}
-              placeholder="e.g. 1000"
-            />
-            <Input
-              {...filterFieldStyles}
-              label="Max Goal (XLM)"
-              type="number"
-              min={0}
-              value={goalMax}
-              onChange={(e) => setGoalMax(e.target.value)}
-              placeholder="e.g. 50000"
-            />
-            <Input
-              {...filterFieldStyles}
-              label="Deadline From"
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-            />
-            <Input
-              {...filterFieldStyles}
-              label="Deadline To"
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-            />
-          </div>
-
-          <div className="flex gap-2 justify-end">
-            <button
-              onClick={handleClearAdvanced}
-              className="flex items-center gap-1 px-3 py-1.5 text-xs text-gray-400 hover:text-white transition"
-            >
-              <X size={12} /> Clear
-            </button>
-            <button
-              onClick={handleApply}
-              className="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-sm font-medium text-white transition"
-            >
-              Apply
-            </button>
-          </div>
-        </div>
+        <AdvancedFilterPanel
+          filters={filters}
+          onApplyAdvanced={onApplyAdvanced}
+          onClearAdvanced={onClearAdvanced}
+          onToggleAdvanced={onToggleAdvanced}
+        />
       )}
 
       {/* ── Saved searches panel ─────────────────────────────────────────── */}
@@ -395,92 +293,10 @@ export function AdvancedSearch({
         </div>
       )}
 
-      {/* ── Category pills ────────────────────────────────────────────────── */}
-      <div
-        className="flex flex-wrap gap-2"
-        role="group"
-        aria-label="Filter by category"
-      >
-        <button
-          onClick={() => onFilterChange("category", "")}
-          className={`px-3 py-1 rounded-full text-sm font-medium transition ${
-            !filters.category
-              ? "bg-indigo-600 text-white"
-              : "bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-          }`}
-        >
-          All
-        </button>
-        {CATEGORY_TAXONOMY.map((cat) => (
-          <button
-            key={cat.slug}
-            onClick={() =>
-              onFilterChange(
-                "category",
-                filters.category === cat.slug ? "" : cat.slug,
-              )
-            }
-            className={`px-3 py-1 rounded-full text-sm font-medium transition ${
-              filters.category === cat.slug
-                ? "bg-indigo-600 text-white"
-                : "bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-            }`}
-          >
-            {cat.emoji} {cat.label}
-          </button>
-        ))}
-      </div>
-
-      {/* ── Status tabs ───────────────────────────────────────────────────── */}
-      <div
-        className="flex flex-wrap gap-2"
-        role="tablist"
-        aria-label="Filter by status"
-      >
-        {FILTER_TABS.map((tab, idx) => {
-          const isSelected =
-            currentStatus === tab.value ||
-            (!filters.status && tab.value === "all");
-          return (
-            <button
-              key={tab.value}
-              role="tab"
-              aria-selected={isSelected}
-              tabIndex={isSelected ? 0 : -1}
-              onClick={() => onFilterChange("filter", tab.value)}
-              onKeyDown={(e) => {
-                if (e.key === "ArrowRight") {
-                  const next = FILTER_TABS[(idx + 1) % FILTER_TABS.length];
-                  onFilterChange("filter", next.value);
-                  (
-                    e.currentTarget.parentElement?.children[
-                      (idx + 1) % FILTER_TABS.length
-                    ] as HTMLElement
-                  )?.focus();
-                } else if (e.key === "ArrowLeft") {
-                  const prev =
-                    FILTER_TABS[
-                      (idx - 1 + FILTER_TABS.length) % FILTER_TABS.length
-                    ];
-                  onFilterChange("filter", prev.value);
-                  (
-                    e.currentTarget.parentElement?.children[
-                      (idx - 1 + FILTER_TABS.length) % FILTER_TABS.length
-                    ] as HTMLElement
-                  )?.focus();
-                }
-              }}
-              className={`px-4 py-1.5 rounded-full text-sm font-medium transition ${
-                isSelected
-                  ? "bg-indigo-600 text-white"
-                  : "bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-              }`}
-            >
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
+      <SearchCategoryAndStatusTabs
+        filters={filters}
+        onFilterChange={onFilterChange}
+      />
     </div>
   );
 }

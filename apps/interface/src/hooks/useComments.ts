@@ -1,6 +1,6 @@
-import { useState, useCallback } from "react";
+import { useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import type { Comment, CommentInput, ModerationAction } from "@/types/comment";
+import type { Comment, CommentInput } from "@/types/comment";
 import { QUERY_KEYS } from "@/lib/queryKeys";
 
 // Mock storage - in production, this would use IPFS or on-chain storage
@@ -206,7 +206,16 @@ export function useComments(campaignId: string, userAddress: string | null) {
   });
 
   const moderateMutation = useMutation({
-    mutationFn: async ({ commentId, action, moderator }: ModerationAction) => {
+    mutationFn: async ({
+      commentId,
+      action,
+      moderator: _moderator,
+    }: {
+      commentId: string;
+      action: "approve" | "reject";
+      moderator?: string;
+      timestamp?: number;
+    }) => {
       const allComments = getStoredComments();
       const comment = allComments.find((c) => c.id === commentId);
       if (!comment) throw new Error("Comment not found");

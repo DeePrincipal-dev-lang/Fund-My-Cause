@@ -2,6 +2,7 @@
 
 import React from "react";
 import { cn } from "./lib/utils";
+import { clampProgress, isProgressFunded } from "./utils/progress";
 
 export interface ProgressBarProps {
   progress: number; // 0–100
@@ -15,14 +16,14 @@ export interface ProgressBarProps {
  * @example
  * <ProgressBar progress={65} animated showLabel />
  */
-export function ProgressBar({
+function ProgressBarComponent({
   progress,
   animated = false,
   showLabel = true,
   color = "indigo",
 }: ProgressBarProps) {
-  const clamped = Math.min(100, Math.max(0, progress));
-  const isFunded = clamped >= 100;
+  const clamped = clampProgress(progress);
+  const isFunded = isProgressFunded(clamped);
 
   const colorClasses = {
     indigo: "bg-indigo-500",
@@ -53,7 +54,7 @@ export function ProgressBar({
             className={cn(
               "h-2 rounded-full transition-all duration-500",
               isFunded ? "bg-green-500" : colorClasses[color],
-              animated && "animate-shimmer"
+              animated && "animate-shimmer",
             )}
             style={{ width: `${clamped}%` }}
           />
@@ -64,7 +65,7 @@ export function ProgressBar({
         <span
           className={cn(
             "text-sm font-medium min-w-[3rem] text-right",
-            isFunded ? "text-green-400" : labelColorClasses[color]
+            isFunded ? "text-green-400" : labelColorClasses[color],
           )}
           aria-hidden="true"
         >
@@ -74,3 +75,5 @@ export function ProgressBar({
     </div>
   );
 }
+
+export const ProgressBar = React.memo(ProgressBarComponent);

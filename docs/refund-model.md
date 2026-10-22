@@ -185,6 +185,34 @@ const claimable = await contract.contribution({ contributor: address });
 
 ---
 
+## Test Coverage
+
+`refund_single` (the flow above) is exercised end-to-end in
+`e2e/refund-flow.spec.ts`, including a multi-contributor scenario proving the
+pull-based property directly: several independent wallet identities each
+claim their own refund from the same failed campaign without waiting on or
+being blocked by one another.
+
+`refund_batch` and `refund_partial` (also defined on `CrowdfundContract` in
+`contracts/crowdfund/src/lib.rs`) have no frontend surface — `apps/interface`
+only ever builds `refund_single` transactions — so there is nothing for a
+browser-level E2E test to drive for either. Their coverage lives at the
+contract level instead, in `contracts/crowdfund/src/test.rs`:
+
+- `refund_batch`: `refund_batch_refunds_multiple_contributors`,
+  `refund_batch_skips_already_refunded`,
+  `refund_batch_fails_when_campaign_still_active`,
+  `refund_batch_rejects_before_deadline_when_not_cancelled`,
+  `refund_batch_rejects_when_goal_reached`
+- `refund_partial`: `refund_partial_within_limit_succeeds`,
+  `refund_partial_exceeding_50_percent_is_rejected`,
+  `refund_partial_updates_total_raised`
+
+If a batch-claim or partial-refund UI is ever built, `e2e/refund-flow.spec.ts`
+should gain a matching scenario and this note should be trimmed accordingly.
+
+---
+
 ## Summary
 
 | Property | Pull-based (this contract) | Push-based |

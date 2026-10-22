@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1360 1560" width="1360" height="1560" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
   <title>Fund-My-Cause verified data flow: apps/interface, services, contracts</title>
-  <desc>Architecture diagram of the Fund-My-Cause monorepo showing four verified structural seams: dual frontend-to-chain paths, two independently versioned Soroban RPC clients, a type-sharing gap between services, and two disconnected alerting stacks.</desc>
+  <desc>Architecture diagram of the Fund-My-Cause monorepo showing verified data flow: unified frontend-to-chain reads via GraphQL API (ADR-006), two independently versioned Soroban RPC clients, a type-sharing gap between services, and two disconnected alerting stacks.</desc>
 
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
@@ -43,15 +43,15 @@
 
   <!-- ══ Header ══════════════════════════════════════════════════════════ -->
   <text x="40" y="46" font-size="25" font-weight="700" fill="#0f172a">Fund-My-Cause — verified data flow</text>
-  <text x="40" y="70" class="panelSub">apps/interface · services/* · packages/types · contracts/crowdfund — as built, verified against the tree on 2026-07-26.</text>
-  <text x="40" y="90" class="panelSub">Four structural seams are labelled below. Source: docs/assets/architecture-data-flow.mmd</text>
+  <text x="40" y="70" class="panelSub">apps/interface · services/* · packages/types · contracts/crowdfund — as built, verified against the tree on 2026-08-22.</text>
+  <text x="40" y="90" class="panelSub">Structural seams and unified boundaries are labelled below. Source: docs/assets/architecture-data-flow.mmd</text>
 
-  <!-- ══ SEAM 1 — dual frontend → chain paths ════════════════════════════ -->
+  <!-- ══ SEAM 1 — unified frontend read path & client tx pipeline ════════ -->
   <rect x="40" y="115" width="1280" height="405" class="panel"/>
-  <rect x="56" y="131" width="196" height="24" class="seamBadge"/>
-  <text x="66" y="148" class="seamTag">SEAM 1 · DUAL FE PATHS</text>
-  <text x="270" y="149" class="panelTitle">Two independent frontend → chain paths</text>
-  <text x="56" y="180" class="panelSub">apps/interface reads chain state twice over. Neither path funnels through the other, so the two can disagree at any moment.</text>
+  <rect x="56" y="131" width="230" height="24" class="seamBadge"/>
+  <text x="66" y="148" class="seamTag">SEAM 1 · RESOLVED (ADR-006)</text>
+  <text x="300" y="149" class="panelTitle">Unified frontend reads via GraphQL API · Client transaction pipeline</text>
+  <text x="56" y="180" class="panelSub">apps/interface routes all campaign &amp; contribution state reads through services/graphql-api. lib/soroban.ts is restricted to client transaction pipeline.</text>
 
   <!-- interface -->
   <rect x="66" y="205" width="290" height="290" class="boxApp"/>
@@ -62,21 +62,21 @@
   <text x="94" y="281" class="t">React routes &amp; components</text>
   <text x="94" y="298" class="m">components/ui/CampaignCard.tsx</text>
 
-  <rect x="82" y="322" width="258" height="60" class="boxWarn"/>
-  <text x="94" y="341" class="t">lib/soroban.ts — 616 lines</text>
-  <text x="94" y="358" class="m">SorobanRpc.Server + Horizon.Server</text>
-  <text x="94" y="374" class="m">constructed inline, per call</text>
+  <rect x="82" y="322" width="258" height="60" class="box"/>
+  <text x="94" y="341" class="t">lib/soroban.ts — Transaction Pipeline</text>
+  <text x="94" y="358" class="m">Simulation, fee estimation, XDR assembly</text>
+  <text x="94" y="374" class="m">&amp; signed transaction broadcast</text>
 
   <rect x="82" y="396" width="258" height="46" class="box"/>
-  <text x="94" y="415" class="t">app/status/page.tsx</text>
-  <text x="94" y="432" class="m">fetch NEXT_PUBLIC_GRAPHQL_URL/status</text>
+  <text x="94" y="415" class="t">lib/graphql/client.ts &amp; status page</text>
+  <text x="94" y="432" class="m">fetch NEXT_PUBLIC_GRAPHQL_URL</text>
 
   <path d="M 211 308 L 211 322" class="edge"/>
   <path d="M 211 382 L 211 396" stroke="#cbd5e1" stroke-width="1.5" fill="none" stroke-dasharray="3 3"/>
 
   <!-- path A label -->
   <path d="M 356 352 L 600 352" class="edge"/>
-  <text x="372" y="343" class="lbl">PATH A — direct RPC reads + tx submission</text>
+  <text x="372" y="343" class="lbl">Tx Pipeline — simulation &amp; signed submission</text>
 
   <!-- graphql-api -->
   <rect x="600" y="205" width="300" height="200" class="boxSvc"/>
@@ -92,7 +92,7 @@
   <text x="628" y="371" class="m">own rpc.Server instance (SDK 14.6.1)</text>
 
   <path d="M 356 419 L 480 419 L 480 282 L 616 282" class="edge"/>
-  <text x="372" y="411" class="lbl">PATH B — HTTP → GraphQL service</text>
+  <text x="372" y="411" class="lbl">Unified Read Path — HTTP → GraphQL API</text>
 
   <path d="M 750 302 L 750 316" class="edge"/>
 
@@ -121,8 +121,8 @@
   <path d="M 1125 288 L 1125 380" class="edge"/>
   <path d="M 1180 342 L 1180 380" class="edge"/>
 
-  <text x="976" y="460" class="m">Both paths land on the same node and the same</text>
-  <text x="976" y="477" class="m">contract state — independently, uncoordinated.</text>
+  <text x="976" y="460" class="m">Reads go through GraphQL API with Redis caching;</text>
+  <text x="976" y="477" class="m">writes execute via client-side transaction pipeline.</text>
 
   <!-- ══ SEAM 2 — dual RPC clients ═══════════════════════════════════════ -->
   <rect x="40" y="545" width="1280" height="310" class="panel"/>

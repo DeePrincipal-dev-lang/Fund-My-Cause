@@ -8,7 +8,6 @@ export type Scalars = {
   Int: { input: number; output: number };
   Float: { input: number; output: number };
   BigInt: { input: string; output: string };
-  DateTime: { input: string; output: string };
 };
 
 export type AuthPayload = {
@@ -225,7 +224,9 @@ export type QueryCampaignDetailArgs = {
 };
 
 export type QueryCampaignsArgs = {
+  after?: InputMaybe<Scalars["String"]["input"]>;
   filter?: InputMaybe<CampaignFilter>;
+  first?: InputMaybe<Scalars["Int"]["input"]>;
   pagination?: InputMaybe<PaginationInput>;
   sort?: InputMaybe<CampaignSort>;
 };

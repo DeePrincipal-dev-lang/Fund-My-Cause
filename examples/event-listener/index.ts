@@ -10,13 +10,9 @@
  */
 
 import "dotenv/config";
-import {
-  rpc as SorobanRpc,
-  nativeToScVal,
-  scValToNative,
-} from "@stellar/stellar-sdk";
+import { rpc, nativeToScVal, scValToNative } from "@stellar/stellar-sdk";
+import { SOROBAN_RPC_URL } from "@fund-my-cause/example-shared";
 
-const RPC_URL     = process.env.SOROBAN_RPC_URL    ?? "https://soroban-testnet.stellar.org";
 const CONTRACT_ID = process.env.CONTRACT_ID!;
 const POLL_MS     = 10_000;
 
@@ -25,7 +21,7 @@ if (!CONTRACT_ID) {
   process.exit(1);
 }
 
-const rpc = new SorobanRpc.Server(RPC_URL);
+const server = new rpc.Server(SOROBAN_RPC_URL);
 
 // Parse --from CLI arg
 const fromArg = process.argv.indexOf("--from");
@@ -37,12 +33,12 @@ const campaignTopic = nativeToScVal("campaign", { type: "symbol" }).toXDR("base6
 
 async function poll() {
   if (fromLedger === undefined) {
-    const latest = await rpc.getLatestLedger();
+    const latest = await server.getLatestLedger();
     fromLedger = latest.sequence;
     console.log(`Starting from ledger ${fromLedger}`);
   }
 
-  const result = await rpc.getEvents({
+  const result = await server.getEvents({
     startLedger: fromLedger,
     filters: [
       {
@@ -56,7 +52,6 @@ async function poll() {
 
   for (const ev of result.events) {
     const eventType = scValToNative(
-      // Second topic element is the event name symbol
       ev.topic[1] ?? ev.topic[0],
     ) as string;
 
@@ -104,7 +99,6 @@ async function poll() {
     }
   }
 
-  // Advance cursor past all returned events
   if (result.events.length > 0) {
     fromLedger = result.events[result.events.length - 1]!.ledger + 1;
   }
@@ -112,6 +106,5 @@ async function poll() {
 
 console.log(`Listening for events on ${CONTRACT_ID}…\n`);
 
-// Run immediately then on interval
 await poll();
 setInterval(poll, POLL_MS);

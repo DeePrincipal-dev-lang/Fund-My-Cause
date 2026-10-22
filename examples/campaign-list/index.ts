@@ -7,15 +7,16 @@
 
 import "dotenv/config";
 import { FmcClient, FmcRegistryClient } from "@fund-my-cause/sdk";
+import { SOROBAN_RPC_URL, NETWORK_PASSPHRASE, HORIZON_URL } from "@fund-my-cause/example-shared";
 
 const REGISTRY_ID = process.env.REGISTRY_ID!;
-const sharedConfig = {
-  rpcUrl:            process.env.SOROBAN_RPC_URL    ?? "https://soroban-testnet.stellar.org",
-  networkPassphrase: process.env.NETWORK_PASSPHRASE ?? "Test SDF Network ; September 2015",
-  horizonUrl:        process.env.HORIZON_URL         ?? "https://horizon-testnet.stellar.org",
-};
 
-const registry = new FmcRegistryClient({ contractId: REGISTRY_ID, ...sharedConfig });
+const registry = new FmcRegistryClient({
+  contractId: REGISTRY_ID,
+  rpcUrl:            SOROBAN_RPC_URL,
+  networkPassphrase: NETWORK_PASSPHRASE,
+  horizonUrl:        HORIZON_URL,
+});
 
 // ── Fetch all campaign addresses ──────────────────────────────────────────────
 
@@ -32,7 +33,7 @@ if (addresses.length === 0) {
 
 const results = await Promise.allSettled(
   addresses.map(async (contractId) => {
-    const c = new FmcClient({ contractId, ...sharedConfig });
+    const c = new FmcClient({ contractId, rpcUrl: SOROBAN_RPC_URL, networkPassphrase: NETWORK_PASSPHRASE, horizonUrl: HORIZON_URL });
     const [info, stats] = await Promise.all([c.getCampaignInfo(), c.getStats()]);
     return { contractId, info, stats };
   }),

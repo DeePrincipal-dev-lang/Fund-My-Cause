@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { X, Copy, Check, Mail, QrCode } from "lucide-react";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { getCampaignSlug } from "@/lib/slugs";
 
 interface ShareModalProps {
   campaignId: string;

@@ -136,11 +136,11 @@ jobs:
 
       - name: Typecheck (indexer)
         working-directory: services/indexer
-        run: npx tsc --noEmit
+        run: npm run typecheck
 
       - name: Typecheck (graphql-api)
         working-directory: services/graphql-api
-        run: npx tsc --noEmit
+        run: npm run typecheck
 
   # ── Unit tests ────────────────────────────────────────────────────────────────
   unit-tests:
@@ -178,6 +178,14 @@ jobs:
         working-directory: services/indexer
         run: npm ci
 
+      - name: Install (sdks/js)
+        working-directory: sdks/js
+        run: npm ci
+
+      - name: Build (sdks/js)
+        working-directory: sdks/js
+        run: npm run build
+
       - name: Install (graphql-api)
         working-directory: services/graphql-api
         run: npm ci
@@ -196,3 +204,18 @@ jobs:
           files: ./services/graphql-api/coverage/coverage-final.json
           flags: graphql-api
           fail_ci_if_error: false
+
+  graphql-api-integration:
+    name: GraphQL API integration tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install (graphql-api)
+        working-directory: services/graphql-api
+        run: npm ci --no-audit --no-fund
+      - name: Integration tests
+        working-directory: services/graphql-api
+        run: npx vitest run --project=integration

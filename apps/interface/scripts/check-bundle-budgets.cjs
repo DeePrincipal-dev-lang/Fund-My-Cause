@@ -33,7 +33,12 @@ function findChunks(route) {
         walk(fullPath);
       } else if (entry.name.endsWith(".js") || entry.name.endsWith(".css")) {
         const size = fs.statSync(fullPath).size;
-        const routeMatch = fullPath.includes(route.replace(/\[.*?\]/g, "_").replace(/\*\*/g, ""));
+        const routeMatch =
+          route === "/"
+            ? entry.name.startsWith("page-") || fullPath.includes("/app/page.")
+            : fullPath.includes(
+                route.replace(/\[.*?\]/g, "_").replace(/\*\*/g, ""),
+              );
         if (routeMatch) {
           chunks.push({ name: path.basename(fullPath), size });
         }

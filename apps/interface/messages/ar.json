@@ -51,7 +51,6 @@
     "searchPlaceholder": "البحث في الحملات...",
     "sortNewest": "الأحدث",
     "sortMostFunded": "الأكثر تمويلاً",
-    "sortEndingSoon": "تنتهي قريباً",
     "filterAll": "الكل",
     "filterActive": "نشطة",
     "filterFunded": "ممولة",
@@ -82,7 +81,6 @@
     "pledgeNow": "تبرع الآن",
     "successfullyFunded": "تم التمويل بنجاح",
     "campaignEnded": "انتهت الحملة",
-    "pledgeTo": "التبرع لـ {title}",
     "fundedAriaLabel": "{title} — تم التمويل بنجاح",
     "endedAriaLabel": "{title} — انتهت الحملة",
     "pledgeAriaLabel": "التبرع لـ {title}"
@@ -165,17 +163,11 @@
     "deadline": "الموعد النهائي",
     "contributors": "المساهمون",
     "token": "الرمز",
-    "removeFromComparison": "إزالة {title} من المقارنة",
-    "copiedToClipboard": "تم نسخ رابط المقارنة إلى الحافظة!"
+    "removeFromComparison": "إزالة {title} من المقارنة"
   },
   "notFound": {
     "title": "404",
     "message": "هذه الصفحة غير موجودة.",
     "goHome": "الذهاب للرئيسية"
-  },
-  "common": {
-    "loading": "جارٍ التحميل…",
-    "error": "حدث خطأ ما.",
-    "retry": "إعادة المحاولة"
   }
 }

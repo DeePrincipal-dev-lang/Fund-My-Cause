@@ -34,6 +34,18 @@
       "import": "./src/graphql.ts",
       "types": "./src/graphql.ts"
     },
+    "./graphql-server": {
+      "import": "./src/graphql-server.ts",
+      "types": "./src/graphql-server.ts"
+    },
+    "./contract": {
+      "import": "./src/contract.ts",
+      "types": "./src/contract.ts"
+    },
+    "./indexer": {
+      "import": "./src/indexer.ts",
+      "types": "./src/indexer.ts"
+    },
     "./validation": {
       "import": "./src/validation.ts",
       "types": "./src/validation.ts"
@@ -42,9 +54,11 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "lint": "echo 'types package - no lint config yet'",
-    "test": "vitest run"
+    "test": "vitest run --coverage",
+    "test:coverage": "vitest run --coverage"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^1.6.1",
     "typescript": "5.9.3",
     "vitest": "^1.1.0"
   }

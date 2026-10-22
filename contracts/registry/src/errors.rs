@@ -53,3 +53,30 @@ pub enum ContractError {
     /// Returned instead of silently ignoring duplicate registrations.
     AlreadyRegistered = 5,
 }
+
+impl From<common::CommonError> for ContractError {
+    /// Folds the shared [`common::CommonError`] variants into this contract's
+    /// error space, preserving stable on-chain discriminants.
+    ///
+    /// | `CommonError` variant   | Maps to                           |
+    /// |-------------------------|-----------------------------------|
+    /// | `Unauthorized`          | `ContractError::Unauthorized` (3) |
+    /// | `NotFound`              | `ContractError::NotFound` (4)     |
+    /// | `AlreadyInitialized`    | `ContractError::AlreadyInitialized` (1) |
+    /// | `AlreadyExists`         | `ContractError::AlreadyRegistered` (5) |
+    /// | `InvalidInput`          | `ContractError::Unauthorized` (3) — closest available generic |
+    /// | `NotInitialized`        | `ContractError::NotInitialized` (2) |
+    fn from(err: common::CommonError) -> Self {
+        match err {
+            common::CommonError::Unauthorized => ContractError::Unauthorized,
+            common::CommonError::NotFound => ContractError::NotFound,
+            common::CommonError::AlreadyInitialized => ContractError::AlreadyInitialized,
+            common::CommonError::AlreadyExists => ContractError::AlreadyRegistered,
+            common::CommonError::NotInitialized => ContractError::NotInitialized,
+            // No exact match for InvalidInput in the registry error set;
+            // Unauthorized is the closest generic catch-all.
+            common::CommonError::InvalidInput => ContractError::Unauthorized,
+            common::CommonError::NotInitialized => ContractError::NotInitialized,
+        }
+    }
+}

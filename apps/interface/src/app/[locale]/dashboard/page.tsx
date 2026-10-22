@@ -213,7 +213,7 @@ function DashboardCampaignCard({
   onPauseToggle,
   onEdit,
   onExtend,
-  refreshNonce: _refreshNonce,
+  refreshNonce,
 }: {
   contractId: string;
   actionPending: string | null;
@@ -457,7 +457,7 @@ export default function DashboardPage() {
   const [contractIds, setContractIds] = useState<string[]>([]);
   const [contributedIds, setContributedIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
-  const [, setLoadError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [actionPending, setActionPending] = useState<string | null>(null);
   const [editTarget, setEditTarget] = useState<EditableCampaign | null>(null);
   const [extendTarget, setExtendTarget] = useState<{

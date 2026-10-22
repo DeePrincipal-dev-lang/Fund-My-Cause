@@ -13,21 +13,22 @@ exports[`ProgressBar snapshots matches snapshot at 0% 1`] = `
         aria-valuemax="100"
         aria-valuemin="0"
         aria-valuenow="0"
-        class="w-full bg-gray-800 rounded-full h-2 relative overflow-hidden"
+        class="w-full bg-[var(--color-surface-elevated)] rounded-full h-2 relative overflow-hidden"
         role="progressbar"
       >
         <div
-          class="h-2 rounded-full transition-all duration-500 bg-indigo-500 "
-          style="width: 0%;"
+          class="h-2 rounded-full transition-all duration-500"
+          style="width: 0%; background: var(--color-brand);"
         />
         <div
-          class="absolute right-0 top-0 h-full w-0.5 bg-gray-600 opacity-50"
+          class="absolute right-0 top-0 h-full w-0.5 bg-[var(--color-border-subtle)] opacity-50"
         />
       </div>
     </div>
     <span
       aria-hidden="true"
-      class="text-sm font-medium min-w-[3rem] text-right text-indigo-400"
+      class="text-sm font-medium min-w-[3rem] text-right"
+      style="color: var(--color-brand);"
     >
       0%
     </span>
@@ -48,21 +49,22 @@ exports[`ProgressBar snapshots matches snapshot at 50% 1`] = `
         aria-valuemax="100"
         aria-valuemin="0"
         aria-valuenow="50"
-        class="w-full bg-gray-800 rounded-full h-2 relative overflow-hidden"
+        class="w-full bg-[var(--color-surface-elevated)] rounded-full h-2 relative overflow-hidden"
         role="progressbar"
       >
         <div
-          class="h-2 rounded-full transition-all duration-500 bg-indigo-500 "
-          style="width: 50%;"
+          class="h-2 rounded-full transition-all duration-500"
+          style="width: 50%; background: var(--color-brand);"
         />
         <div
-          class="absolute right-0 top-0 h-full w-0.5 bg-gray-600 opacity-50"
+          class="absolute right-0 top-0 h-full w-0.5 bg-[var(--color-border-subtle)] opacity-50"
         />
       </div>
     </div>
     <span
       aria-hidden="true"
-      class="text-sm font-medium min-w-[3rem] text-right text-indigo-400"
+      class="text-sm font-medium min-w-[3rem] text-right"
+      style="color: var(--color-brand);"
     >
       50%
     </span>
@@ -83,21 +85,22 @@ exports[`ProgressBar snapshots matches snapshot at 100% 1`] = `
         aria-valuemax="100"
         aria-valuemin="0"
         aria-valuenow="100"
-        class="w-full bg-gray-800 rounded-full h-2 relative overflow-hidden"
+        class="w-full bg-[var(--color-surface-elevated)] rounded-full h-2 relative overflow-hidden"
         role="progressbar"
       >
         <div
-          class="h-2 rounded-full transition-all duration-500 bg-green-500 "
-          style="width: 100%;"
+          class="h-2 rounded-full transition-all duration-500"
+          style="width: 100%; background: var(--color-success);"
         />
         <div
-          class="absolute right-0 top-0 h-full w-0.5 bg-gray-600 opacity-50"
+          class="absolute right-0 top-0 h-full w-0.5 bg-[var(--color-border-subtle)] opacity-50"
         />
       </div>
     </div>
     <span
       aria-hidden="true"
-      class="text-sm font-medium min-w-[3rem] text-right text-green-400"
+      class="text-sm font-medium min-w-[3rem] text-right"
+      style="color: var(--color-success);"
     >
       100%
     </span>

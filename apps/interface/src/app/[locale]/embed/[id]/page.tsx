@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { fetchCampaign } from "@/lib/soroban";
+import { fetchCampaign } from "@/lib/graphql/client";
 import { APP_BASE_URL } from "@/lib/constants";
 import { EmbedCard } from "@/components/ui/EmbedCard";
 import type {

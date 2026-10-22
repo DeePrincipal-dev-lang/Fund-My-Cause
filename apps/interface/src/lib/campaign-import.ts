@@ -1,5 +1,3 @@
-import type { Campaign } from "@/types/campaign";
-
 export interface CampaignImportData {
   title: string;
   description: string;

@@ -1,5 +1,5 @@
 import {
-  rpc as SorobanRpc,
+  rpc,
   Contract,
   TransactionBuilder,
   BASE_FEE,
@@ -69,7 +69,7 @@ function stroopsToXlm(stroops: bigint): number {
  * @see {@link FmcRegistryClient} for discovering campaign contract IDs.
  */
 export class FmcClient {
-  private readonly rpc: SorobanRpc.Server;
+  private readonly rpc: rpc.Server;
   private readonly horizon: Horizon.Server;
   private readonly contract: Contract;
   private readonly config: FmcClientConfig;
@@ -87,7 +87,7 @@ export class FmcClient {
    */
   constructor(config: FmcClientConfig) {
     this.config   = config;
-    this.rpc      = new SorobanRpc.Server(config.rpcUrl);
+    this.rpc      = new rpc.Server(config.rpcUrl);
     this.horizon  = new Horizon.Server(config.horizonUrl);
     this.contract = new Contract(config.contractId);
   }
@@ -109,10 +109,10 @@ export class FmcClient {
       .build();
 
     const result = await this.rpc.simulateTransaction(tx);
-    if (SorobanRpc.Api.isSimulationError(result)) {
+    if (rpc.Api.isSimulationError(result)) {
       parseAndThrow(result.error);
     }
-    return scValToNative((result as SorobanRpc.Api.SimulateTransactionSuccessResponse).result!.retval) as T;
+    return scValToNative((result as rpc.Api.SimulateTransactionSuccessResponse).result!.retval) as T;
   }
 
   /** Build, prepare, sign, submit, and poll a state-changing transaction. */
@@ -147,8 +147,8 @@ export class FmcClient {
     for (let i = 0; i < 20; i++) {
       await new Promise((r) => setTimeout(r, 1500));
       const res = await this.rpc.getTransaction(hash);
-      if (res.status === SorobanRpc.Api.GetTransactionStatus.SUCCESS)  return hash;
-      if (res.status === SorobanRpc.Api.GetTransactionStatus.FAILED) {
+      if (res.status === rpc.Api.GetTransactionStatus.SUCCESS)  return hash;
+      if (res.status === rpc.Api.GetTransactionStatus.FAILED) {
         throw new Error(`Transaction failed on-chain: ${hash}`);
       }
     }

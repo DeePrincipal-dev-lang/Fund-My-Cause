@@ -51,7 +51,6 @@
     "searchPlaceholder": "Kampagnen suchen...",
     "sortNewest": "Neueste",
     "sortMostFunded": "Meistfinanziert",
-    "sortEndingSoon": "Endet bald",
     "filterAll": "Alle",
     "filterActive": "Aktiv",
     "filterFunded": "Finanziert",
@@ -82,7 +81,6 @@
     "pledgeNow": "Jetzt unterstützen",
     "successfullyFunded": "Erfolgreich finanziert",
     "campaignEnded": "Kampagne beendet",
-    "pledgeTo": "Pledge für {title}",
     "fundedAriaLabel": "{title} — erfolgreich finanziert",
     "endedAriaLabel": "{title} — Kampagne beendet",
     "pledgeAriaLabel": "Pledge für {title}"
@@ -165,17 +163,11 @@
     "deadline": "Deadline",
     "contributors": "Unterstützer",
     "token": "Token",
-    "removeFromComparison": "{title} aus dem Vergleich entfernen",
-    "copiedToClipboard": "Vergleichslink in die Zwischenablage kopiert!"
+    "removeFromComparison": "{title} aus dem Vergleich entfernen"
   },
   "notFound": {
     "title": "404",
     "message": "Diese Seite existiert nicht.",
     "goHome": "Zur Startseite"
-  },
-  "common": {
-    "loading": "Lädt…",
-    "error": "Etwas ist schiefgelaufen.",
-    "retry": "Erneut versuchen"
   }
 }

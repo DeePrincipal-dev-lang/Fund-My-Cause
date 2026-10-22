@@ -2,7 +2,8 @@
 
 import { validateFeeBps } from "@/lib/validation";
 import { Input } from "@fund-my-cause/components";
-import { fieldStyles } from "../fields";
+import { fieldStyles } from "../Fields";
+import { useWizardStep } from "../useWizardStep";
 import type { StepProps } from "../types";
 
 /**
@@ -12,7 +13,7 @@ import type { StepProps } from "../types";
  * rejected on Next (see `validatePlatformConfigStep`).
  */
 export function PlatformConfigStep({ data, set }: StepProps) {
-  const feeError = data.feeBps ? validateFeeBps(data.feeBps) : null;
+  const { errorFor } = useWizardStep(data, { feeBps: validateFeeBps });
 
   return (
     <div className="space-y-4">
@@ -29,7 +30,7 @@ export function PlatformConfigStep({ data, set }: StepProps) {
       <Input
         {...fieldStyles}
         label="Fee (basis points, e.g. 250 = 2.5%)"
-        error={feeError}
+        error={errorFor("feeBps")}
         type="number"
         min="0"
         max="10000"

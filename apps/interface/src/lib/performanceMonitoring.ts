@@ -2,13 +2,23 @@
  * Performance monitoring and Core Web Vitals tracking
  */
 
+/** Layout-shift and first-input entries are not in lib.dom's typings. */
+interface LayoutShiftEntry extends PerformanceEntry {
+  hadRecentInput?: boolean;
+  value?: number;
+}
+
+interface FirstInputEntry extends PerformanceEntry {
+  processingDuration?: number;
+}
+
 export interface PerformanceMetrics {
   fcp?: number;
   lcp?: number;
   cls?: number;
   fid?: number;
   ttfb?: number;
-  navigationTiming?: PerformanceTiming;
+  navigationTiming?: PerformanceTiming | PerformanceNavigationTiming;
 }
 
 export interface CoreWebVitals {
@@ -53,8 +63,9 @@ export function measureCoreWebVitals(
   let clsValue = 0;
   const clsObserver = new PerformanceObserver((list) => {
     for (const entry of list.getEntries()) {
-      if (!(entry as any).hadRecentInput) {
-        clsValue += (entry as any).value;
+      const shift = entry as LayoutShiftEntry;
+      if (!shift.hadRecentInput) {
+        clsValue += shift.value ?? 0;
         metrics.cls = clsValue;
       }
     }
@@ -70,7 +81,7 @@ export function measureCoreWebVitals(
   const fidObserver = new PerformanceObserver((list) => {
     const entries = list.getEntries();
     if (entries.length > 0) {
-      metrics.fid = (entries[0] as any).processingDuration;
+      metrics.fid = (entries[0] as FirstInputEntry).processingDuration;
     }
   });
 
@@ -85,7 +96,7 @@ export function measureCoreWebVitals(
   if (navigationTiming) {
     metrics.ttfb = (navigationTiming as PerformanceNavigationTiming).responseStart -
       (navigationTiming as PerformanceNavigationTiming).requestStart;
-    metrics.navigationTiming = navigationTiming as PerformanceTiming;
+    metrics.navigationTiming = navigationTiming as PerformanceNavigationTiming;
   }
 
   callback(metrics);
@@ -99,17 +110,15 @@ export function getCoreWebVitals(): CoreWebVitals {
     return { lcp: null, fid: null, cls: null };
   }
 
-  const paintEntries = performance.getEntriesByType("paint");
-  const fcp = paintEntries.find((entry) => entry.name === "first-contentful-paint");
-
   const lcpEntries = performance.getEntriesByType("largest-contentful-paint");
   const lcp = lcpEntries.length > 0 ? lcpEntries[lcpEntries.length - 1].startTime : null;
 
   const clsEntries = performance.getEntriesByType("layout-shift");
   let cls = 0;
   for (const entry of clsEntries) {
-    if (!(entry as any).hadRecentInput) {
-      cls += (entry as any).value;
+    const shift = entry as LayoutShiftEntry;
+    if (!shift.hadRecentInput) {
+      cls += shift.value ?? 0;
     }
   }
 
@@ -143,20 +152,22 @@ export function getResourceTimings(): PerformanceResourceTiming[] {
 /**
  * Report performance metrics
  */
-export function reportPerformanceMetrics(
+export async function reportPerformanceMetrics(
   endpoint: string,
   metrics: PerformanceMetrics
 ): Promise<void> {
-  if (typeof window === "undefined") return Promise.resolve();
+  if (typeof window === "undefined") return;
 
-  return fetch(endpoint, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(metrics),
-    keepalive: true,
-  }).catch((error) => {
+  try {
+    await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(metrics),
+      keepalive: true,
+    });
+  } catch (error) {
     console.warn("Performance reporting failed:", error);
-  });
+  }
 }
 
 /**

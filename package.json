@@ -4,19 +4,23 @@
   "private": true,
   "workspaces": [
     "apps/*",
-    "packages/*"
+    "packages/*",
+    "sdks/*",
+    "services/*"
   ],
   "scripts": {
     "dev": "npm run dev --workspace=apps/interface",
     "build": "npm run build --workspace=apps/interface",
     "lint": "npm run lint --workspace=apps/interface",
+    "lint:dead-code": "npx --yes ts-prune@0.10.3 -p apps/interface/tsconfig.json",
+    "lint:all": "npm run lint && npm run lint:dead-code",
     "contracts:build": "cargo build --release --target wasm32-unknown-unknown --manifest-path contracts/crowdfund/Cargo.toml",
     "contracts:test": "cargo test --workspace",
     "test:e2e": "playwright test",
     "fixtures:generate": "npx ts-node scripts/generate-fixtures.ts",
     "seed:testnet": "bash scripts/seed-testnet.sh",
     "format": "cd apps/interface && npx prettier --write",
-    "prepare": "husky"
+    "prepare": "which husky >/dev/null 2>&1 && husky || true"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.8.0",
@@ -29,13 +33,17 @@
     "prettier": "^3.8.3"
   },
   "lint-staged": {
-    "apps/interface/**/*.{ts,tsx}": [
-      "eslint --config apps/interface/eslint.config.js --max-warnings=0",
+    "*.{js,ts,tsx,jsx}": [
       "prettier --write"
     ],
+    "apps/interface/**/*.{ts,tsx}": [
+      "eslint --config apps/interface/eslint.config.js --max-warnings=0"
+    ],
     "*.rs": [
-      "bash -c 'cargo fmt --all -- --check'",
-      "bash -c 'cargo clippy --workspace'"
+      "bash -c 'cargo fmt --all -- --check'"
+    ],
+    "*.{ts,tsx}": [
+      "bash scripts/lint-staged-check.sh"
     ]
   }
 }

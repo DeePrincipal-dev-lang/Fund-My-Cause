@@ -366,3 +366,27 @@ describe("No live endpoint guarantee", () => {
     expect(fn).not.toHaveBeenCalled();
   });
 });
+
+// ---------------------------------------------------------------------------
+// 6. HorizonClient compatibility API
+// ---------------------------------------------------------------------------
+
+describe("HorizonClient compatibility API", () => {
+  it("supports execute, getState, canExecute, and getLastError", async () => {
+    const breaker = new HorizonCircuitBreaker({
+      failureThreshold: 1,
+      cooldownMs: 1_000,
+    });
+
+    expect(breaker.getState()).toBe<CircuitState>("CLOSED");
+    expect(breaker.canExecute()).toBe(true);
+    await expect(breaker.execute(successFn)).resolves.toEqual({ status: "ok" });
+    expect(breaker.getLastError()).toBeNull();
+
+    await driveToOpen(breaker, 1, makeFailFn());
+
+    expect(breaker.getState()).toBe<CircuitState>("OPEN");
+    expect(breaker.canExecute()).toBe(false);
+    expect(breaker.getLastError()).toBeInstanceOf(CircuitOpenError);
+  });
+});

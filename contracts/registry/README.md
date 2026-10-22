@@ -54,6 +54,30 @@ dedicated test:
 
 ---
 
+## Dead Code Cleanup (Issue: registry dead_code audit)
+
+`src/events.rs` defined a `RegistryEvents` helper (wrapping the shared
+`common::events::EventEmitter`) but the module was never declared in
+`src/lib.rs`, so the whole file was orphaned — not even compiled into the
+crate — and its `pub use topics as Topics;` backward-compat re-export was
+unused dead weight on top of that. Fixed by:
+
+* Adding `mod events;` to `src/lib.rs` so the module is actually part of the
+  crate.
+* Removing the unused `Topics` re-export and the unused `topics` import.
+* Wiring `RegistryEvents::{initialized, project_registered, project_updated,
+  project_verified, project_archived}` into `src/admin.rs` / `src/lookup.rs`
+  in place of the ad-hoc `env.events().publish((...), ...)` tuples, and
+  removing the resulting unused `common::EVENT_SCHEMA_VERSION` import from
+  `src/admin.rs`. This also moves registry event emission onto the same
+  shared schema used by `contracts/crowdfund` (see the event-schema
+  migration notes in `contracts/common/src/events.rs`).
+
+`cargo clippy -p registry -- -D dead_code` should be run to confirm zero
+remaining warnings once the toolchain is available in this environment (see
+the coverage baseline note above — `cargo` is not installed in the current
+dev container).
+
 ## Running tests locally
 
 ```bash

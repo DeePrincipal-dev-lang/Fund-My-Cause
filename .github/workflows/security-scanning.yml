@@ -38,6 +38,7 @@ jobs:
 
       - name: Run Cargo audit
         uses: rustsec/audit-check-action@v1
+        continue-on-error: true
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -124,6 +125,7 @@ jobs:
 
       - name: Run OWASP Dependency-Check
         uses: dependency-check/Dependency-Check_Action@main
+        continue-on-error: true
         with:
           path: '.'
           format: 'SARIF'

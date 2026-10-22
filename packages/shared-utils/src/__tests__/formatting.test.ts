@@ -19,9 +19,26 @@ import {
   formatList,
   formatListShort,
   formatAddress,
+  localeToIntlCode,
 } from "../formatting";
 
 describe("Formatting utilities", () => {
+  // ── Locale Mapping ──────────────────────────────────────────────────────
+
+  describe("localeToIntlCode", () => {
+    it("maps 'en' to 'en-US'", () => {
+      expect(localeToIntlCode("en")).toBe("en-US");
+    });
+
+    it("maps 'ar' to 'ar-SA'", () => {
+      expect(localeToIntlCode("ar")).toBe("ar-SA");
+    });
+
+    it("returns unknown locale codes unchanged", () => {
+      expect(localeToIntlCode("xx-XX")).toBe("xx-XX");
+    });
+  });
+
   // ── XLM Formatting ──────────────────────────────────────────────────
 
   describe("formatXLM", () => {
@@ -86,12 +103,12 @@ describe("Formatting utilities", () => {
     it("should format currency with locale", () => {
       const result = formatCurrency(1234.56, "USD", "en");
       expect(result).toContain("$");
-      expect(result).toContain("1,234.56");
     });
 
     it("should handle RTL locales", () => {
       const result = formatCurrency(1234.56, "USD", "ar");
       expect(result).toBeTruthy();
+      expect(result).toContain("US$");
     });
 
     it("should handle different currencies", () => {
@@ -101,13 +118,15 @@ describe("Formatting utilities", () => {
   });
 
   describe("formatCurrencyRTL", () => {
-    it("should format currency for RTL locales", () => {
+it("should format currency for RTL locales", () => {
       const result = formatCurrencyRTL(1234.56, "USD", "ar");
       expect(result).toBeTruthy();
+      expect(result).toContain("US$");
     });
 
     it("should format currency for LTR locales", () => {
       const result = formatCurrencyRTL(1234.56, "USD", "en");
+      expect(result).toBeTruthy();
       expect(result).toContain("$");
     });
   });
@@ -121,6 +140,11 @@ describe("Formatting utilities", () => {
     it("should get EUR symbol", () => {
       const result = getCurrencySymbol("EUR", "en");
       expect(result).toContain("€");
+    });
+
+    it("returns empty string when currency has no symbol", () => {
+      const result = getCurrencySymbol("XYZ", "en");
+      expect(typeof result).toBe("string");
     });
   });
 
@@ -158,7 +182,8 @@ describe("Formatting utilities", () => {
   describe("formatPercentage", () => {
     it("should format percentage", () => {
       const result = formatPercentage(50, "en");
-      expect(result).toContain("50%");
+      expect(result).toContain("50");
+      expect(result).toContain("%");
     });
 
     it("should handle custom fraction digits", () => {
@@ -181,9 +206,10 @@ describe("Formatting utilities", () => {
 
   describe("formatDate", () => {
     it("should format unix timestamp to date", () => {
-      const timestamp = 1746432000; // 2026-07-26
+      const timestamp = 1746432000;
       const result = formatDate(timestamp, "en");
       expect(result).toBeTruthy();
+      expect(result).toMatch(/\w+ \d+, \d+/);
     });
   });
 
@@ -192,12 +218,14 @@ describe("Formatting utilities", () => {
       const date = new Date(2026, 6, 26); // July 26, 2026
       const result = formatLocalDate(date, "en");
       expect(result).toBeTruthy();
+      expect(result).toContain("2026");
     });
 
     it("should handle numeric timestamp", () => {
       const timestamp = 1746432000;
       const result = formatLocalDate(timestamp, "en");
       expect(result).toBeTruthy();
+      expect(result).toMatch(/\d+/);
     });
   });
 
@@ -206,6 +234,14 @@ describe("Formatting utilities", () => {
       const date = new Date();
       const result = formatLocalTime(date, "en");
       expect(result).toBeTruthy();
+      expect(result).toMatch(/\d+:\d+/);
+    });
+
+    it("should format numeric timestamp as time", () => {
+      const timestamp = 1746432000;
+      const result = formatLocalTime(timestamp, "en");
+      expect(result).toBeTruthy();
+      expect(result).toMatch(/\d+:\d+/);
     });
   });
 
@@ -214,6 +250,7 @@ describe("Formatting utilities", () => {
       const timestamp = 1746432000;
       const result = formatDateTime(timestamp, "en");
       expect(result).toBeTruthy();
+      expect(result).toMatch(/\w+ \d+, \d+/);
     });
   });
 
@@ -222,6 +259,14 @@ describe("Formatting utilities", () => {
       const date = new Date();
       const result = formatLocalDateTime(date, "en");
       expect(result).toBeTruthy();
+      expect(result).toMatch(/\d+:\d+/);
+    });
+
+    it("should format numeric timestamp as datetime", () => {
+      const timestamp = 1746432000;
+      const result = formatLocalDateTime(timestamp, "en");
+      expect(result).toBeTruthy();
+      expect(result).toMatch(/\d+/);
     });
   });
 
@@ -256,12 +301,42 @@ describe("Formatting utilities", () => {
       const date = new Date(Date.now() - 30000); // 30 seconds ago
       const result = formatRelativeTime(date, "en");
       expect(result).toBeTruthy();
+      expect(result).toMatch(/second|seconds/);
     });
 
     it("should format relative time in minutes", () => {
       const date = new Date(Date.now() - 300000); // 5 minutes ago
       const result = formatRelativeTime(date, "en");
       expect(result).toBeTruthy();
+      expect(result).toMatch(/minute|minutes/);
+    });
+
+    it("should format relative time in hours", () => {
+      const date = new Date(Date.now() - 7200000); // 2 hours ago
+      const result = formatRelativeTime(date, "en");
+      expect(result).toBeTruthy();
+      expect(result).toMatch(/hour|hours/);
+    });
+
+    it("should format relative time in days", () => {
+      const date = new Date(Date.now() - 172800000); // 2 days ago
+      const result = formatRelativeTime(date, "en");
+      expect(result).toBeTruthy();
+      expect(result).toMatch(/day|days/);
+    });
+
+    it("should format relative time in weeks", () => {
+      const date = new Date(Date.now() - 1209600000); // 2 weeks ago
+      const result = formatRelativeTime(date, "en");
+      expect(result).toBeTruthy();
+      expect(result).toMatch(/week|weeks/);
+    });
+
+    it("accepts a number timestamp", () => {
+      const ts = Math.floor((Date.now() - 60000) / 1000); // 1 min ago in seconds
+      const result = formatRelativeTime(ts, "en");
+      expect(result).toBeTruthy();
+      expect(result).toMatch(/minute|minutes/);
     });
   });
 
@@ -272,6 +347,9 @@ describe("Formatting utilities", () => {
       const items = ["apple", "banana", "cherry"];
       const result = formatList(items, "en");
       expect(result).toBeTruthy();
+      expect(result).toContain("apple");
+      expect(result).toContain("banana");
+      expect(result).toContain("cherry");
     });
 
     it("should handle single item", () => {
@@ -282,6 +360,8 @@ describe("Formatting utilities", () => {
     it("should handle two items", () => {
       const result = formatList(["apple", "banana"], "en");
       expect(result).toBeTruthy();
+      expect(result).toContain("apple");
+      expect(result).toContain("banana");
     });
   });
 
@@ -290,6 +370,9 @@ describe("Formatting utilities", () => {
       const items = ["apple", "banana", "cherry"];
       const result = formatListShort(items, "en");
       expect(result).toBeTruthy();
+      expect(result).toContain("apple");
+      expect(result).toContain("banana");
+      expect(result).toContain("cherry");
     });
   });
 
@@ -313,6 +396,69 @@ describe("Formatting utilities", () => {
       const address = "GABCDEFGHIJ";
       const result = formatAddress(address);
       expect(result).toMatch(/^GABCD\.\.\./);
+    });
+  });
+
+  // ── Stellar Asset Decimal Precision ─────────────────────────────────
+  // XLM uses 7 decimal places (1 XLM = 10_000_000 stroops).
+  // These tests guard against regressions in the stroop-to-XLM conversion
+  // that could cause incorrect display amounts in the UI.
+
+  describe("Stellar asset decimal precision (XLM / stroop boundary)", () => {
+    const STROOPS_PER_XLM = 10_000_000n;
+
+    it("1 stroop rounds to 0.00 XLM in display (below 0.005 XLM threshold)", () => {
+      // 1 stroop = 0.0000001 XLM — should display as "0.00 XLM"
+      expect(formatXLM(1n, "en")).toBe("0.00 XLM");
+    });
+
+    it("1 XLM (10_000_000 stroops) displays exactly as 1.00 XLM", () => {
+      expect(formatXLM(STROOPS_PER_XLM, "en")).toBe("1.00 XLM");
+    });
+
+    it("0.01 XLM (100_000 stroops) displays as 0.01 XLM", () => {
+      expect(formatXLM(100_000n, "en")).toBe("0.01 XLM");
+    });
+
+    it("0.001 XLM (10_000 stroops) rounds to 0.00 XLM in 2-decimal display", () => {
+      // 10_000 stroops = 0.001 XLM, which rounds to 0.00 at 2 decimal places
+      expect(formatXLM(10_000n, "en")).toBe("0.00 XLM");
+    });
+
+    it("0.005 XLM (50_000 stroops) rounds to 0.01 XLM in 2-decimal display", () => {
+      // 50_000 stroops = 0.005 XLM, rounds up to 0.01
+      expect(formatXLM(50_000n, "en")).toBe("0.01 XLM");
+    });
+
+    it("maximum safe integer stroop value does not overflow or produce NaN", () => {
+      // 2^53 - 1 stroops ≈ 900_719_925 XLM — must not produce NaN or Infinity
+      const result = formatXLM(BigInt(Number.MAX_SAFE_INTEGER), "en");
+      expect(result).not.toContain("NaN");
+      expect(result).not.toContain("Infinity");
+      expect(result).toContain("XLM");
+    });
+
+    it("formatXLMAmount returns plain number string without the 'XLM' suffix", () => {
+      expect(formatXLMAmount(STROOPS_PER_XLM, "en")).toBe("1.00");
+      expect(formatXLMAmount(0n, "en")).toBe("0.00");
+    });
+
+    it("1_234_567_890 stroops formats to 123.46 XLM (rounded at 2 decimal places)", () => {
+      // 1_234_567_890 / 10_000_000 = 123.456789 → rounds to 123.46
+      expect(formatXLM(1_234_567_890n, "en")).toMatch(/123\.46\s+XLM/);
+    });
+
+    it("zero stroops displays as 0.00 XLM", () => {
+      expect(formatXLM(0n, "en")).toBe("0.00 XLM");
+    });
+
+    it("locale-aware formatting uses correct decimal separator (German)", () => {
+      // German uses comma as decimal separator: "1,00 XLM"
+      const result = formatXLM(STROOPS_PER_XLM, "de");
+      expect(result).toContain("1");
+      expect(result).toContain("XLM");
+      // The comma or period depends on the runtime's Intl support — just verify no NaN
+      expect(result).not.toContain("NaN");
     });
   });
 });

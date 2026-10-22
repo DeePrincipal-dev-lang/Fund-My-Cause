@@ -271,3 +271,58 @@ class TestDefaultConfigMatchesHardcodedValues:
         cfg = load_scoring_config({})
         assert cfg.category_boost == pytest.approx(self._LEGACY_CATEGORY_BOOST)
         assert cfg.age_divisor_min == pytest.approx(self._LEGACY_AGE_DIVISOR_MIN)
+
+
+# ---------------------------------------------------------------------------
+# Startup hook (#1386)
+# ---------------------------------------------------------------------------
+
+class TestAssertStartupConfig:
+    """
+    The service bootstrap should call assert_startup_config() so that any
+    misconfiguration in the deployment environment fails fast with a clear
+    error before serving requests.
+    """
+
+    def test_valid_env_returns_config(self, monkeypatch):
+        from scoring_config import assert_startup_config
+
+        monkeypatch.setenv("RECOMMENDATION_WEIGHT_CATEGORY_BOOST", "2.5")
+        monkeypatch.setenv("RECOMMENDATION_WEIGHT_AGE_DIVISOR_MIN", "1.0")
+
+        cfg = assert_startup_config()
+        assert isinstance(cfg, ScoringWeightsConfig)
+        assert cfg.category_boost == pytest.approx(2.5)
+
+    def test_invalid_env_raises_clear_error(self, monkeypatch):
+        from scoring_config import assert_startup_config
+
+        monkeypatch.setenv("RECOMMENDATION_WEIGHT_CATEGORY_BOOST", "0.1")
+        with pytest.raises(ValueError) as exc_info:
+            assert_startup_config()
+        assert "category_boost" in str(exc_info.value)
+
+    def test_malformed_env_raises_clear_error(self, monkeypatch):
+        from scoring_config import assert_startup_config
+
+        monkeypatch.setenv("RECOMMENDATION_WEIGHT_AGE_DIVISOR_MIN", "banana")
+        with pytest.raises(ValueError) as exc_info:
+            assert_startup_config()
+        assert "RECOMMENDATION_WEIGHT_AGE_DIVISOR_MIN" in str(exc_info.value)
+
+    def test_non_finite_env_raises_clear_error(self, monkeypatch):
+        from scoring_config import assert_startup_config
+
+        monkeypatch.setenv("RECOMMENDATION_WEIGHT_CATEGORY_BOOST", "inf")
+        with pytest.raises(ValueError) as exc_info:
+            assert_startup_config()
+        assert "RECOMMENDATION_WEIGHT_CATEGORY_BOOST" in str(exc_info.value)
+
+    def test_empty_env_uses_defaults(self, monkeypatch):
+        from scoring_config import assert_startup_config
+
+        monkeypatch.delenv("RECOMMENDATION_WEIGHT_CATEGORY_BOOST", raising=False)
+        monkeypatch.delenv("RECOMMENDATION_WEIGHT_AGE_DIVISOR_MIN", raising=False)
+
+        cfg = assert_startup_config()
+        assert cfg == DEFAULT_SCORING_CONFIG

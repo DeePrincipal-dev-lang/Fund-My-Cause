@@ -6,7 +6,7 @@ const TEST_PORT = 9095;
 process.env.PORT = String(TEST_PORT);
 process.env.PAGERDUTY_API_KEY = 'mock-pd-key';
 
-import app from '../index';
+import app, { server } from '../index';
 
 describe('Alert Delivery End-to-End Integration', () => {
   const serverUrl = `http://localhost:${TEST_PORT}`;
@@ -17,8 +17,8 @@ describe('Alert Delivery End-to-End Integration', () => {
     expect(app).toBeDefined();
   });
 
-  afterAll(() => {
-    // Give express server a moment to shutdown if needed, or rely on Jest exit
+  afterAll((done) => {
+    server.close(done);
   });
 
   it('should deliver alerts to Email and Slack transports end-to-end', async () => {
@@ -38,19 +38,19 @@ describe('Alert Delivery End-to-End Integration', () => {
     // Assert Email delivery
     expect(emailTransport.delivered).toHaveLength(1);
     expect(emailTransport.delivered[0]).toMatchObject({
-      title: payload.alert_name,
-      description: payload.description,
+      ruleId: expect.stringContaining('incident:'),
+      message: payload.description,
       severity: payload.severity,
-      channel: 'email',
+      context: expect.objectContaining({ alert_name: payload.alert_name }),
     });
 
     // Assert Slack delivery
     expect(slackTransport.delivered).toHaveLength(1);
     expect(slackTransport.delivered[0]).toMatchObject({
-      title: payload.alert_name,
-      description: payload.description,
+      ruleId: expect.stringContaining('incident:'),
+      message: payload.description,
       severity: payload.severity,
-      channel: 'slack',
+      context: expect.objectContaining({ alert_name: payload.alert_name }),
     });
   });
 
@@ -75,6 +75,6 @@ describe('Alert Delivery End-to-End Integration', () => {
 
     // Slack delivery should have still succeeded (independent of Email failure)
     expect(slackTransport.delivered).toHaveLength(1);
-    expect(slackTransport.delivered[0].title).toBe(payload.alert_name);
+    expect(slackTransport.delivered[0].context.alert_name).toBe(payload.alert_name);
   });
 });

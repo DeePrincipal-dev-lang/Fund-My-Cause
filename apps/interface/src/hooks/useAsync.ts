@@ -44,7 +44,7 @@ export function useAsync<T>(
   const [state, setState] = useState<AsyncState<T>>(IDLE as AsyncState<T>);
   const callIdRef = useRef(0);
 
-  // eslint-disable-next-line react-hooks/rules-of-hooks
+  // Memoize execution callback so callers can safely include `execute` in useEffect dependency arrays.
   const execute = useCallback(
     async (...args: unknown[]): Promise<T | null> => {
       const callId = ++callIdRef.current;

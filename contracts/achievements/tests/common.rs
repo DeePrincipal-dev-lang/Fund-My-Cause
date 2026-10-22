@@ -9,7 +9,6 @@
 use soroban_sdk::{testutils::Address as _, Address, Env};
 
 use achievements::{AchievementsContract, AchievementsContractClient};
-use common::test_utils::setup_env;
 
 /// Deploy a fresh, uninitialized achievements contract.
 ///

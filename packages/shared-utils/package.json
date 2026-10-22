@@ -8,31 +8,66 @@
   "exports": {
     ".": {
       "import": "./src/index.ts",
+      "require": "./src/index.ts",
       "types": "./src/index.ts"
     },
     "./formatting": {
       "import": "./src/formatting.ts",
+      "require": "./src/formatting.ts",
       "types": "./src/formatting.ts"
     },
     "./campaign": {
       "import": "./src/campaign.ts",
+      "require": "./src/campaign.ts",
       "types": "./src/campaign.ts"
     },
     "./timestamps": {
       "import": "./src/timestamps.ts",
+      "require": "./src/timestamps.ts",
       "types": "./src/timestamps.ts"
+    },
+    "./auth": {
+      "import": "./src/auth.ts",
+      "require": "./src/auth.ts",
+      "types": "./src/auth.ts"
+    },
+    "./errors": {
+      "import": "./src/errors.ts",
+      "require": "./src/errors.ts",
+      "types": "./src/errors.ts"
+    },
+    "./retry": {
+      "import": "./src/retry.ts",
+      "require": "./src/retry.ts",
+      "types": "./src/retry.ts"
+    },
+    "./circuit-breaker": {
+      "import": "./src/circuit-breaker.ts",
+      "require": "./src/circuit-breaker.ts",
+      "types": "./src/circuit-breaker.ts"
+    },
+    "./logger": {
+      "import": "./src/logger.ts",
+      "require": "./src/logger.ts",
+      "types": "./src/logger.ts"
     }
   },
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "test": "vitest"
+    "test": "vitest run --coverage",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@fund-my-cause/types": "file:../types"
+    "@fund-my-cause/types": "file:../types",
+    "jsonwebtoken": "^9.0.3",
+    "pino": "^8.17.2",
+    "pino-pretty": "^10.3.1"
   },
   "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "20.19.37",
+    "@vitest/coverage-v8": "^4.1.2",
     "typescript": "5.9.3",
     "vitest": "4.1.2"
   }

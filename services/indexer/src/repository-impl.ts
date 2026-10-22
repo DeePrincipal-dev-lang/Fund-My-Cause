@@ -47,7 +47,7 @@ export class EventStoreRepository
     this.store.addEvents(events);
     this.logger.debug(
       { count: events.length, total: this.store.getCount() },
-      "EventStoreRepository.addEvents"
+      "EventStoreRepository.addEvents",
     );
   }
 
@@ -82,9 +82,10 @@ export class EventStoreRepository
 
   /** @inheritdoc */
   getContributionsForCampaign(campaignId: string, limit = 100): IndexerEvent[] {
-    return this.store
-      .queryByContract(campaignId, limit * 10) // over-fetch to filter by type
-      .filter((e) => e.type === CONTRIBUTION_EVENT_TYPE)
-      .slice(0, limit);
+    return this.store.queryByContractAndType(
+      campaignId,
+      CONTRIBUTION_EVENT_TYPE,
+      limit,
+    );
   }
 }

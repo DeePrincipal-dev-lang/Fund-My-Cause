@@ -8,7 +8,7 @@ import { useContext, createContext, ReactNode, useMemo } from 'react';
 import {
   FeatureFlagManager,
   getFeatureFlagManager,
-  FeatureFlag,
+  type FeatureFlag,
 } from './feature-flags';
 
 interface FeatureFlagContextType {

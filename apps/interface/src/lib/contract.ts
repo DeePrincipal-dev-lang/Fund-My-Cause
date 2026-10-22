@@ -13,6 +13,7 @@ import {
   scValToNative,
   rpc as SorobanRpc,
   Horizon,
+  xdr,
 } from "@stellar/stellar-sdk";
 import {
   CONTRACT_ID,
@@ -58,7 +59,7 @@ export function getContractClient(rpcUrl: string = RPC_URL): SorobanRpc.Server {
 async function simulateView(
   contractId: string,
   method: string,
-  args: unknown[] = [],
+  args: xdr.ScVal[] = [],
 ): Promise<unknown> {
   if (!isValidContractId(contractId)) {
     throw new ContractError(`Invalid contract ID format: ${contractId}`);
@@ -121,7 +122,7 @@ async function invokeContract(
   caller: string,
   contractId: string,
   method: string,
-  args: unknown[],
+  args: xdr.ScVal[] = [],
   signTx: SignFn,
 ): Promise<string> {
   if (!isValidContractId(contractId)) {
@@ -171,17 +172,32 @@ async function invokeContract(
   throw new ContractError(`Transaction not confirmed after polling: ${hash}`);
 }
 
-// ── Public API ────────────────────────────────────────────────────────────────
+export interface ContractCampaignInfo {
+  title: string;
+  description: string;
+  creator: string;
+  goal: bigint;
+  deadline: bigint;
+  minContribution: bigint;
+  maxContribution: bigint;
+}
+
+export interface ContractCampaignStats {
+  totalRaised: bigint;
+  progressBps: number;
+  progressPercent: number;
+  contributorCount: number;
+}
 
 /**
  * Fetches high-level campaign metadata from the contract.
  * @param {string} [contractId=CONTRACT_ID] - The Soroban contract address
- * @returns {Promise<CampaignInfo>} Decoded campaign metadata
+ * @returns {Promise<ContractCampaignInfo>} Decoded campaign metadata
  * @throws {ContractError} If the contract call fails
  */
 export async function getCampaignInfo(
   contractId: string = CONTRACT_ID,
-): Promise<CampaignInfo> {
+): Promise<ContractCampaignInfo> {
   const [
     title,
     description,
@@ -213,12 +229,12 @@ export async function getCampaignInfo(
 /**
  * Fetches live campaign statistics (raised amount, progress, contributor count).
  * @param {string} [contractId=CONTRACT_ID] - The Soroban contract address
- * @returns {Promise<CampaignStats>} Decoded campaign statistics
+ * @returns {Promise<ContractCampaignStats>} Decoded campaign statistics
  * @throws {ContractError} If the contract call fails
  */
 export async function getCampaignStats(
   contractId: string = CONTRACT_ID,
-): Promise<CampaignStats> {
+): Promise<ContractCampaignStats> {
   const raw = (await simulateView(contractId, "get_stats")) as {
     total_raised: string | number;
     progress_bps: string | number;
@@ -226,6 +242,7 @@ export async function getCampaignStats(
   };
   return {
     totalRaised: BigInt(raw.total_raised),
+    progressBps: Number(raw.progress_bps),
     progressPercent: Number(raw.progress_bps) / 100,
     contributorCount: Number(raw.contributor_count),
   };

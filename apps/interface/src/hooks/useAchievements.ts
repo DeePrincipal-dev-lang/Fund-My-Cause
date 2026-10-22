@@ -4,10 +4,10 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo } from "react";
+import { AchievementTier, AchievementType } from "@/types/gamification";
 import type {
   Achievement,
   AchievementProgress,
-  AchievementType,
   GamificationProfile,
   AchievementUnlockedEvent,
 } from "@/types/gamification";
@@ -92,13 +92,15 @@ const ACHIEVEMENT_DEFINITIONS = {
     title: "Goal Crusher",
     description: "Help 5 campaigns exceed their goal by 50%+",
     icon: "💪",
-    tier: "legendary" as const,
+    tier: AchievementTier.LEGENDARY,
+    xpReward: 2000,
   },
-  trending_backer: {
+  [AchievementType.TRENDING_BACKER]: {
     title: "Trending Backer",
     description: "Be the top contributor to a trending campaign",
     icon: "🔥",
-    tier: "legendary" as const,
+    tier: AchievementTier.LEGENDARY,
+    xpReward: 2000,
   },
 };
 
@@ -106,15 +108,15 @@ const ACHIEVEMENT_DEFINITIONS = {
  * Fetch user achievements
  */
 async function fetchUserAchievements(
-  userAddress: string
+  _userAddress: string
 ): Promise<Achievement[]> {
   // Mocked pending Issue #12 (achievements contract: unlock conditions are
   // still TODO'd on-chain). Replace with a real contract/API read once #12 lands.
   const achievements: Achievement[] = [
     {
       id: "ach_1",
-      type: "first_contribution" as AchievementType,
-      tier: "common",
+      type: AchievementType.FIRST_CONTRIBUTION,
+      tier: AchievementTier.COMMON,
       title: "First Step",
       description: "Make your first contribution",
       icon: "🎬",
@@ -123,8 +125,8 @@ async function fetchUserAchievements(
     },
     {
       id: "ach_2",
-      type: "super_supporter" as AchievementType,
-      tier: "uncommon",
+      type: AchievementType.SUPER_SUPPORTER,
+      tier: AchievementTier.UNCOMMON,
       title: "Super Supporter",
       description: "Contribute to 10 different campaigns",
       icon: "⭐",
@@ -141,40 +143,40 @@ async function fetchUserAchievements(
  * Fetch user achievement progress
  */
 async function fetchAchievementProgress(
-  userAddress: string
+  _userAddress: string
 ): Promise<AchievementProgress[]> {
   // Mocked pending Issue #12 (achievements contract: stub leaderboard ranking,
   // unlock conditions unresolved). Replace with a real contract/API read once #12 lands.
   const progress: AchievementProgress[] = [
     {
-      type: "mega_donor",
+      type: AchievementType.MEGA_DONOR,
       title: "Mega Donor",
       description: "Reach a total of 1000 XLM in contributions",
       progress: 350,
       required: 1000,
       isUnlocked: false,
       icon: "💰",
-      tier: "rare",
+      tier: AchievementTier.RARE,
     },
     {
-      type: "consistent_contributor",
+      type: AchievementType.CONSISTENT_CONTRIBUTOR,
       title: "Consistent Contributor",
       description: "Contribute for 30 consecutive days",
       progress: 12,
       required: 30,
       isUnlocked: false,
       icon: "📅",
-      tier: "rare",
+      tier: AchievementTier.RARE,
     },
     {
-      type: "referral_champion",
+      type: AchievementType.REFERRAL_CHAMPION,
       title: "Referral Champion",
       description: "Refer 20 successful contributors",
       progress: 5,
       required: 20,
       isUnlocked: false,
       icon: "🎯",
-      tier: "epic",
+      tier: AchievementTier.EPIC,
     },
   ];
 
@@ -252,7 +254,7 @@ export function useAchievements({
     queryFn: () =>
       userAddress
         ? fetchGamificationProfile(userAddress)
-        : Promise.resolve(null as any),
+        : Promise.resolve(null as unknown as GamificationProfile),
     enabled: enabled && !!userAddress,
   });
 
@@ -269,7 +271,7 @@ export function useAchievements({
         achievement: {
           id: `ach_${achievementType}`,
           type: achievementType,
-          tier: "common",
+          tier: AchievementTier.COMMON,
           title: "Achievement",
           description: "You unlocked an achievement",
           icon: "🏆",
@@ -297,8 +299,8 @@ export function useAchievements({
   // Mutation to share achievement
   const shareAchievementMutation = useMutation({
     mutationFn: async ({
-      achievementId,
-      platform,
+      achievementId: _achievementId,
+      platform: _platform,
     }: {
       achievementId: string;
       platform: string;

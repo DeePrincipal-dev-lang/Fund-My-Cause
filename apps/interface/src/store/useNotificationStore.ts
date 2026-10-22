@@ -29,6 +29,24 @@ export interface NotificationStoreState {
 
 const STORAGE_KEY = "fmc:notifications";
 
+/**
+ * localStorage key and category defaults for notification preferences.
+ * Exported so `NotificationPreferencesContext` reads/writes the same shape
+ * instead of keeping its own separately-drifting copy.
+ */
+export const NOTIFICATION_PREFS_STORAGE_KEY = "fmc:notif-prefs";
+
+export const DEFAULT_NOTIFICATION_CATEGORY_PREFS: Record<
+  NotificationType,
+  boolean
+> = {
+  contribution: true,
+  goal_reached: true,
+  deadline: true,
+  campaign_update: true,
+  info: true,
+};
+
 function load(): Notification[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -45,20 +63,13 @@ function save(notifications: Notification[]) {
 }
 
 function loadPrefs(): Record<NotificationType, boolean> {
-  const defaults: Record<NotificationType, boolean> = {
-    contribution: true,
-    goal_reached: true,
-    deadline: true,
-    campaign_update: true,
-    info: true,
-  };
   try {
-    const raw = localStorage.getItem("fmc:notif-prefs");
-    if (!raw) return defaults;
+    const raw = localStorage.getItem(NOTIFICATION_PREFS_STORAGE_KEY);
+    if (!raw) return DEFAULT_NOTIFICATION_CATEGORY_PREFS;
     const parsed = JSON.parse(raw);
-    return parsed?.categories ?? defaults;
+    return parsed?.categories ?? DEFAULT_NOTIFICATION_CATEGORY_PREFS;
   } catch {
-    return defaults;
+    return DEFAULT_NOTIFICATION_CATEGORY_PREFS;
   }
 }
 

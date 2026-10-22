@@ -111,10 +111,9 @@ export function MilestoneDisplay({ milestones, currentAmount }: Props) {
     if (reachedMilestones.length > 0) {
       const latest = reachedMilestones[reachedMilestones.length - 1];
       addNotification({
-        id: `milestone-${latest.id}`,
-        type: "success",
+        type: "goal_reached",
+        title: "Milestone Reached",
         message: `Milestone reached: ${latest.description}`,
-        timestamp: Date.now(),
       });
     }
   }, [currentAmount, sortedMilestones, addNotification]);

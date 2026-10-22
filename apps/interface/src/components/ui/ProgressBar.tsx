@@ -8,7 +8,10 @@ interface ProgressBarProps {
   animated?: boolean;
 }
 
-export function ProgressBar({ progress, animated = false }: ProgressBarProps) {
+function ProgressBarComponent({
+  progress,
+  animated = false,
+}: ProgressBarProps) {
   const clamped = Math.min(100, Math.max(0, progress));
   const isFunded = clamped >= 100;
 
@@ -50,3 +53,5 @@ export function ProgressBar({ progress, animated = false }: ProgressBarProps) {
     </div>
   );
 }
+
+export const ProgressBar = React.memo(ProgressBarComponent);

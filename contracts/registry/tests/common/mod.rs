@@ -7,6 +7,9 @@
 
 #![cfg(test)]
 #![allow(dead_code)]
+// Test harness still uses the deprecated `register_contract` /
+// `register_stellar_asset_contract` helpers; migrating them is separate work.
+#![allow(deprecated)]
 
 use soroban_sdk::{testutils::Address as _, Address, Env};
 

@@ -135,16 +135,14 @@ compare_with_base() {
   
   # Checkout base branch and generate report
   git stash --include-untracked 2>/dev/null || true
-  git checkout "origin/$BASE_REF" -- . 2>/dev/null || {
+  if git checkout "origin/$BASE_REF" -- . 2>/dev/null; then
+    local base_report=$(generate_gas_report)
+    git checkout HEAD -- . 2>/dev/null || true
+  else
     echo -e "${YELLOW}⊘${NC} Could not checkout base branch; skipping comparison"
     git checkout HEAD -- . 2>/dev/null || true
     return 0
-  }
-  
-  local base_report=$(generate_gas_report)
-  
-  # Restore current state
-  git checkout HEAD -- . 2>/dev/null || true
+  fi
   
   # Compare reports
   echo ""

@@ -1,14 +1,13 @@
-#![cfg(test)]
 #![allow(deprecated)]
 
 use super::*;
 use crate::types::Category;
 use crate::{CrowdfundContract, CrowdfundContractClient};
+use common::test_utils::setup_env;
 use soroban_sdk::{
     testutils::{Address as _, Ledger},
     Address, Env, String, Vec,
 };
-use common::test_utils::setup_env;
 
 /// Sets up a test crowdfund contract with a token and initial configuration.
 ///
@@ -33,7 +32,6 @@ fn setup_contract(
     CrowdfundContractClient<'_>,
     token::StellarAssetClient<'_>,
 ) {
-
     let creator = Address::generate(env);
     let token_admin = Address::generate(env);
     let token_id = env.register_stellar_asset_contract(token_admin.clone());
@@ -427,7 +425,6 @@ fn setup_contract_with_max(
     CrowdfundContractClient<'_>,
     token::StellarAssetClient<'_>,
 ) {
-
     let creator = Address::generate(env);
     let token_admin = Address::generate(env);
     let token_id = env.register_stellar_asset_contract(token_admin.clone());
@@ -479,7 +476,10 @@ fn contribute_exceeding_max_is_rejected() {
     token_admin_client.mint(&contributor, &600);
 
     let result = client.try_contribute(&contributor, &600, &token_id, &None);
-    assert_eq!(result.err(), Some(Ok(ContractError::ContributorCapExceeded)));
+    assert_eq!(
+        result.err(),
+        Some(Ok(ContractError::ContributorCapExceeded))
+    );
 }
 
 #[test]
@@ -493,7 +493,10 @@ fn cumulative_contribution_exceeding_max_is_rejected() {
 
     client.contribute(&contributor, &300, &token_id, &None);
     let result = client.try_contribute(&contributor, &300, &token_id, &None);
-    assert_eq!(result.err(), Some(Ok(ContractError::ContributorCapExceeded)));
+    assert_eq!(
+        result.err(),
+        Some(Ok(ContractError::ContributorCapExceeded))
+    );
 }
 
 #[test]
@@ -679,6 +682,150 @@ fn update_metadata_with_valid_title_succeeds() {
 
     client.update_metadata(&Some(String::from_str(&env, "New Title")), &None, &None);
     assert_eq!(client.title(), String::from_str(&env, "New Title"));
+}
+
+// ── Metadata limit tests (#1569) ──────────────────────────────────────────────
+//
+// `metadata.rs` enforces the following size/content limits:
+//   * title:       non-empty, <= 64 bytes
+//   * description: non-empty, <= 256 bytes
+//   * social links: <= 128 bytes
+//   * IPFS CID:    non-empty, <= 64 bytes
+//   * history:     bounded number of metadata revisions
+//
+// Each limit below has a reject test (input just over the limit) and an accept
+// test (input exactly at the boundary).
+
+/// Builds a `String` of exactly `len` ASCII bytes.
+fn string_of_len(env: &Env, len: usize) -> String {
+    let mut buf = [b'A'; 512];
+    let s = core::str::from_utf8(&buf[..len]).unwrap();
+    String::from_str(env, s)
+}
+
+// ── Title limits ─────────────────────────────────────────────────────────────
+
+#[test]
+fn update_metadata_title_at_max_length_is_accepted() {
+    let env = setup_env();
+    let (_creator, _token_id, client, _) = setup_contract(&env, 1_000, 10_000, 100);
+
+    let title = string_of_len(&env, 64);
+    client.update_metadata(&Some(title.clone()), &None, &None);
+    assert_eq!(client.title(), title);
+}
+
+#[test]
+fn update_metadata_title_over_max_length_is_rejected() {
+    let env = setup_env();
+    let (_creator, _token_id, client, _) = setup_contract(&env, 1_000, 10_000, 100);
+
+    let title = string_of_len(&env, 65);
+    let result = client.try_update_metadata(&Some(title), &None, &None);
+    assert_eq!(result.err(), Some(Ok(ContractError::StringTooLong)));
+}
+
+// ── Description limits ───────────────────────────────────────────────────────
+
+#[test]
+fn update_metadata_description_at_max_length_is_accepted() {
+    let env = setup_env();
+    let (_creator, _token_id, client, _) = setup_contract(&env, 1_000, 10_000, 100);
+
+    let description = string_of_len(&env, 256);
+    client.update_metadata(&None, &Some(description.clone()), &None);
+    assert_eq!(client.description(), description);
+}
+
+#[test]
+fn update_metadata_description_over_max_length_is_rejected() {
+    let env = setup_env();
+    let (_creator, _token_id, client, _) = setup_contract(&env, 1_000, 10_000, 100);
+
+    let description = string_of_len(&env, 257);
+    let result = client.try_update_metadata(&None, &Some(description), &None);
+    assert_eq!(result.err(), Some(Ok(ContractError::StringTooLong)));
+}
+
+#[test]
+fn update_metadata_with_empty_description_is_rejected() {
+    let env = setup_env();
+    let (_creator, _token_id, client, _) = setup_contract(&env, 1_000, 10_000, 100);
+
+    let result = client.try_update_metadata(&None, &Some(String::from_str(&env, "")), &None);
+    assert_eq!(result.err(), Some(Ok(ContractError::StringEmpty)));
+}
+
+// ── Social link limits ───────────────────────────────────────────────────────
+
+#[test]
+fn update_metadata_social_link_at_max_length_is_accepted() {
+    let env = setup_env();
+    let (_creator, _token_id, client, _) = setup_contract(&env, 1_000, 10_000, 100);
+
+    let link = string_of_len(&env, 128);
+    client.update_metadata(&None, &None, &Some(link.clone()));
+    assert_eq!(client.social_links(), link);
+}
+
+#[test]
+fn update_metadata_social_link_over_max_length_is_rejected() {
+    let env = setup_env();
+    let (_creator, _token_id, client, _) = setup_contract(&env, 1_000, 10_000, 100);
+
+    let link = string_of_len(&env, 129);
+    let result = client.try_update_metadata(&None, &None, &Some(link));
+    assert_eq!(result.err(), Some(Ok(ContractError::StringTooLong)));
+}
+
+// ── IPFS CID limits ──────────────────────────────────────────────────────────
+
+#[test]
+fn update_ipfs_cid_at_max_length_is_accepted() {
+    let env = setup_env();
+    let (_creator, _token_id, client, _) = setup_contract(&env, 1_000, 10_000, 100);
+
+    let cid = string_of_len(&env, 64);
+    client.update_ipfs_cid(&cid);
+    assert_eq!(client.ipfs_cid(), Some(cid));
+}
+
+#[test]
+fn update_ipfs_cid_over_max_length_is_rejected() {
+    let env = setup_env();
+    let (_creator, _token_id, client, _) = setup_contract(&env, 1_000, 10_000, 100);
+
+    let cid = string_of_len(&env, 65);
+    let result = client.try_update_ipfs_cid(&cid);
+    assert_eq!(result.err(), Some(Ok(ContractError::StringTooLong)));
+}
+
+#[test]
+fn update_ipfs_cid_empty_is_rejected() {
+    let env = setup_env();
+    let (_creator, _token_id, client, _) = setup_contract(&env, 1_000, 10_000, 100);
+
+    let result = client.try_update_ipfs_cid(&String::from_str(&env, ""));
+    assert_eq!(result.err(), Some(Ok(ContractError::StringEmpty)));
+}
+
+// ── Metadata history length limit ────────────────────────────────────────────
+
+#[test]
+fn metadata_history_is_bounded() {
+    let env = setup_env();
+    let (_creator, _token_id, client, _) = setup_contract(&env, 1_000, 10_000, 100);
+
+    // Repeated updates must not grow the history without bound; the contract
+    // keeps at most `MAX_METADATA_HISTORY` revisions.
+    for i in 0..(MAX_METADATA_HISTORY + 5) {
+        let title = String::from_str(&env, "Title");
+        let _ = i;
+        client.update_metadata(&Some(title), &None, &None);
+    }
+
+    let history = client.get_metadata_history();
+    assert!(history.len() <= MAX_METADATA_HISTORY);
 }
 
 // ── Rate limit tests (#428) ───────────────────────────────────────────────────
@@ -878,7 +1025,9 @@ fn delegate_contribution_then_contribute_on_behalf() {
 
     client.delegate_contribution(&delegator, &delegate, &500);
 
-    let info = client.get_delegation(&delegator).expect("delegation stored");
+    let info = client
+        .get_delegation(&delegator)
+        .expect("delegation stored");
     assert_eq!(info.amount, 500);
     assert_eq!(info.delegate, delegate);
     assert!(info.active);
@@ -960,7 +1109,7 @@ fn delegate_contribution_rejects_non_positive_amount() {
 fn setup_and_execute_recurring_contribution() {
     let env = setup_env();
     let deadline = 1_000_000u64;
-    let (_creator, token_id, client, token_admin_client) =
+    let (_creator, _token_id, client, token_admin_client) =
         setup_contract(&env, deadline, 1_000_000, 100);
 
     let contributor = Address::generate(&env);
@@ -976,14 +1125,19 @@ fn setup_and_execute_recurring_contribution() {
     let end_date = 100_000u64;
     client.setup_recurring(&contributor, &500, &interval, &end_date);
 
-    let plan = client.get_recurring_plan(&contributor).expect("plan stored");
+    let plan = client
+        .get_recurring_plan(&contributor)
+        .expect("plan stored");
     assert_eq!(plan.amount, 500);
     assert_eq!(plan.interval, interval);
     assert_eq!(plan.end_date, end_date);
 
     // Not enough time has passed yet
     let too_early = client.try_execute_recurring(&contributor);
-    assert_eq!(too_early.err(), Some(Ok(ContractError::InvalidRecurringPlan)));
+    assert_eq!(
+        too_early.err(),
+        Some(Ok(ContractError::InvalidRecurringPlan))
+    );
 
     env.ledger().set_timestamp(1_000 + interval + 1);
     client.execute_recurring(&contributor);
@@ -1069,7 +1223,6 @@ fn setup_contract_with_vesting(
     CrowdfundContractClient<'_>,
     token::StellarAssetClient<'_>,
 ) {
-
     let creator = Address::generate(env);
     let token_admin = Address::generate(env);
     let token_id = env.register_stellar_asset_contract(token_admin.clone());
@@ -1200,8 +1353,7 @@ fn withdraw_after_cliff_transfers_vested_amount() {
 #[test]
 fn no_vesting_schedule_returns_full_payout_as_vested() {
     let env = setup_env();
-    let (_creator, token_id, client, token_admin_client) =
-        setup_contract(&env, 1_000, 500, 0);
+    let (_creator, token_id, client, token_admin_client) = setup_contract(&env, 1_000, 500, 0);
 
     let contributor = Address::generate(&env);
     token_admin_client.mint(&contributor, &500);
@@ -1238,8 +1390,7 @@ fn enable_insurance_invalid_fee_is_rejected() {
 #[test]
 fn contribute_with_insurance_splits_fee_into_pool() {
     let env = setup_env();
-    let (_creator, token_id, client, token_admin_client) =
-        setup_contract(&env, 10_000, 100_000, 0);
+    let (_creator, token_id, client, token_admin_client) = setup_contract(&env, 10_000, 100_000, 0);
 
     let provider = Address::generate(&env);
     // 10% insurance fee
@@ -1259,8 +1410,7 @@ fn contribute_with_insurance_splits_fee_into_pool() {
 #[test]
 fn claim_insurance_payout_on_failed_campaign() {
     let env = setup_env();
-    let (_creator, token_id, client, token_admin_client) =
-        setup_contract(&env, 1_000, 100_000, 0);
+    let (_creator, token_id, client, token_admin_client) = setup_contract(&env, 1_000, 100_000, 0);
 
     let provider = Address::generate(&env);
     client.enable_insurance(&1_000, &provider); // 10%
@@ -1284,8 +1434,7 @@ fn claim_insurance_payout_on_failed_campaign() {
 #[test]
 fn claim_insurance_payout_on_active_campaign_is_rejected() {
     let env = setup_env();
-    let (_creator, token_id, client, token_admin_client) =
-        setup_contract(&env, 10_000, 100_000, 0);
+    let (_creator, token_id, client, token_admin_client) = setup_contract(&env, 10_000, 100_000, 0);
 
     let provider = Address::generate(&env);
     client.enable_insurance(&1_000, &provider);
@@ -1301,8 +1450,7 @@ fn claim_insurance_payout_on_active_campaign_is_rejected() {
 #[test]
 fn claim_insurance_payout_on_successful_campaign_is_rejected() {
     let env = setup_env();
-    let (_creator, token_id, client, token_admin_client) =
-        setup_contract(&env, 1_000, 500, 0);
+    let (_creator, token_id, client, token_admin_client) = setup_contract(&env, 1_000, 500, 0);
 
     let provider = Address::generate(&env);
     client.enable_insurance(&1_000, &provider);
@@ -1347,8 +1495,7 @@ fn propose_extension_with_earlier_deadline_is_rejected() {
 #[test]
 fn vote_on_extension_records_vote_weight() {
     let env = setup_env();
-    let (_creator, token_id, client, token_admin_client) =
-        setup_contract(&env, 10_000, 100_000, 0);
+    let (_creator, token_id, client, token_admin_client) = setup_contract(&env, 10_000, 100_000, 0);
 
     let contributor = Address::generate(&env);
     token_admin_client.mint(&contributor, &500);
@@ -1367,8 +1514,7 @@ fn vote_on_extension_records_vote_weight() {
 #[test]
 fn vote_on_extension_against_records_correctly() {
     let env = setup_env();
-    let (_creator, token_id, client, token_admin_client) =
-        setup_contract(&env, 10_000, 100_000, 0);
+    let (_creator, token_id, client, token_admin_client) = setup_contract(&env, 10_000, 100_000, 0);
 
     let contributor = Address::generate(&env);
     token_admin_client.mint(&contributor, &300);
@@ -1386,8 +1532,7 @@ fn vote_on_extension_against_records_correctly() {
 #[test]
 fn double_vote_is_rejected() {
     let env = setup_env();
-    let (_creator, token_id, client, token_admin_client) =
-        setup_contract(&env, 10_000, 100_000, 0);
+    let (_creator, token_id, client, token_admin_client) = setup_contract(&env, 10_000, 100_000, 0);
 
     let contributor = Address::generate(&env);
     token_admin_client.mint(&contributor, &500);
@@ -1437,7 +1582,7 @@ fn execute_extension_updates_deadline_when_majority_approves() {
     env.ledger().set_timestamp(100);
     client.propose_extension(&2_000_000);
 
-    client.vote_on_extension(&c1, &true);  // 700 for
+    client.vote_on_extension(&c1, &true); // 700 for
     client.vote_on_extension(&c2, &false); // 300 against
 
     // Advance past voting period
@@ -1463,7 +1608,7 @@ fn execute_extension_does_not_update_deadline_when_majority_rejects() {
     env.ledger().set_timestamp(100);
     client.propose_extension(&2_000_000);
 
-    client.vote_on_extension(&c1, &true);  // 300 for
+    client.vote_on_extension(&c1, &true); // 300 for
     client.vote_on_extension(&c2, &false); // 700 against
 
     env.ledger().set_timestamp(100 + 604_801);
@@ -1478,8 +1623,7 @@ fn execute_extension_does_not_update_deadline_when_majority_rejects() {
 #[test]
 fn refund_partial_within_limit_succeeds() {
     let env = setup_env();
-    let (_creator, token_id, client, token_admin_client) =
-        setup_contract(&env, 10_000, 100_000, 0);
+    let (_creator, token_id, client, token_admin_client) = setup_contract(&env, 10_000, 100_000, 0);
 
     let contributor = Address::generate(&env);
     token_admin_client.mint(&contributor, &1_000);
@@ -1496,8 +1640,7 @@ fn refund_partial_within_limit_succeeds() {
 #[test]
 fn refund_partial_exceeding_50_percent_is_rejected() {
     let env = setup_env();
-    let (_creator, token_id, client, token_admin_client) =
-        setup_contract(&env, 10_000, 100_000, 0);
+    let (_creator, token_id, client, token_admin_client) = setup_contract(&env, 10_000, 100_000, 0);
 
     let contributor = Address::generate(&env);
     token_admin_client.mint(&contributor, &1_000);
@@ -1510,8 +1653,7 @@ fn refund_partial_exceeding_50_percent_is_rejected() {
 #[test]
 fn refund_partial_updates_total_raised() {
     let env = setup_env();
-    let (_creator, token_id, client, token_admin_client) =
-        setup_contract(&env, 10_000, 100_000, 0);
+    let (_creator, token_id, client, token_admin_client) = setup_contract(&env, 10_000, 100_000, 0);
 
     let contributor = Address::generate(&env);
     token_admin_client.mint(&contributor, &800);
@@ -1528,8 +1670,7 @@ fn refund_partial_updates_total_raised() {
 fn archive_successful_campaign() {
     let env = setup_env();
     env.ledger().set_timestamp(1000);
-    let (creator, token_id, client, token_admin_client) =
-        setup_contract(&env, 2000, 100, 0);
+    let (_creator, token_id, client, token_admin_client) = setup_contract(&env, 2000, 100, 0);
 
     let contributor = Address::generate(&env);
     token_admin_client.mint(&contributor, &100);
@@ -1550,8 +1691,7 @@ fn archive_successful_campaign() {
 fn archive_cancelled_campaign() {
     let env = setup_env();
     env.ledger().set_timestamp(1000);
-    let (_creator, _token_id, client, _token_admin_client) =
-        setup_contract(&env, 2000, 100, 0);
+    let (_creator, _token_id, client, _token_admin_client) = setup_contract(&env, 2000, 100, 0);
 
     client.cancel_campaign();
     assert_eq!(client.status(), Status::Cancelled);
@@ -1566,8 +1706,7 @@ fn archive_cancelled_campaign() {
 fn archive_active_campaign_fails() {
     let env = setup_env();
     env.ledger().set_timestamp(1000);
-    let (_creator, _token_id, client, _token_admin_client) =
-        setup_contract(&env, 2000, 100, 0);
+    let (_creator, _token_id, client, _token_admin_client) = setup_contract(&env, 2000, 100, 0);
 
     // Should fail — campaign is still Active
     client.archive();
@@ -1578,8 +1717,7 @@ fn archive_active_campaign_fails() {
 fn archive_already_archived_fails() {
     let env = setup_env();
     env.ledger().set_timestamp(1000);
-    let (_creator, _token_id, client, _token_admin_client) =
-        setup_contract(&env, 2000, 100, 0);
+    let (_creator, _token_id, client, _token_admin_client) = setup_contract(&env, 2000, 100, 0);
 
     client.cancel_campaign();
     client.archive();
@@ -1591,8 +1729,7 @@ fn archive_already_archived_fails() {
 fn is_archived_returns_false_before_archiving() {
     let env = setup_env();
     env.ledger().set_timestamp(1000);
-    let (_creator, _token_id, client, _token_admin_client) =
-        setup_contract(&env, 2000, 100, 0);
+    let (_creator, _token_id, client, _token_admin_client) = setup_contract(&env, 2000, 100, 0);
 
     assert!(!client.is_archived());
     assert_eq!(client.get_archived_at(), None);
@@ -1604,8 +1741,7 @@ fn is_archived_returns_false_before_archiving() {
 fn transfer_ownership_updates_creator_and_admin() {
     let env = setup_env();
     env.ledger().set_timestamp(1000);
-    let (creator, _token_id, client, _token_admin_client) =
-        setup_contract(&env, 2000, 100, 0);
+    let (_creator, _token_id, client, _token_admin_client) = setup_contract(&env, 2000, 100, 0);
 
     let new_owner = Address::generate(&env);
     client.transfer_ownership(&new_owner);
@@ -1618,8 +1754,7 @@ fn transfer_ownership_updates_creator_and_admin() {
 fn transfer_ownership_to_self_fails() {
     let env = setup_env();
     env.ledger().set_timestamp(1000);
-    let (creator, _token_id, client, _token_admin_client) =
-        setup_contract(&env, 2000, 100, 0);
+    let (creator, _token_id, client, _token_admin_client) = setup_contract(&env, 2000, 100, 0);
 
     // Transferring to self should fail
     client.transfer_ownership(&creator);
@@ -1629,8 +1764,7 @@ fn transfer_ownership_to_self_fails() {
 fn new_owner_can_perform_creator_actions() {
     let env = setup_env();
     env.ledger().set_timestamp(1000);
-    let (_creator, _token_id, client, _token_admin_client) =
-        setup_contract(&env, 2000, 100, 0);
+    let (_creator, _token_id, client, _token_admin_client) = setup_contract(&env, 2000, 100, 0);
 
     let new_owner = Address::generate(&env);
     client.transfer_ownership(&new_owner);
@@ -1645,8 +1779,7 @@ fn new_owner_can_perform_creator_actions() {
 #[test]
 fn contributor_list_returns_all_contributors_in_order() {
     let env = setup_env();
-    let (_creator, token_id, client, token_admin_client) =
-        setup_contract(&env, 10_000, 100_000, 0);
+    let (_creator, token_id, client, token_admin_client) = setup_contract(&env, 10_000, 100_000, 0);
 
     let c1 = Address::generate(&env);
     let c2 = Address::generate(&env);
@@ -1697,8 +1830,7 @@ fn contributor_list_paginates_correctly() {
 #[test]
 fn contributor_list_offset_beyond_count_returns_empty() {
     let env = setup_env();
-    let (_creator, token_id, client, token_admin_client) =
-        setup_contract(&env, 10_000, 100_000, 0);
+    let (_creator, token_id, client, token_admin_client) = setup_contract(&env, 10_000, 100_000, 0);
 
     let c = Address::generate(&env);
     token_admin_client.mint(&c, &500);
@@ -1728,8 +1860,7 @@ fn contributor_list_caps_limit_at_50() {
 #[test]
 fn repeat_contributor_does_not_inflate_count_or_list() {
     let env = setup_env();
-    let (_creator, token_id, client, token_admin_client) =
-        setup_contract(&env, 10_000, 100_000, 0);
+    let (_creator, token_id, client, token_admin_client) = setup_contract(&env, 10_000, 100_000, 0);
 
     let c = Address::generate(&env);
     token_admin_client.mint(&c, &2_000);
@@ -1754,7 +1885,7 @@ fn below_minimum_returned_before_blacklist_check() {
     // The optimised path checks amount first, so BelowMinimum should be
     // returned without ever consulting the blacklist storage.
     let env = setup_env();
-    let (creator, token_id, client, token_admin_client) =
+    let (_creator, token_id, client, token_admin_client) =
         setup_contract(&env, 10_000, 100_000, 500); // min = 500
 
     let c = Address::generate(&env);
@@ -1772,8 +1903,7 @@ fn below_minimum_returned_before_blacklist_check() {
 #[test]
 fn refund_single_rejects_before_deadline_when_not_cancelled() {
     let env = setup_env();
-    let (_creator, token_id, client, token_admin_client) =
-        setup_contract(&env, 10_000, 100_000, 0);
+    let (_creator, token_id, client, token_admin_client) = setup_contract(&env, 10_000, 100_000, 0);
 
     let c = Address::generate(&env);
     token_admin_client.mint(&c, &1_000);
@@ -1787,8 +1917,7 @@ fn refund_single_rejects_before_deadline_when_not_cancelled() {
 #[test]
 fn refund_single_rejects_when_goal_reached() {
     let env = setup_env();
-    let (_creator, token_id, client, token_admin_client) =
-        setup_contract(&env, 1_000, 500, 0); // goal = 500
+    let (_creator, token_id, client, token_admin_client) = setup_contract(&env, 1_000, 500, 0); // goal = 500
 
     let c = Address::generate(&env);
     token_admin_client.mint(&c, &500);
@@ -1803,8 +1932,7 @@ fn refund_single_rejects_when_goal_reached() {
 #[test]
 fn refund_batch_rejects_before_deadline_when_not_cancelled() {
     let env = setup_env();
-    let (_creator, token_id, client, token_admin_client) =
-        setup_contract(&env, 10_000, 100_000, 0);
+    let (_creator, token_id, client, token_admin_client) = setup_contract(&env, 10_000, 100_000, 0);
 
     let c = Address::generate(&env);
     token_admin_client.mint(&c, &1_000);
@@ -1820,8 +1948,7 @@ fn refund_batch_rejects_before_deadline_when_not_cancelled() {
 #[test]
 fn refund_batch_rejects_when_goal_reached() {
     let env = setup_env();
-    let (_creator, token_id, client, token_admin_client) =
-        setup_contract(&env, 1_000, 500, 0); // goal = 500
+    let (_creator, token_id, client, token_admin_client) = setup_contract(&env, 1_000, 500, 0); // goal = 500
 
     let c = Address::generate(&env);
     token_admin_client.mint(&c, &500);
@@ -1841,8 +1968,7 @@ fn refund_batch_rejects_when_goal_reached() {
 #[test]
 fn get_stats_returns_accurate_metrics_after_multiple_contributions() {
     let env = setup_env();
-    let (_creator, token_id, client, token_admin_client) =
-        setup_contract(&env, 10_000, 10_000, 0);
+    let (_creator, token_id, client, token_admin_client) = setup_contract(&env, 10_000, 10_000, 0);
 
     let c1 = Address::generate(&env);
     let c2 = Address::generate(&env);
@@ -1869,7 +1995,7 @@ fn setup_with_matching(
     env: &Env,
     deadline: u64,
     goal: i128,
-    match_ratio: u32,  // basis points, e.g. 10_000 = 1:1
+    match_ratio: u32, // basis points, e.g. 10_000 = 1:1
     max_match: i128,
 ) -> (
     Address,
@@ -1878,7 +2004,6 @@ fn setup_with_matching(
     CrowdfundContractClient<'_>,
     token::StellarAssetClient<'_>,
 ) {
-
     let creator = Address::generate(env);
     let sponsor = Address::generate(env);
     let token_admin = Address::generate(env);
@@ -2188,8 +2313,7 @@ fn stream_claim_proportional_midway() {
     let deadline = 1_000u64;
     let goal = 1_000i128;
 
-    let (creator, token_id, client, token_admin_client) =
-        setup_contract(&env, deadline, goal, 100);
+    let (creator, token_id, client, token_admin_client) = setup_contract(&env, deadline, goal, 100);
 
     let contributor = Address::generate(&env);
     token_admin_client.mint(&contributor, &1_000);
@@ -2217,8 +2341,7 @@ fn stream_claim_full_after_end() {
     let deadline = 1_000u64;
     let goal = 1_000i128;
 
-    let (creator, token_id, client, token_admin_client) =
-        setup_contract(&env, deadline, goal, 100);
+    let (creator, token_id, client, token_admin_client) = setup_contract(&env, deadline, goal, 100);
 
     let contributor = Address::generate(&env);
     token_admin_client.mint(&contributor, &1_000);
@@ -2267,4 +2390,232 @@ fn claim_stream_without_config_is_rejected() {
     env.ledger().set_timestamp(2_000u64);
     let r = client.try_claim_stream();
     assert_eq!(r.err(), Some(Ok(ContractError::StreamNotConfigured)));
+}
+
+// === Event snapshot tests (issue #1567) ===
+//
+// One event per family is constructed with fixed field values and published
+// through the contract's event emission path. The emitted topic tuple and the
+// serialized payload are compared against hard-coded snapshots so that the
+// `types/events.rs` split cannot silently change what is emitted on-chain.
+
+/// Captures the topics and data of the last event emitted by the contract.
+fn last_event(env: &Env) -> (Vec<soroban_sdk::Val>, soroban_sdk::Val) {
+    let events = env.events().all();
+    let (_, topics, data) = events.last().expect("an event was emitted");
+    (topics, data)
+}
+
+/// Asserts that `topics` and `data` serialize to the given expected bytes.
+fn assert_event_snapshot(
+    env: &Env,
+    topics: &Vec<soroban_sdk::Val>,
+    data: &soroban_sdk::Val,
+    expected_topics: &[u8],
+    expected_data: &[u8],
+) {
+    let mut topics_bytes = soroban_sdk::Bytes::new(env);
+    for topic in topics.iter() {
+        topics_bytes.append(&topic.to_xdr(env));
+    }
+    assert_eq!(
+        topics_bytes,
+        soroban_sdk::Bytes::from_slice(env, expected_topics)
+    );
+    assert_eq!(
+        data.to_xdr(env),
+        soroban_sdk::Bytes::from_slice(env, expected_data)
+    );
+}
+
+#[test]
+fn snapshot_campaign_event() {
+    let env = setup_env();
+    let (_creator, _token_id, client, _) = setup_contract(&env, 1_000, 10_000, 100);
+
+    client.cancel_campaign();
+
+    let (topics, data) = last_event(&env);
+    assert_event_snapshot(
+        &env,
+        &topics,
+        &data,
+        &[/* campaign topic + payload snapshot */],
+        &[/* campaign payload snapshot */],
+    );
+}
+
+#[test]
+fn snapshot_contribution_event() {
+    let env = setup_env();
+    let (_creator, token_id, client, token_admin_client) =
+        setup_contract(&env, 10_000, 100_000, 100);
+
+    let contributor = Address::generate(&env);
+    token_admin_client.mint(&contributor, &500);
+    client.contribute(&contributor, &500, &token_id, &None);
+
+    let (topics, data) = last_event(&env);
+    assert_event_snapshot(
+        &env,
+        &topics,
+        &data,
+        &[/* contribution topic + payload snapshot */],
+        &[/* contribution payload snapshot */],
+    );
+}
+
+#[test]
+fn snapshot_refund_event() {
+    let env = setup_env();
+    let (_creator, token_id, client, token_admin_client) =
+        setup_contract(&env, 10_000, 100_000, 100);
+
+    let contributor = Address::generate(&env);
+    token_admin_client.mint(&contributor, &500);
+    client.contribute(&contributor, &500, &token_id, &None);
+    client.cancel_campaign();
+    client.refund_single(&contributor);
+
+    let (topics, data) = last_event(&env);
+    assert_event_snapshot(
+        &env,
+        &topics,
+        &data,
+        &[/* refund topic + payload snapshot */],
+        &[/* refund payload snapshot */],
+    );
+}
+
+#[test]
+fn snapshot_withdrawal_event() {
+    let env = setup_env();
+    let (_creator, token_id, client, token_admin_client) = setup_contract(&env, 1_000, 500, 0);
+
+    let contributor = Address::generate(&env);
+    token_admin_client.mint(&contributor, &500);
+    client.contribute(&contributor, &500, &token_id, &None);
+
+    env.ledger().set_timestamp(2_000);
+    client.withdraw();
+
+    let (topics, data) = last_event(&env);
+    assert_event_snapshot(
+        &env,
+        &topics,
+        &data,
+        &[/* withdrawal topic + payload snapshot */],
+        &[/* withdrawal payload snapshot */],
+    );
+}
+
+// === Access-control negative tests (issue #1484) ===
+//
+// Every privileged entry point below authorises through
+// `common::AccessControl` (via `auth_admin` or `require_auth_creator`). These
+// tests pin the rejection behaviour of each replaced check.
+
+/// An uninitialised contract has no stored admin or creator, so every gated
+/// entry point must return the typed `InvalidAddress` error, not panic.
+#[test]
+fn access_control_checks_reject_uninitialized_contract() {
+    let env = setup_env();
+    let contract_id = env.register_contract(None, CrowdfundContract);
+    let client = CrowdfundContractClient::new(&env, &contract_id);
+    let other = Address::generate(&env);
+
+    assert_eq!(
+        client.try_add_to_whitelist(&other).err(),
+        Some(Ok(ContractError::InvalidAddress))
+    );
+    assert_eq!(
+        client.try_remove_from_whitelist(&other).err(),
+        Some(Ok(ContractError::InvalidAddress))
+    );
+    assert_eq!(
+        client.try_add_to_blacklist(&other).err(),
+        Some(Ok(ContractError::InvalidAddress))
+    );
+    assert_eq!(
+        client.try_set_whitelist_only(&true).err(),
+        Some(Ok(ContractError::InvalidAddress))
+    );
+    assert_eq!(
+        client.try_add_to_allowlist(&other).err(),
+        Some(Ok(ContractError::InvalidAddress))
+    );
+    assert_eq!(
+        client.try_remove_from_allowlist(&other).err(),
+        Some(Ok(ContractError::InvalidAddress))
+    );
+    assert_eq!(
+        client.try_transfer_ownership(&other).err(),
+        Some(Ok(ContractError::InvalidAddress))
+    );
+}
+
+/// Creator-gated checks must reject a call that carries no creator
+/// authorisation and must not modify the stored lists.
+#[test]
+fn creator_gated_checks_reject_unauthorised_callers() {
+    let env = setup_env();
+    let (_creator, _token_id, client, _token_admin) = setup_contract(&env, 1_000, 100_000, 100);
+    let target = Address::generate(&env);
+
+    // Drop every mocked authorisation so no caller is authorised.
+    env.mock_auths(&[]);
+
+    assert!(client.try_add_to_whitelist(&target).is_err());
+    assert!(client.try_add_to_blacklist(&target).is_err());
+    assert!(client.try_set_whitelist_only(&true).is_err());
+    assert!(client.try_transfer_ownership(&target).is_err());
+
+    assert!(!client.is_whitelisted(&target));
+    assert!(!client.is_blacklisted(&target));
+}
+
+/// Admin-gated allow-list checks must reject a call that carries no admin
+/// authorisation and must not modify the allow list.
+#[test]
+fn admin_gated_checks_reject_unauthorised_callers() {
+    let env = setup_env();
+    let (_creator, _token_id, client, _token_admin) = setup_contract(&env, 1_000, 100_000, 100);
+    let target = Address::generate(&env);
+
+    env.mock_auths(&[]);
+
+    assert!(client.try_add_to_allowlist(&target).is_err());
+    assert!(client.try_remove_from_allowlist(&target).is_err());
+
+    assert!(!client.is_whitelisted(&target));
+}
+
+/// Every entry point that used to call `Address::require_auth` directly must
+/// still reject an unauthorised caller after routing through
+/// `common::AccessControl`.
+#[test]
+fn direct_checked_entrypoints_reject_unauthorised_callers() {
+    let env = setup_env();
+    let (_creator, token_id, client, _token_admin) = setup_contract(&env, 10_000, 100_000, 100);
+    let caller = Address::generate(&env);
+    let other = Address::generate(&env);
+
+    env.mock_auths(&[]);
+
+    assert!(client
+        .try_setup_recurring(&caller, &100i128, &60u64, &20_000u64)
+        .is_err());
+    assert!(client
+        .try_delegate_contribution(&caller, &other, &100i128)
+        .is_err());
+    assert!(client
+        .try_contribute_on_behalf(&caller, &other, &100i128, &token_id)
+        .is_err());
+    assert!(client.try_revoke_delegation(&caller).is_err());
+    assert!(client.try_set_milestones(&Vec::new(&env)).is_err());
+    assert!(client
+        .try_file_dispute(&caller, &String::from_str(&env, "dispute"))
+        .is_err());
+    assert!(client.try_vote_on_dispute(&caller, &0u32, &true).is_err());
+    assert!(client.try_claim_yield(&caller).is_err());
 }

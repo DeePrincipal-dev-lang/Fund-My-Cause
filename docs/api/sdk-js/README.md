@@ -30,6 +30,8 @@
 - [ListByCategoryOptions](interfaces/ListByCategoryOptions.md)
 - [WalletProvider](interfaces/WalletProvider.md)
 - [MockWalletProviderConfig](interfaces/MockWalletProviderConfig.md)
+- [Connection](interfaces/Connection.md)
+- [PageInfo](interfaces/PageInfo.md)
 
 ## Type Aliases
 
@@ -50,3 +52,5 @@
 - [bpsToPercent](functions/bpsToPercent.md)
 - [unixToDate](functions/unixToDate.md)
 - [daysUntil](functions/daysUntil.md)
+- [nodesFrom](functions/nodesFrom.md)
+- [fetchAllPages](functions/fetchAllPages.md)

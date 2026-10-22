@@ -8,6 +8,9 @@
     "dev": "node --loader ts-node/esm src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
+    "docs": "tsx scripts/generate-schema-docs.ts",
+    "docs:generate": "tsx scripts/generate-schema-docs.ts",
+    "schema:export": "tsx scripts/export-schema.ts",
     "test": "vitest --run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -17,6 +20,7 @@
   },
   "dependencies": {
     "@apollo/server": "^4.10.0",
+    "@fund-my-cause/rpc-client": "file:../../packages/rpc-client",
     "@fund-my-cause/sdk": "file:../../sdks/js",
     "@fund-my-cause/shared-utils": "file:../../packages/shared-utils",
     "@fund-my-cause/types": "file:../../packages/types",

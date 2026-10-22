@@ -15,11 +15,17 @@ import {
   mapCampaignFromRaw,
   mapContribution,
 } from "../mappers";
-import type { RawCampaignInfo, RawCampaignStats, RawContributionData } from "../mappers";
+import type {
+  RawCampaignInfo,
+  RawCampaignStats,
+  RawContributionData,
+} from "../mappers";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-function makeRawInfo(overrides: Partial<RawCampaignInfo> = {}): RawCampaignInfo {
+function makeRawInfo(
+  overrides: Partial<RawCampaignInfo> = {},
+): RawCampaignInfo {
   return {
     creator: "GCREATOR",
     token: "native",
@@ -38,7 +44,9 @@ function makeRawInfo(overrides: Partial<RawCampaignInfo> = {}): RawCampaignInfo 
   };
 }
 
-function makeRawStats(overrides: Partial<RawCampaignStats> = {}): RawCampaignStats {
+function makeRawStats(
+  overrides: Partial<RawCampaignStats> = {},
+): RawCampaignStats {
   return {
     total_raised: 500_000_000n,
     goal: 1_000_000_000n,
@@ -113,7 +121,10 @@ describe("mapCampaignFromRaw", () => {
       min_contribution: 50_000_000n,
       max_contribution: 500_000_000n,
     });
-    const stats = makeRawStats({ total_raised: 2_500_000_000n, goal: 5_000_000_000n });
+    const stats = makeRawStats({
+      total_raised: 2_500_000_000n,
+      goal: 5_000_000_000n,
+    });
     const campaign = mapCampaignFromRaw("CCONTRACT456", info, stats);
 
     expect(campaign.goal).toBe(5_000_000_000n);
@@ -126,7 +137,9 @@ describe("mapCampaignFromRaw", () => {
     // 1_700_000_000 seconds = 2023-11-14T22:13:20.000Z
     const info = makeRawInfo({ deadline: 1_700_000_000n });
     const campaign = mapCampaignFromRaw("C1", info);
-    expect(campaign.deadline).toBe(new Date(1_700_000_000 * 1000).toISOString());
+    expect(campaign.deadline).toBe(
+      new Date(1_700_000_000 * 1000).toISOString(),
+    );
   });
 
   it("delegates status mapping to mapCampaignStatus", () => {
@@ -153,7 +166,10 @@ describe("mapCampaignFromRaw", () => {
   });
 
   it("omits platformFeeBps when has_platform_config is false", () => {
-    const info = makeRawInfo({ has_platform_config: false, platform_fee_bps: 250 });
+    const info = makeRawInfo({
+      has_platform_config: false,
+      platform_fee_bps: 250,
+    });
     const campaign = mapCampaignFromRaw("C5", info);
     expect(campaign.platformFeeBps).toBeUndefined();
   });
@@ -177,12 +193,36 @@ describe("mapCampaignFromRaw", () => {
     expect(campaign.totalContributors).toBe(0);
   });
 
-  it("defaults raised to 0n when stats absent", () => {
-    const info = makeRawInfo();
-    const campaign = mapCampaignFromRaw("C9", info);
-    expect(campaign.raised).toBe(0n);
-  });
-});
+it("defaults raised to 0n when stats absent", () => {
+     const info = makeRawInfo();
+     const campaign = mapCampaignFromRaw("C9", info);
+     expect(campaign.raised).toBe(0n);
+   });
+
+   it("defaults missing optional info fields to their fallback values", () => {
+     const minimalInfo = {
+       creator: "GCREATOR",
+       token: "native",
+       goal: 1_000_000_000n,
+       deadline: 0n,
+       min_contribution: 0n,
+       max_contribution: 0n,
+       title: "Test Campaign",
+       description: "A test campaign",
+       status: "Active",
+       category: "Technology",
+       has_platform_config: false,
+       platform_fee_bps: 0,
+       platform_address: "",
+     } as RawCampaignInfo;
+     const campaign = mapCampaignFromRaw("C10", minimalInfo);
+     expect(campaign.deadline).toBe(new Date(0).toISOString());
+     expect(campaign.minContribution).toBe(0n);
+     expect(campaign.maxContribution).toBe(0n);
+     expect(campaign.token).toBe("native");
+     expect(campaign.hasRBACEnabled).toBe(false);
+   });
+ });
 
 // ── mapContribution ────────────────────────────────────────────────────────
 
@@ -266,5 +306,29 @@ describe("mapContribution", () => {
     const raw: RawContributionData = { timestamp: ms };
     const result = mapContribution(raw);
     expect(result.timestamp).toBe(new Date(ms).toISOString());
+  });
+
+  it("handles empty string amount gracefully", () => {
+    const raw: RawContributionData = { amount: "" as any };
+    const result = mapContribution(raw);
+    expect(result.amount).toBe(0n);
+  });
+
+  it("handles all fields present with null values", () => {
+    const raw: RawContributionData = {
+      id: null as any,
+      campaignId: null as any,
+      contributor: null as any,
+      amount: null as any,
+      timestamp: null as any,
+      transactionHash: null as any,
+    };
+    const result = mapContribution(raw);
+    expect(result.id).toBe("unknown");
+    expect(result.campaignId).toBe("");
+    expect(result.contributor).toBe("");
+    expect(result.amount).toBe(0n);
+    expect(result.timestamp).toBe(new Date(0).toISOString());
+    expect(result.transactionHash).toBe("");
   });
 });

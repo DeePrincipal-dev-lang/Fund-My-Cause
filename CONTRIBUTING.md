@@ -4,16 +4,9 @@ Thank you for your interest in contributing to Fund-My-Cause! We welcome contrib
 
 ## 🚀 Getting Started
 
-**New to the project?** Follow our comprehensive step-by-step setup guide:
+Follow the single setup guide, **[docs/SETUP.md](./docs/SETUP.md)**, for all local installation, builds, tests, service startup, and troubleshooting. Do not duplicate setup commands from other guides.
 
-👉 **[Contributor Onboarding Walkthrough](./docs/contributor-onboarding.md)** 👈
-
-This guide covers:
-- Setting up your development environment
-- Building and testing smart contracts
-- Running the frontend locally
-- Working with the backend/indexer stack
-- Common troubleshooting tips
+For contribution workflow and standards, continue with this document.
 
 ## Code of Conduct
 
@@ -94,44 +87,9 @@ Before submitting a PR, ensure:
 - [ ] No console errors or warnings
 - [ ] Snapshots updated if UI changed (`npm run test -- -u`)
 
-## Running the Full Test Suite Locally
+## Running Tests
 
-### Contracts (Rust)
-
-```bash
-# Build WASM
-cargo build --release --target wasm32-unknown-unknown
-
-# Run all tests
-cargo test --workspace
-
-# Run tests with output
-cargo test --workspace -- --nocapture
-
-# Run specific test
-cargo test --package crowdfund test_contribute -- --nocapture
-```
-
-### Frontend (TypeScript)
-
-```bash
-cd apps/interface
-
-# Install dependencies
-npm install
-
-# Run tests
-npm test
-
-# Run tests in watch mode
-npm test -- --watch
-
-# Run tests with coverage
-npm run test:coverage
-
-# Run E2E tests
-npm run test:e2e
-```
+Install dependencies once from the repository root with `npm install`, then follow the commands in [docs/testing.md](./docs/testing.md). The setup guide's [Testing & Quality Checks](./docs/SETUP.md#testing--quality-checks) section lists the checks expected before opening a PR.
 
 ## Updating Snapshots
 
@@ -157,10 +115,9 @@ This project uses [Husky](https://typicode.github.io/husky/) and [lint-staged](h
 
 Pre-commit hooks automatically run the following checks on staged files:
 
-- **TypeScript/JavaScript files** (`.ts`, `.tsx`): Prettier formatting
-- **Rust files** (`.rs`): `cargo fmt --check` for formatting and `cargo clippy` for linting
-
-Note: ESLint checks are planned but require configuration updates for ESLint v9 compatibility.
+- **JavaScript/TypeScript files** (`.js`, `.ts`, `.tsx`, `.jsx`): Prettier formatting. ESLint is also run on `apps/interface` files.
+- **Rust files** (`.rs`): `cargo fmt --check` for formatting.
+- **Secrets scanning**: Staged files are scanned for common secret patterns (private keys, API tokens, etc.).
 
 ### Setup
 
@@ -172,119 +129,32 @@ If you need to manually install or update hooks:
 npm run prepare
 ```
 
-### Skipping Hooks
+### Skipping Hooks (Emergency `--no-verify` Policy)
 
-In rare cases, you can skip pre-commit hooks with:
+In rare emergency situations — for example, an urgent hotfix that cannot wait for formatting or lint fixes — you can bypass all pre-commit checks with:
 
 ```bash
 git commit --no-verify
 ```
 
-Use this sparingly and ensure checks pass before pushing.
+**Policy:**
+
+1. `--no-verify` **bypasses all checks** (formatting, linting, and secrets scanning). Use it only when the commit must go through immediately and you have no time to address failures.
+2. **Always verify locally before pushing.** After committing with `--no-verify`, run the relevant checks manually:
+   ```bash
+   # JS/TS
+   npx prettier --check .
+   # Rust
+   cargo fmt --check
+   cargo clippy --workspace --all-targets --all-features
+   ```
+3. **Do not use `--no-verify` to bypass secrets scanning.** If a secret is accidentally staged, remove it immediately and rotate the exposed credential.
+4. **CI will catch issues.** Even if a commit bypasses pre-commit hooks, CI enforces the same checks. A `--no-verify` commit that fails CI must be fixed before merging.
+5. **Document the bypass.** If you use `--no-verify` for a non-obvious reason, add a brief note in the commit message or PR description explaining why.
 
 ## Development Setup
 
-### Quick Start
-
-1. Clone the repo:
-   ```bash
-   git clone https://github.com/Fund-My-Cause/Fund-My-Cause.git
-   cd Fund-My-Cause
-   ```
-
-2. Install dependencies:
-   ```bash
-   npm install
-   cd apps/interface && npm install
-   ```
-
-3. Build contracts:
-   ```bash
-   cargo build --release --target wasm32-unknown-unknown
-   ```
-
-4. Run tests:
-   ```bash
-   cargo test --workspace
-   cd apps/interface && npm test
-   ```
-
-### Local Development
-
-**Frontend:**
-```bash
-cd apps/interface
-npm run dev
-```
-Open [http://localhost:3000](http://localhost:3000)
-
-**Contracts:**
-```bash
-cargo build --release --target wasm32-unknown-unknown
-cargo test --workspace -- --nocapture
-```
-
-### Seeding Test Data (Local Development)
-
-For local development with realistic data, use the seed scripts to deploy sample campaigns to testnet:
-
-#### Prerequisites
-1. Stellar CLI installed and configured
-2. Testnet account with XLM balance
-3. Token contract ID (or use native XLM)
-
-#### Quick Start
-
-**Unix/Linux/Mac:**
-```bash
-# Set your testnet credentials
-export CREATOR="YOUR_TESTNET_ADDRESS"
-export TOKEN="TOKEN_CONTRACT_ID"
-
-# Seed testnet with sample campaigns
-./scripts/seed-testnet.sh
-
-# Or specify number of campaigns
-./scripts/seed-testnet.sh --num-campaigns 10 --verbose
-```
-
-**Windows:**
-```powershell
-# Set your testnet credentials
-$env:CREATOR = "YOUR_TESTNET_ADDRESS"
-$env:TOKEN = "TOKEN_CONTRACT_ID"
-
-# Seed testnet with sample campaigns
-.\scripts\seed-testnet.ps1
-
-# Or specify number of campaigns
-.\scripts\seed-testnet.ps1 -NumCampaigns 10 -Verbose
-```
-
-This will:
-- Deploy a registry contract (if needed)
-- Create 5-10 campaigns with varied states (active, funded, failed, refunding)
-- Update `apps/interface/.env.local` with contract IDs
-- Generate `fixtures/seed-data.json` for reference
-
-#### Generate Test Fixtures (JSON)
-
-For testing without deploying contracts, generate local fixtures:
-
-```bash
-# Generate test fixtures
-npx ts-node scripts/generate-fixtures.ts
-
-# Custom output path
-npx ts-node scripts/generate-fixtures.ts --output fixtures/custom-fixtures.json
-```
-
-Fixtures include:
-- 10 campaigns covering all lifecycle states
-- Sample contributors and contributions
-- Realistic data for E2E and component tests
-
-See [fixtures/README.md](fixtures/README.md) for detailed documentation on using fixtures and seed data.
+Use **[docs/SETUP.md](./docs/SETUP.md)**. It covers npm workspaces, the pinned Rust toolchain, Docker Compose, per-service environment files, contract builds, and testnet seeding. Do not use other copies of these steps.
 
 ## Project Structure
 

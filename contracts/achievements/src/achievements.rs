@@ -7,7 +7,7 @@
 ///
 /// * `user`   — already encoded in `DataKey::Achievement(user, type)`.
 /// * `nft_id` — deterministically derivable from `(user, type)`; re-computed
-///              at read time by `crate::generate_nft_id`.
+///   at read time by `crate::generate_nft_id`.
 ///
 /// Savings: **≈108 bytes per achievement entry** (44-byte Address + 64-byte
 /// hex string).

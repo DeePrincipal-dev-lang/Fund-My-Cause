@@ -9,8 +9,22 @@ This directory contains Kubernetes manifests for deploying Fund-My-Cause on a Ku
 - `namespace.yaml` - Kubernetes namespace for the application
 - `configmap.yaml` - Application configuration
 - `deployment.yaml` - Frontend deployment with 3 replicas
+- `deployment-api.yaml` - API deployment
 - `service.yaml` - ClusterIP service for internal communication
 - `ingress.yaml` - Ingress configuration for external access
+- `indexer-deployment.yaml` - Indexer Deployment, Service, and ConfigMap
+- `monitoring-service-deployment.yaml` - Monitoring service Deployment and Service
+
+## Runbooks
+
+Operational procedures (restart, rollback, health checks, escalation) live in
+`docs/runbooks/`:
+
+- [Indexer & Monitoring Service Deployment Runbook](../docs/runbooks/indexer-monitoring-service-deployment.md)
+
+Both `indexer-deployment.yaml` and `monitoring-service-deployment.yaml` carry a
+`runbook.url` annotation pointing at that document, so `kubectl describe
+deployment/<name>` surfaces the runbook link directly in the cluster.
 
 ## Prerequisites
 

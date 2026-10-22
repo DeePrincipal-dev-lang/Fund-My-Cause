@@ -1,0 +1,28 @@
+[package]
+name = "crowdfund-fuzz"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+# Standalone workspace: this crate is intentionally not a member of the
+# top-level Fund-My-Cause workspace (cargo-fuzz requires nightly and its own
+# dependency graph), matching the existing `contracts/benchmarks` exclusion.
+[workspace]
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+arbitrary = { version = "1", features = ["derive"] }
+
+[dependencies.crowdfund]
+path = ".."
+features = ["fuzz"]
+
+[[bin]]
+name = "fuzz_validation"
+path = "fuzz_targets/fuzz_validation.rs"
+test = false
+doc = false
+bench = false

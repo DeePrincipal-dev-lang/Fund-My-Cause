@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { fetchContribution, fetchAllCampaigns } from "@/lib/soroban";
+import { fetchContribution, fetchAllCampaigns } from "@/lib/graphql/client";
 
 export interface ContributionEntry {
   contractId: string;
@@ -45,7 +45,10 @@ export function useContributions(address: string): UseContributionsResult {
         const campaigns = await fetchAllCampaigns();
         const results = await Promise.allSettled(
           campaigns.map(async (campaign) => {
-            const amount = await fetchContribution(campaign.contractId, address);
+            const amount = await fetchContribution(
+              campaign.contractId,
+              address,
+            );
             return { campaign, amount };
           }),
         );
@@ -71,7 +74,11 @@ export function useContributions(address: string): UseContributionsResult {
         setContributions(entries);
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Failed to load contributions.");
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Failed to load contributions.",
+          );
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -79,7 +86,9 @@ export function useContributions(address: string): UseContributionsResult {
     };
 
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [address, nonce]);
 
   return { contributions, loading, error, retry };

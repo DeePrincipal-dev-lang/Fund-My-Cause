@@ -51,8 +51,12 @@ export default defineConfig({
           },
         },
       },
-      // Visual regression is Chromium-only to keep snapshots consistent
-      testIgnore: "**/visual-regression.spec.ts",
+      // Visual regression suites are Chromium-only to keep snapshots consistent
+      // across CI machines (font rendering varies between Firefox and Chrome).
+      testIgnore: [
+        "**/visual-regression.spec.ts",
+        "**/components-visual-regression.spec.ts",
+      ],
     },
     {
       name: "webkit",
@@ -62,7 +66,11 @@ export default defineConfig({
         actionTimeout: 20_000,
         navigationTimeout: 40_000,
       },
-      testIgnore: "**/visual-regression.spec.ts",
+      // Same rationale as Firefox above.
+      testIgnore: [
+        "**/visual-regression.spec.ts",
+        "**/components-visual-regression.spec.ts",
+      ],
     },
   ],
   webServer: {

@@ -2,7 +2,7 @@ import { cn } from "./utils";
 
 /** Default control styling shared by Input, Select and Textarea. */
 export const CONTROL_BASE =
-  "px-3 py-2 border rounded-lg text-base transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed";
+  "px-3 py-2 border rounded-lg text-base transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed";
 
 export interface ControlClassNameOptions {
   /** Skip the library defaults entirely so the caller's classes fully own the look. */
@@ -26,7 +26,7 @@ export function controlClassName({
 
   return cn(
     CONTROL_BASE,
-    hasError ? "border-red-500 focus:ring-red-500" : "border-gray-300",
+    hasError ? "border-red-500 focus-visible:ring-red-500" : "border-gray-300",
     fullWidth && "w-full",
   );
 }

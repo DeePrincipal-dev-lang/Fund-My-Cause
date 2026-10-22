@@ -8,9 +8,12 @@ import {
   nativeToScVal,
   Address,
 } from "@stellar/stellar-sdk";
+import { createRpcServer } from "@fund-my-cause/rpc-client";
 import type { CampaignStatus } from "../types.js";
 import type {
+  AuthenticatedUser,
   Campaign,
+  CampaignFilter,
   Contribution,
   User,
   GetCampaignsParams,
@@ -21,7 +24,32 @@ import type {
   RawCampaignInfo,
   RawCampaignStats,
 } from "../types.js";
-import { nowUtcIso } from "@fund-my-cause/shared-utils";
+import { mapCampaignStatus, nowUtcIso } from "@fund-my-cause/shared-utils";
+import { logger } from "../logger.js";
+
+/**
+ * Run a contract call, logging (with structured fields, not console.*) and
+ * swallowing any failure behind `fallback` instead of propagating it.
+ *
+ * Every read method below tolerates individual on-chain/RPC failures the
+ * same way — this is the shared wrapper that replaces the repeated
+ * try/catch + console.error block that used to appear in each of them.
+ */
+async function withErrorLogging<T>(
+  operation: string,
+  fallback: T,
+  fn: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await fn();
+  } catch (error) {
+    logger.error(
+      { err: error, operation },
+      `Contract call failed: ${operation}`,
+    );
+    return fallback;
+  }
+}
 
 // ── Configuration ──────────────────────────────────────────────────────────────
 
@@ -46,7 +74,9 @@ export class ContractService {
   readonly registryContractId?: string;
 
   constructor(config: ContractServiceConfig) {
-    this.server = new SorobanRpc.Server(config.rpcUrl);
+    // Use the shared factory so both graphql-api and indexer construct
+    // rpc.Server with identical options (allowHttp derived from URL scheme).
+    this.server = createRpcServer({ url: config.rpcUrl });
     this.networkPassphrase = config.networkPassphrase;
     this.registryContractId = config.registryContractId;
   }
@@ -80,17 +110,20 @@ export class ContractService {
 
     const result = await this.server.simulateTransaction(tx);
     if (SorobanRpc.Api.isSimulationError(result)) {
-      throw new Error(`Contract call failed [${contractId}.${method}]: ${result.error}`);
+      throw new Error(
+        `Contract call failed [${contractId}.${method}]: ${result.error}`,
+      );
     }
     return scValToNative(
-      (result as SorobanRpc.Api.SimulateTransactionSuccessResponse).result!.retval,
+      (result as SorobanRpc.Api.SimulateTransactionSuccessResponse).result!
+        .retval,
     ) as T;
   }
 
   // ── Internal: fetch single campaign from its contract ──────────────────────
 
   private async fetchCampaign(id: string): Promise<Campaign | null> {
-    try {
+    return withErrorLogging(`fetchCampaign(${id})`, null, async () => {
       const [info, stats] = await Promise.all([
         this.view<RawCampaignInfo>(id, "get_campaign_info"),
         this.view<RawCampaignStats>(id, "get_stats"),
@@ -111,15 +144,31 @@ export class ContractService {
         maxContribution: info.max_contribution,
         totalContributors: stats.contributor_count,
         token: info.token,
-        platformFeeBps: info.has_platform_config ? info.platform_fee_bps : undefined,
+        platformFeeBps: info.has_platform_config
+          ? info.platform_fee_bps
+          : undefined,
         hasRBACEnabled: info.has_platform_config,
         createdAt: nowUtcIso(),
         updatedAt: nowUtcIso(),
       };
-    } catch (error) {
-      console.error(`Error fetching campaign ${id}:`, error);
-      return null;
-    }
+    });
+  }
+
+  /**
+   * List every campaign ID known to the registry.
+   *
+   * The registry's `list` view is offset/limit paginated with no "give me
+   * everything" mode, so callers that need the full set (stats, trending,
+   * search, per-user aggregation) page through it with an upper bound well
+   * beyond any realistic campaign count. Centralized here so that workaround
+   * exists in exactly one place instead of being copy-pasted per call site.
+   */
+  private async listAllCampaignIds(): Promise<string[]> {
+    if (!this.registryContractId) return [];
+    return this.view<string[]>(this.registryContractId, "list", [
+      nativeToScVal(0, { type: "u32" }),
+      nativeToScVal(1_000_000, { type: "u32" }),
+    ]);
   }
 
   // ── Public read methods ────────────────────────────────────────────────────
@@ -137,20 +186,16 @@ export class ContractService {
    */
   async getCampaigns(params: GetCampaignsParams): Promise<Campaign[]> {
     if (!this.registryContractId) {
-      console.warn("getCampaigns called without registryContractId configured");
+      logger.warn("getCampaigns called without registryContractId configured");
       return [];
     }
 
-    try {
+    return withErrorLogging("getCampaigns", [], async () => {
       const { pagination } = params;
-      const ids = await this.view<string[]>(
-        this.registryContractId,
-        "list",
-        [
-          nativeToScVal(pagination.offset, { type: "u32" }),
-          nativeToScVal(pagination.limit, { type: "u32" }),
-        ],
-      );
+      const ids = await this.view<string[]>(this.registryContractId!, "list", [
+        nativeToScVal(pagination.offset, { type: "u32" }),
+        nativeToScVal(pagination.limit, { type: "u32" }),
+      ]);
 
       const campaigns = (
         await Promise.all(ids.map((id) => this.fetchCampaign(id)))
@@ -162,28 +207,18 @@ export class ContractService {
       }
 
       return campaigns;
-    } catch (error) {
-      console.error("Error fetching campaigns:", error);
-      return [];
-    }
+    });
   }
 
   /**
    * Get total campaign count from the registry.
    */
-  async getCampaignCount(_filter?: any): Promise<number> {
+  async getCampaignCount(_filter?: CampaignFilter): Promise<number> {
     if (!this.registryContractId) return 0;
-    try {
-      const all = await this.view<string[]>(
-        this.registryContractId,
-        "list",
-        [nativeToScVal(0, { type: "u32" }), nativeToScVal(1_000_000, { type: "u32" })],
-      );
+    return withErrorLogging("getCampaignCount", 0, async () => {
+      const all = await this.listAllCampaignIds();
       return all.length;
-    } catch (error) {
-      console.error("Error getting campaign count:", error);
-      return 0;
-    }
+    });
   }
 
   /**
@@ -192,32 +227,21 @@ export class ContractService {
    */
   async getTrendingCampaigns(limit: number): Promise<Campaign[]> {
     if (!this.registryContractId) return [];
-    try {
-      const ids = await this.view<string[]>(
-        this.registryContractId,
-        "list",
-        [nativeToScVal(0, { type: "u32" }), nativeToScVal(1_000_000, { type: "u32" })],
-      );
+    return withErrorLogging("getTrendingCampaigns", [], async () => {
+      const ids = await this.listAllCampaignIds();
 
       const withMetrics = (
         await Promise.all(
           ids.map(async (id) => {
-            try {
-              const campaign = await this.fetchCampaign(id);
-              if (!campaign || campaign.status !== "Active") return null;
-              return campaign;
-            } catch {
-              return null;
-            }
+            const campaign = await this.fetchCampaign(id);
+            if (!campaign || campaign.status !== "Active") return null;
+            return campaign;
           }),
         )
       ).filter(Boolean) as Campaign[];
 
       return withMetrics.slice(0, limit);
-    } catch (error) {
-      console.error("Error fetching trending campaigns:", error);
-      return [];
-    }
+    });
   }
 
   /**
@@ -226,55 +250,40 @@ export class ContractService {
    */
   async searchCampaigns(query: string, limit: number): Promise<Campaign[]> {
     if (!this.registryContractId) return [];
-    try {
-      const ids = await this.view<string[]>(
-        this.registryContractId,
-        "list",
-        [nativeToScVal(0, { type: "u32" }), nativeToScVal(1_000_000, { type: "u32" })],
-      );
+    return withErrorLogging("searchCampaigns", [], async () => {
+      const ids = await this.listAllCampaignIds();
 
       const q = query.toLowerCase();
       const matches = (
         await Promise.all(
           ids.map(async (id) => {
-            try {
-              const c = await this.fetchCampaign(id);
-              if (!c) return null;
-              if (
-                c.title.toLowerCase().includes(q) ||
-                c.description.toLowerCase().includes(q)
-              ) {
-                return c;
-              }
-              return null;
-            } catch {
-              return null;
+            const c = await this.fetchCampaign(id);
+            if (!c) return null;
+            if (
+              c.title.toLowerCase().includes(q) ||
+              c.description.toLowerCase().includes(q)
+            ) {
+              return c;
             }
+            return null;
           }),
         )
       ).filter(Boolean) as Campaign[];
 
       return matches.slice(0, limit);
-    } catch (error) {
-      console.error("Error searching campaigns:", error);
-      return [];
-    }
+    });
   }
 
   /**
    * Get user profile by aggregating on-chain data across all known campaigns.
    */
   async getUser(address: string): Promise<User | null> {
-    try {
+    return withErrorLogging(`getUser(${address})`, null, async () => {
       let totalContributed = BigInt(0);
       let contributionCount = 0;
 
       if (this.registryContractId) {
-        const ids = await this.view<string[]>(
-          this.registryContractId,
-          "list",
-          [nativeToScVal(0, { type: "u32" }), nativeToScVal(1_000_000, { type: "u32" })],
-        );
+        const ids = await this.listAllCampaignIds();
 
         for (const campaignId of ids) {
           try {
@@ -301,32 +310,44 @@ export class ContractService {
         contributions: [],
         joinedAt: nowUtcIso(),
       };
-    } catch (error) {
-      console.error(`Error fetching user ${address}:`, error);
-      return null;
-    }
+    });
   }
 
   /**
    * Get platform statistics by aggregating all registered campaigns.
    */
   async getStats(): Promise<Statistics> {
+    const emptyStats: Statistics = {
+      totalCampaigns: 0,
+      activeCampaigns: 0,
+      totalRaised: BigInt(0),
+      totalContributors: 0,
+      averageContribution: BigInt(0),
+      successRate: 0,
+    };
+
     if (!this.registryContractId) {
-      return {
-        totalCampaigns: 0,
-        activeCampaigns: 0,
-        totalRaised: BigInt(0),
-        totalContributors: 0,
-        averageContribution: BigInt(0),
-        successRate: 0,
-      };
+      return emptyStats;
     }
 
-    try {
-      const ids = await this.view<string[]>(
-        this.registryContractId,
-        "list",
-        [nativeToScVal(0, { type: "u32" }), nativeToScVal(1_000_000, { type: "u32" })],
+    return withErrorLogging("getStats", emptyStats, async () => {
+      const ids = await this.listAllCampaignIds();
+
+      // Fetch each campaign's info+stats in parallel rather than sequentially
+      // awaiting two on-chain calls per campaign in a loop — matches the
+      // Promise.all pattern already used by getCampaigns/getTrendingCampaigns.
+      const perCampaign = await Promise.all(
+        ids.map(async (id) => {
+          try {
+            const [info, stats] = await Promise.all([
+              this.view<RawCampaignInfo>(id, "get_campaign_info"),
+              this.view<RawCampaignStats>(id, "get_stats"),
+            ]);
+            return { info, stats };
+          } catch {
+            return null;
+          }
+        }),
       );
 
       let totalRaised = BigInt(0);
@@ -335,24 +356,22 @@ export class ContractService {
       let activeCampaigns = 0;
       let successfulCount = 0;
 
-      for (const id of ids) {
-        try {
-          const info = await this.view<RawCampaignInfo>(id, "get_campaign_info");
-          const stats = await this.view<RawCampaignStats>(id, "get_stats");
+      for (const entry of perCampaign) {
+        if (!entry) continue;
+        const { info, stats } = entry;
 
-          totalCampaigns++;
-          totalRaised += stats.total_raised;
-          totalContributors += stats.contributor_count;
+        totalCampaigns++;
+        totalRaised += stats.total_raised;
+        totalContributors += stats.contributor_count;
 
-          if (info.status === "Active") activeCampaigns++;
-          if (info.status === "Successful") successfulCount++;
-        } catch {
-          // Skip inaccessible campaigns
-        }
+        if (info.status === "Active") activeCampaigns++;
+        if (info.status === "Successful") successfulCount++;
       }
 
       const avgContrib =
-        totalContributors > 0 ? totalRaised / BigInt(totalContributors) : BigInt(0);
+        totalContributors > 0
+          ? totalRaised / BigInt(totalContributors)
+          : BigInt(0);
       const successRate =
         totalCampaigns > 0 ? (successfulCount / totalCampaigns) * 100 : 0;
 
@@ -364,17 +383,7 @@ export class ContractService {
         averageContribution: avgContrib,
         successRate,
       };
-    } catch (error) {
-      console.error("Error fetching stats:", error);
-      return {
-        totalCampaigns: 0,
-        activeCampaigns: 0,
-        totalRaised: BigInt(0),
-        totalContributors: 0,
-        averageContribution: BigInt(0),
-        successRate: 0,
-      };
-    }
+    });
   }
 
   // ── Write methods ─────────────────────────────────────────────────────────
@@ -390,13 +399,13 @@ export class ContractService {
     message: string,
     signature: string,
   ): Promise<boolean> {
-    try {
+    return withErrorLogging("verifySignature", false, async () => {
       const keypair = Keypair.fromPublicKey(address);
-      return keypair.verify(Buffer.from(message, "utf-8"), Buffer.from(signature, "hex"));
-    } catch (error) {
-      console.error("Error verifying signature:", error);
-      return false;
-    }
+      return keypair.verify(
+        Buffer.from(message, "utf-8"),
+        Buffer.from(signature, "hex"),
+      );
+    });
   }
 
   /**
@@ -407,7 +416,10 @@ export class ContractService {
    *
    * Returns a `Campaign` object representing the newly created campaign.
    */
-  async createCampaign(creator: any, input: CreateCampaignInput): Promise<Campaign> {
+  async createCampaign(
+    creator: AuthenticatedUser,
+    input: CreateCampaignInput,
+  ): Promise<Campaign> {
     throw new Error(
       "createCampaign requires a pre-signed deploy+initialize transaction. " +
         "Provide the signed XDR via a separate mutation field instead.",
@@ -419,7 +431,7 @@ export class ContractService {
    */
   async updateCampaign(
     id: string,
-    user: any,
+    user: AuthenticatedUser,
     input: UpdateCampaignInput,
   ): Promise<Campaign> {
     throw new Error(
@@ -434,8 +446,13 @@ export class ContractService {
    * This reads the on-chain state to confirm the contribution exists
    * and returns a `Contribution` object derived from chain data.
    */
-  async recordContribution(input: RecordContributionInput): Promise<Contribution> {
-    // Verify contribution exists on-chain by checking the contributor's balance
+  async recordContribution(
+    input: RecordContributionInput,
+  ): Promise<Contribution> {
+    // Verify contribution exists on-chain by checking the contributor's balance.
+    // Unlike the read methods above this rethrows rather than falling back —
+    // a caller that thinks it recorded a contribution needs to know when it
+    // didn't — so it keeps its own try/catch instead of withErrorLogging.
     try {
       const contribAmount = await this.view<bigint>(
         input.campaignId,
@@ -458,7 +475,14 @@ export class ContractService {
         transactionHash: input.transactionHash,
       };
     } catch (error) {
-      console.error("Error recording contribution:", error);
+      logger.error(
+        {
+          err: error,
+          campaignId: input.campaignId,
+          contributor: input.contributor,
+        },
+        "Error recording contribution",
+      );
       throw error;
     }
   }

@@ -84,3 +84,19 @@ import { analyzeBundleSize, identifyLargeDependencies } from "@/lib/bundleAnalys
 | Shared chunk exceeds 180 KB | New large dependency added to `_app.tsx` or a shared layout |
 | Route budget spikes without code changes | New import added to a page-level component |
 | CSS budget exceeded | Large CSS library imported globally; verify Tailwind purge config |
+
+## Updating budgets intentionally
+
+If a new feature genuinely requires more bundle space, follow this workflow so the change is deliberate and visible:
+
+1. **Build locally** and confirm the actual sizes:
+   ```bash
+   cd apps/interface
+   npm run build
+   node scripts/check-bundle-budgets.cjs
+   ```
+2. **Open `bundle-budgets.json`** and increase the affected route budget to the new actual size, **rounded up to the nearest 10 KB**.  Use the smallest value that still passes — budgets are ceilings, not targets.
+3. **Document the reason** in your PR description. Include before/after sizes and why the increase is justified (e.g., "Added PDF export library to `/dashboard`; +42 KB JS").
+4. **Update the table above** in this file so reviewers can see the current budgets at a glance.
+
+> ⚠️ Never raise a budget just to make the build pass without understanding why it grew. If the cause is unclear, run `npm run bundle:check` after the build and inspect the output to identify the offending chunk.

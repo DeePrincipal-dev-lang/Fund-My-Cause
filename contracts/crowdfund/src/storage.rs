@@ -1,11 +1,121 @@
-/// Storage management and constants for the crowdfund contract.
-///
-/// This module provides storage keys and helper utilities for managing contract state.
+//! Storage management and constants for the crowdfund contract.
+//!
+//! This module provides storage keys and helper utilities for managing contract state.
+//!
+//! ## Storage key table
+//!
+//! Every `KEY_*` constant below is listed once. The `Storage` column is the
+//! ledger entry type the key is written to; the `TTL policy` column is how its
+//! lifetime is extended. The `storage_key_audit` tests in this file fail if a
+//! constant is added without a row here, or if a row has no recognised policy.
+//!
+//! | Constant | Symbol | Storage | TTL policy |
+//! |---|---|---|---|
+//! | `KEY_CREATOR` | `CREATOR` | instance | instance: contract-wide TTL_INSTANCE_EXTEND_MIN/MAX bump |
+//! | `KEY_TOKEN` | `TOKEN` | instance | instance: contract-wide TTL_INSTANCE_EXTEND_MIN/MAX bump |
+//! | `KEY_GOAL` | `GOAL` | instance | instance: contract-wide TTL_INSTANCE_EXTEND_MIN/MAX bump |
+//! | `KEY_DEADLINE` | `DEADLINE` | instance | instance: contract-wide TTL_INSTANCE_EXTEND_MIN/MAX bump |
+//! | `KEY_TOTAL` | `TOTAL` | instance | instance: contract-wide TTL_INSTANCE_EXTEND_MIN/MAX bump |
+//! | `KEY_CONTRIBS` | `CONTRIBS` | none | reserved: declared but not read or written |
+//! | `KEY_STATUS` | `STATUS` | instance | instance: contract-wide TTL_INSTANCE_EXTEND_MIN/MAX bump |
+//! | `KEY_MIN` | `MIN` | instance | instance: contract-wide TTL_INSTANCE_EXTEND_MIN/MAX bump |
+//! | `KEY_MAX` | `MAX` | instance | instance: contract-wide TTL_INSTANCE_EXTEND_MIN/MAX bump |
+//! | `KEY_TITLE` | `TITLE` | instance | instance: contract-wide TTL_INSTANCE_EXTEND_MIN/MAX bump |
+//! | `KEY_DESC` | `DESC` | instance | instance: contract-wide TTL_INSTANCE_EXTEND_MIN/MAX bump |
+//! | `KEY_SOCIAL` | `SOCIAL` | instance | instance: contract-wide TTL_INSTANCE_EXTEND_MIN/MAX bump |
+//! | `KEY_PLATFORM` | `PLATFORM` | instance | instance: contract-wide TTL_INSTANCE_EXTEND_MIN/MAX bump |
+//! | `KEY_ADMIN` | `ADMIN` | instance | instance: contract-wide TTL_INSTANCE_EXTEND_MIN/MAX bump |
+//! | `KEY_RATE_LIMIT` | `RATELIMIT` | instance | instance: contract-wide TTL_INSTANCE_EXTEND_MIN/MAX bump |
+//! | `KEY_INSURANCE` | `INSURE` | instance | instance: contract-wide TTL_INSTANCE_EXTEND_MIN/MAX bump |
+//! | `KEY_INSURANCE_POOL` | `INSPOOL` | instance | instance: contract-wide TTL_INSTANCE_EXTEND_MIN/MAX bump |
+//! | `KEY_CATEGORY` | `CATEGORY` | instance | instance: contract-wide TTL_INSTANCE_EXTEND_MIN/MAX bump |
+//! | `KEY_VESTING` | `VESTING` | instance | instance: contract-wide TTL_INSTANCE_EXTEND_MIN/MAX bump |
+//! | `KEY_GOAL_HISTORY` | `GHIST` | persistent | persistent: per-entry TTL_PERSISTENT_ENTRY bump on write |
+//! | `KEY_VISIBILITY` | `VIS` | instance | instance: contract-wide TTL_INSTANCE_EXTEND_MIN/MAX bump |
+//! | `KEY_META_HIST` | `METAHIST` | persistent | persistent: per-entry TTL_PERSISTENT_ENTRY bump on write |
+//! | `KEY_START_TIME` | `START` | instance | instance: contract-wide TTL_INSTANCE_EXTEND_MIN/MAX bump |
+//! | `KEY_ARCHIVED` | `ARCHIVED` | instance | instance: contract-wide TTL_INSTANCE_EXTEND_MIN/MAX bump |
+//! | `KEY_MILESTONES` | `MILESTONE` | persistent | persistent: per-entry TTL_PERSISTENT_ENTRY bump on write |
+//! | `KEY_MILESTONE_STATUS` | `MLSTATUS` | none | reserved: declared but not read or written |
+//! | `KEY_NEXT_RELEASE` | `NEXTREL` | none | reserved: declared but not read or written |
+//! | `KEY_VERIFICATION` | `VERIFY` | none | reserved: declared but not read or written |
+//! | `KEY_ANALYTICS` | `ANALYTICS` | none | reserved: declared but not read or written |
+//! | `KEY_ANALYTICS_DATA` | `ANALDATA` | none | reserved: declared but not read or written |
+//! | `KEY_DISPUTES` | `DISPUTES` | persistent | persistent: per-entry TTL_PERSISTENT_ENTRY bump on write |
+//! | `KEY_DISPUTE_ID` | `DISPID` | persistent | persistent: per-entry TTL_PERSISTENT_ENTRY bump on write |
+//! | `KEY_DISPUTE_VOTE` | `DISPVOTE` | none | reserved: declared but not read or written |
+//! | `KEY_CONTRACT_VERSION` | `CVER` | instance | instance: contract-wide TTL_INSTANCE_EXTEND_MIN/MAX bump |
+//! | `KEY_VERSION_HISTORY` | `VERHIST` | persistent | persistent: per-entry TTL_PERSISTENT_ENTRY bump on write |
+//! | `KEY_LAST_VALIDATION` | `LASTVAL` | instance | instance: contract-wide TTL_INSTANCE_EXTEND_MIN/MAX bump |
+//! | `KEY_DEBUG_SNAPSHOT` | `DBGSNAP` | instance | instance: contract-wide TTL_INSTANCE_EXTEND_MIN/MAX bump |
+//! | `KEY_PERF_THRESHOLD` | `PERFTHR` | instance | instance: contract-wide TTL_INSTANCE_EXTEND_MIN/MAX bump |
+//! | `KEY_PERF_STATS` | `PERFST` | none | reserved: declared but not read or written |
+//! | `KEY_GOVERNANCE_CONFIG` | `GOVCFG` | instance | instance: contract-wide TTL_INSTANCE_EXTEND_MIN/MAX bump |
+//! | `KEY_GOVERNANCE_NONCE` | `GOVNONCE` | instance | instance: contract-wide TTL_INSTANCE_EXTEND_MIN/MAX bump |
+//! | `KEY_EMERGENCY_PAUSE` | `EMPAUSE` | instance | instance: contract-wide TTL_INSTANCE_EXTEND_MIN/MAX bump |
+//! | `KEY_REENTRANCY_LOCK` | `REENTLK` | none | reserved: declared but not read or written |
+//! | `KEY_STREAM` | `STREAM` | instance | instance: contract-wide TTL_INSTANCE_EXTEND_MIN/MAX bump |
+//! | `KEY_SOFT_CAP` | `SOFTCAP` | instance | instance: contract-wide TTL_INSTANCE_EXTEND_MIN/MAX bump |
+//! | `KEY_STRETCH_GOAL` | `STRETCH` | instance | instance: contract-wide TTL_INSTANCE_EXTEND_MIN/MAX bump |
+//! | `KEY_RELEASED` | `RELEASED` | instance | instance: contract-wide TTL_INSTANCE_EXTEND_MIN/MAX bump |
+//! | `KEY_PAUSE_TIMELOCK` | `PTLOCK` | instance | instance: contract-wide TTL_INSTANCE_EXTEND_MIN/MAX bump |
+//! | `KEY_UNPAUSE_AFTER` | `UNPAFTER` | instance | instance: contract-wide TTL_INSTANCE_EXTEND_MIN/MAX bump |
+//! | `KEY_GROSS_TOTAL` | `GROSST` | instance | instance: contract-wide TTL_INSTANCE_EXTEND_MIN/MAX bump |
+//! | `KEY_IPFS_CID` | `IPFSCID` | instance | instance: contract-wide TTL_INSTANCE_EXTEND_MIN/MAX bump (written via `MetadataField::IpfsCid`) |
+//! | `KEY_YIELD_CONFIG` | `YLDCFG` | instance | instance: contract-wide TTL_INSTANCE_EXTEND_MIN/MAX bump |
+//! | `KEY_YIELD_TOTAL` | `YLDTOT` | instance | instance: contract-wide TTL_INSTANCE_EXTEND_MIN/MAX bump |
+//!
+//! ## TTL rules
+//!
+//! * **instance** rows live in the shared contract instance entry, which is
+//!   extended with `TTL_INSTANCE_EXTEND_MIN`/`TTL_INSTANCE_EXTEND_MAX` at the
+//!   contract level. Individual instance keys must not call `extend_ttl`.
+//! * **persistent** rows must call `extend_ttl(key, TTL_PERSISTENT_ENTRY,
+//!   TTL_PERSISTENT_ENTRY)` immediately after every `set`, including updates to
+//!   an existing value. A missing bump can silently expire campaign history,
+//!   milestones or disputes.
+//! * **none** rows are reserved symbols. They must not be written until this
+//!   table and the TTL policy are updated together.
+//!
+//! `MetadataField` is an alias layer over existing keys, not a second key
+//! space: `Title`/`Description`/`SocialLinks` map to `KEY_TITLE`/`KEY_DESC`/
+//! `KEY_SOCIAL`, `History` maps to `KEY_META_HIST`, and `IpfsCid` maps to
+//! `KEY_IPFS_CID`. The `storage_key_audit` uniqueness test includes these
+//! aliases so a future alias cannot silently reuse an unrelated symbol.
+//!
+//! `DataKey` variants are typed ledger keys rather than `KEY_*` symbols. The
+//! same two rules apply: instance-scoped variants inherit the contract-wide
+//! instance bump, and every persistent variant must bump its own TTL on write.
+//! Each address-scoped value also needs its own variant: `DataKey::Verification`
+//! is deliberately separate from `DataKey::Contribution` so writing a
+//! verification status cannot overwrite the contribution amount.
+//!
 use soroban_sdk::Symbol;
 
 /// Re-export `DataKey` so it can be imported via `crate::storage::DataKey`
 /// (the enum itself is defined in the `types` module).
 pub use crate::types::DataKey;
+
+/// Canonical metadata storage key variants. Keeping them in one place avoids
+/// drift between metadata accessors and the rest of the contract.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MetadataField {
+    Title,
+    Description,
+    SocialLinks,
+    History,
+    IpfsCid,
+}
+
+pub fn metadata_field_key(field: MetadataField) -> Symbol {
+    match field {
+        MetadataField::Title => soroban_sdk::symbol_short!("TITLE"),
+        MetadataField::Description => soroban_sdk::symbol_short!("DESC"),
+        MetadataField::SocialLinks => soroban_sdk::symbol_short!("SOCIAL"),
+        MetadataField::History => soroban_sdk::symbol_short!("METAHIST"),
+        MetadataField::IpfsCid => soroban_sdk::symbol_short!("IPFSCID"),
+    }
+}
 
 /// Contract version for upgrades and compatibility tracking
 pub const CONTRACT_VERSION: u32 = 6;
@@ -14,6 +124,7 @@ pub const CONTRACT_VERSION: u32 = 6;
 pub const MIN_SUPPORTED_VERSION: u32 = 1;
 
 /// Maximum number of updates per campaign
+#[allow(dead_code)] // documented cap, not yet enforced anywhere
 pub const MAX_UPDATES: u32 = 100;
 
 /// Maximum number of milestones per campaign
@@ -162,18 +273,39 @@ pub const KEY_YIELD_CONFIG: Symbol = soroban_sdk::symbol_short!("YLDCFG");
 pub const KEY_YIELD_TOTAL: Symbol = soroban_sdk::symbol_short!("YLDTOT");
 
 // ── Issue #929: Magic Number Constants ───────────────────────────────────────
-/// Basis points denominator (10,000 basis points = 100%).
-/// Used in fee calculations: fee = amount * fee_bps / BASIS_POINTS_MAX
-pub const BASIS_POINTS_MAX: i128 = 10_000;
 
 /// Maximum message length (characters) for contribution messages.
 /// Validated when storing contribution messages to prevent unbounded storage.
-pub const MAX_MESSAGE_LENGTH: usize = 256;
+pub const MAX_MESSAGE_LENGTH: u32 = 256;
 
 /// TTL extension value for persistent storage entries (in ledger entries).
 /// Used to extend time-to-live for frequently accessed per-contributor data.
 /// Value represents 100 ledger entries worth of extension.
 pub const TTL_PERSISTENT_ENTRY: u32 = 100;
+
+#[cfg(test)]
+mod tests {
+    use super::{metadata_field_key, MetadataField};
+
+    #[test]
+    fn metadata_storage_keys_are_unique() {
+        let keys = [
+            metadata_field_key(MetadataField::Title),
+            metadata_field_key(MetadataField::Description),
+            metadata_field_key(MetadataField::SocialLinks),
+            metadata_field_key(MetadataField::History),
+            metadata_field_key(MetadataField::IpfsCid),
+        ];
+
+        for (idx, lhs) in keys.iter().enumerate() {
+            for (other_idx, rhs) in keys.iter().enumerate() {
+                if idx != other_idx {
+                    assert_ne!(*lhs, *rhs, "metadata storage keys must remain unique");
+                }
+            }
+        }
+    }
+}
 
 /// TTL extension value for instance storage (short-term, in ledger entries).
 /// Used for frequent writes to campaign-wide state (e.g., totals, counts).
@@ -201,7 +333,7 @@ pub fn get_admin(env: &soroban_sdk::Env) -> Result<Address, crate::ContractError
 }
 
 /// Helper function to create a rate limit key for an address
-pub fn make_rate_limit_key(addr: &Address) -> SorobanSymbol {
+pub fn make_rate_limit_key(_addr: &Address) -> SorobanSymbol {
     // This creates a unique persistent key for rate limiting per address
     // In a full implementation, this would use the address hash
     soroban_sdk::symbol_short!("RATELIM")

@@ -35,16 +35,19 @@ const CURSOR_VERSION = 1;
  * a long, random string so that cursors are authenticated and tamper-evident.
  * Tests pass their own secret directly so they are independent of the env.
  */
-const DEFAULT_SECRET = process.env.CURSOR_SECRET ?? "dev-cursor-secret-changeme";
+const DEFAULT_SECRET =
+  process.env.CURSOR_SECRET ?? "dev-cursor-secret-changeme";
 
 // ---------------------------------------------------------------------------
 // Errors
 // ---------------------------------------------------------------------------
 
+import { AppError } from "@fund-my-cause/shared-utils";
+
 /** Thrown when a cursor string cannot be decoded or fails validation. */
-export class CursorError extends Error {
+export class CursorError extends AppError {
   constructor(message: string) {
-    super(message);
+    super("CURSOR_INVALID", message, { severity: "warn" });
     this.name = "CursorError";
   }
 }
@@ -93,7 +96,10 @@ function sign(payload: string, secret: string): string {
  *
  * Output format: `<base64url(json)>.<hmac>`
  */
-export function encodeCursor(input: CursorInput, secret = DEFAULT_SECRET): string {
+export function encodeCursor(
+  input: CursorInput,
+  secret = DEFAULT_SECRET,
+): string {
   const payload: CursorPayload = { ...input, v: CURSOR_VERSION };
   const json = JSON.stringify(payload);
   const encoded = Buffer.from(json).toString("base64url");
@@ -110,7 +116,10 @@ export function encodeCursor(input: CursorInput, secret = DEFAULT_SECRET): strin
  *   - Wrong cursor version
  *   - Invalid HMAC signature (tampered cursor)
  */
-export function decodeCursor(cursor: string, secret = DEFAULT_SECRET): CursorPayload {
+export function decodeCursor(
+  cursor: string,
+  secret = DEFAULT_SECRET,
+): CursorPayload {
   // Split off the signature.
   const dotIndex = cursor.lastIndexOf(".");
   if (dotIndex === -1) {
@@ -124,7 +133,9 @@ export function decodeCursor(cursor: string, secret = DEFAULT_SECRET): CursorPay
   // server-to-server cursor validation).
   const expectedMac = sign(encoded, secret);
   if (mac !== expectedMac) {
-    throw new CursorError("Invalid cursor: signature mismatch (possible tampering)");
+    throw new CursorError(
+      "Invalid cursor: signature mismatch (possible tampering)",
+    );
   }
 
   // Decode payload.
@@ -188,7 +199,10 @@ export function buildPage<T>(
 ): PageResult<T> {
   const edges = items.map((node) => ({
     node,
-    cursor: encodeCursor({ id: getId(node), sortKey: getSortKey(node) }, secret),
+    cursor: encodeCursor(
+      { id: getId(node), sortKey: getSortKey(node) },
+      secret,
+    ),
   }));
 
   return {

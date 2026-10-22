@@ -4,7 +4,7 @@
 
 mod common;
 
-use crate::common::{setup, Campaign};
+use crate::common::setup;
 use proptest::prelude::*;
 use soroban_sdk::{
     testutils::{Address as _, Ledger},

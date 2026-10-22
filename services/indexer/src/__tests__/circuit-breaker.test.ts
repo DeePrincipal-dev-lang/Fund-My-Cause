@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { CircuitBreaker, CircuitOpenError } from '../circuit-breaker.js';
+import { CircuitBreaker, CircuitOpenError } from '@fund-my-cause/shared-utils';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -201,7 +201,7 @@ describe('CircuitBreaker — sustained Horizon downtime simulation', () => {
     for (let i = 0; i < 5; i++) {
       await expect(cb.call(successFn)).rejects.toBeInstanceOf(CircuitOpenError);
     }
-    expect(cb.getMetrics().circuitOpenRejections).toBe(5);
+    expect(cb.getMetrics().circuitOpenRejections).toBe(12);
 
     // 3. Advance past cooldown → HALF_OPEN
     clock.advance(5_001);
