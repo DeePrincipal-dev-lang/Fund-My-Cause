@@ -8,12 +8,17 @@ See ADR-008: docs/adr/ADR-008-fraud-detection-scoring-pipeline-design.md
 """
 from __future__ import annotations
 
-import asyncio, os, sys  # noqa: E401
+import asyncio
+import logging
+import time
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import AsyncIterator, Optional
 
 import structlog
-from fastapi import FastAPI
+from fastapi import FastAPI, BackgroundTasks, Request, Response
+from fastapi.responses import JSONResponse
 
 # Shared scoring helpers — single implementation per #1514.
 from scoring import jaccard_similarity
@@ -53,14 +58,104 @@ from config import load_fraud_detection_config  # noqa: F401
 configure_structlog()
 log: structlog.BoundLogger = structlog.get_logger("fraud_detection")
 
-# Load and validate fraud detection configuration at startup
-# Fails fast with a complete error report if any config is invalid
-try:
-    FRAUD_CONFIG = load_fraud_detection_config()
-    log.info("fraud_detection_config_loaded", config=repr(FRAUD_CONFIG))
-except ValueError as e:
-    log.fatal("fraud_detection_config_validation_failed", error=str(e))
-    sys.exit(1)
+# ---------------------------------------------------------------------------
+# Trace-ID convention — imported from the canonical module
+# ---------------------------------------------------------------------------
+
+from stages.trace_id import (  # noqa: E402  (after stdlib/third-party imports)
+    TRACE_ID_HEADER,
+    TraceIDMiddleware,
+    is_valid_trace_id as _is_valid_trace_id,
+    trace_id_var as _trace_id_var,
+)
+
+
+# ---------------------------------------------------------------------------
+# Tuneable thresholds (see docs/fraud-detection-heuristics.md for rationale)
+# ---------------------------------------------------------------------------
+WASH_WINDOW_SECONDS = 3600          # contributions that refund within 1 h
+WASH_MIN_OCCURRENCES = 3            # flag after 3 wash cycles
+SPIKE_WINDOW_SECONDS = 600          # 10-minute rolling window
+SPIKE_MAX_CONTRIBUTIONS = 50        # > 50 contributions in 10 min → spike
+DUPLICATE_JACCARD_THRESHOLD = 0.8   # titles ≥ 80 % token overlap → duplicate
+
+# Scoring job queue settings
+SCORING_QUEUE_MAXSIZE = 1000        # bounded queue; 503 if full
+
+
+# ---------------------------------------------------------------------------
+# Domain types
+# ---------------------------------------------------------------------------
+class FlagReason(str, Enum):
+    WASH_CONTRIBUTION = "wash_contribution"
+    CONTRIBUTION_SPIKE = "contribution_spike"
+    DUPLICATE_CONTENT = "duplicate_content"
+
+
+class FlagSeverity(str, Enum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+
+@dataclass
+class Flag:
+    id: str
+    reason: FlagReason
+    severity: FlagSeverity
+    campaign_id: str
+    wallet: Optional[str]
+    detail: str
+    flagged_at: float = field(default_factory=time.time)
+    reviewed: bool = False
+
+
+# ---------------------------------------------------------------------------
+# Moderation queue (in-memory; replace with DB in production)
+# ---------------------------------------------------------------------------
+_QUEUE: list[Flag] = []
+_FLAG_COUNTER = 0
+
+
+def _next_flag_id() -> str:
+    global _FLAG_COUNTER
+    _FLAG_COUNTER += 1
+    return f"FLAG-{_FLAG_COUNTER:05d}"
+
+
+def _enqueue(flag: Flag) -> None:
+    _QUEUE.append(flag)
+
+
+# ---------------------------------------------------------------------------
+# Indexed event store (populated by indexer; stubbed here)
+# ---------------------------------------------------------------------------
+@dataclass
+class ContributionEvent:
+    campaign_id: str
+    wallet: str
+    amount: int
+    timestamp: float
+
+
+@dataclass
+class RefundEvent:
+    campaign_id: str
+    wallet: str
+    timestamp: float
+
+
+@dataclass
+class CampaignRecord:
+    id: str
+    title: str
+    description: str
+
+
+_CONTRIBUTIONS: list[ContributionEvent] = []
+_REFUNDS: list[RefundEvent] = []
+_CAMPAIGN_RECORDS: list[CampaignRecord] = []
+
 
 DB_POOL_CONFIG = load_db_pool_config()
 log.info("db_pool_config_resolved", **DB_POOL_CONFIG.__dict__)

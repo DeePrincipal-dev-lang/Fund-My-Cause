@@ -1,0 +1,24 @@
+{
+  "_comment": "Cross-language trace-ID fixture file. Consumed by both the TypeScript (packages/shared-utils) and Python (backend/fraud_detection) test suites. Any change here must pass both suites. See docs/trace-id-spec.md.",
+  "valid": [
+    "fmc-67946a1b-3f8c2a0d9e4b71c2",
+    "fmc-00000000-0000000000000000",
+    "fmc-ffffffff-ffffffffffffffff",
+    "fmc-a1b2c3d4-e5f6a7b8c9d0e1f2",
+    "fmc-deadbeef-cafebabe12345678"
+  ],
+  "invalid": [
+    "",
+    "fmc-67946a1b-3f8c2a0d9e4b71c",
+    "fmc-67946a1b-3f8c2a0d9e4b71c2x",
+    "FMC-67946a1b-3f8c2a0d9e4b71c2",
+    "fmc-67946a1B-3f8c2a0d9e4b71c2",
+    "xfmc-67946a1b-3f8c2a0d9e4b71c2",
+    "fmc-67946a1b3f8c2a0d9e4b71c2",
+    "67946a1b-3f8c2a0d9e4b71c2",
+    "fmc-67946a1g-3f8c2a0d9e4b71c2",
+    "unknown-1234567890",
+    "fmc--3f8c2a0d9e4b71c2",
+    "fmc-67946a1b-"
+  ]
+}
