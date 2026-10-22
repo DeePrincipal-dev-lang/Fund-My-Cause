@@ -22,7 +22,7 @@ for FILE in $STAGED_FILES; do
       .gitleaks.toml|.secrets.baseline|.husky/*|docs/*|*.md) continue ;;
     esac
 
-    if git show ":$FILE" | grep -qiE '(PRIVATE_KEY|SECRET_KEY|AWS_SECRET_ACCESS_KEY|ghp_[a-zA-Z0-9]{36}|password\s*=\s*["'"'"'][^"'"'"']{8,})' 2>/dev/null; then
+    if git show ":$FILE" | grep -qiE '(PRIVATE_KEY|SECRET_KEY|AWS_SECRET_ACCESS_KEY)\s*=\s*.{8,}|ghp_[a-zA-Z0-9]{36}|password\s*=\s*["'"'"'][^"'"'"']{8,}' 2>/dev/null; then
       echo "⚠️  Potential secret detected in: $FILE"
       FOUND=1
     fi

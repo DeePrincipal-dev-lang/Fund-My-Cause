@@ -2,6 +2,7 @@
 
 import React from "react";
 import { ExternalLink, Users, Clock } from "lucide-react";
+import { formatCampaignCard } from "@fund-my-cause/components";
 import type { CampaignData } from "@/types/soroban";
 import { DEFAULT_HERO_IMAGE } from "@/lib/constants";
 
@@ -102,12 +103,20 @@ export function EmbedCard({
   hideImage = false,
 }: EmbedCardProps) {
   const cfg = SIZE_CONFIG[size];
-  const progress =
-    campaign.goal > 0
-      ? Math.min((campaign.raised / campaign.goal) * 100, 100)
-      : 0;
-  const isEnded = new Date(campaign.deadline) < new Date();
-  const isGoalMet = campaign.raised >= campaign.goal;
+  const {
+    displayPercent: progress,
+    isFunded: isGoalMet,
+    isEnded,
+    raisedText,
+    goalText,
+  } = formatCampaignCard(
+    {
+      raised: campaign.raised,
+      goal: campaign.goal,
+      deadline: campaign.deadline,
+    },
+    { formatAmount: formatXlm },
+  );
 
   const heroSrc =
     campaign.socialLinks?.[0]?.startsWith("Qm") ||
@@ -132,7 +141,6 @@ export function EmbedCard({
     >
       {/* Hero image */}
       {!hideImage && (
-        // eslint-disable-next-line @next/next/no-img-element
         <img
           src={heroSrc}
           alt=""
@@ -189,9 +197,9 @@ export function EmbedCard({
             className="font-semibold"
             style={{ color: isGoalMet ? "#22c55e" : accent }}
           >
-            {formatXlm(campaign.raised)} raised
+            {raisedText} raised
           </span>
-          <span>{formatXlm(campaign.goal)} goal</span>
+          <span>{goalText} goal</span>
         </div>
 
         {/* Stats row */}

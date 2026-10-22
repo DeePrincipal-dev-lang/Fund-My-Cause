@@ -52,7 +52,7 @@ jobs:
 
       - name: Typecheck
         working-directory: packages/types
-        run: npx tsc --noEmit
+        run: npm run typecheck
 
       - name: Test
         working-directory: packages/types

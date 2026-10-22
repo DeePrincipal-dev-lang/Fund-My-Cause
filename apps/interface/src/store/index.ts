@@ -3,9 +3,9 @@
  *
  * Slices
  * ──────
- *  campaignSlice  transient campaign UI state (active ID, optimistic deltas, pledge modal)
- *  walletSlice    wallet connection and session state
- *  uiSlice        notifications, modals, and theme
+ *  campaignSlice   transient campaign UI state (active ID, optimistic deltas, pledge modal)
+ *  useWalletStore  wallet connection and session state
+ *  uiSlice         notifications, modals, and theme
  *
  * Preferred usage pattern
  * ───────────────────────
@@ -39,7 +39,7 @@ export {
   selectShowWalletSelect,
   selectIsConnected,
   type WalletSliceState,
-} from "./walletSlice";
+} from "./useWalletStore";
 
 // ── UI slice ──────────────────────────────────────────────────────────────────
 export {

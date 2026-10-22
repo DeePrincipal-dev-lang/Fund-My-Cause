@@ -7,6 +7,9 @@ const MAX_DESCRIPTION_LENGTH = 1000;
 const MAX_GOAL = BigInt(9223372036854775807) / BigInt(10); // i128::MAX / 10
 const MIN_DEADLINE_HOURS = 1;
 const MAX_DEADLINE_YEARS = 1;
+// Must stay in sync with DONATION_MIN_XLM in index.ts (kept local to avoid a
+// circular import, matching this file's existing self-contained constants).
+const MIN_DONATION_XLM = 1;
 
 /**
  * Validate that a string is a valid Stellar contract ID.
@@ -103,7 +106,9 @@ export function validateVideoUrl(videoUrl: string): string | null {
   }
 
   try {
-    new URL(trimmed);
+    if (typeof URL !== "undefined") {
+      new URL(trimmed);
+    }
     return null;
   } catch {
     return "Enter a valid URL.";
@@ -165,7 +170,11 @@ export function validateMaxContribution(
   maxContribution: string,
   minContribution: string,
 ): string | null {
-  if (!maxContribution || maxContribution.trim() === "" || maxContribution === "0") {
+  if (
+    !maxContribution ||
+    maxContribution.trim() === "" ||
+    maxContribution === "0"
+  ) {
     return null; // 0 = no limit, optional field
   }
   const num = Number(maxContribution);
@@ -194,6 +203,66 @@ export function validateFeeBps(feeBps: string): string | null {
   return null;
 }
 
+/** Shape accepted by validateCampaignInput — all fields as raw strings. */
+export interface CampaignInputToValidate {
+  title: string;
+  description: string;
+  goal: string;
+  deadline: string;
+  minContribution: string;
+}
+
+/**
+ * Validate a full campaign-creation input in one call.
+ *
+ * Runs the individual field validators (title, description, goal, deadline,
+ * minContribution) and collects their errors into a single field-name →
+ * message map. An empty object means the input is valid.
+ */
+export function validateCampaignInput(
+  input: CampaignInputToValidate,
+): Record<string, string> {
+  const errors: Record<string, string> = {};
+
+  const titleError = validateTitle(input.title);
+  if (titleError) errors.title = titleError;
+
+  const descriptionError = validateDescription(input.description);
+  if (descriptionError) errors.description = descriptionError;
+
+  const goalError = validateGoal(input.goal);
+  if (goalError) errors.goal = goalError;
+
+  const deadlineError = validateDeadline(input.deadline);
+  if (deadlineError) errors.deadline = deadlineError;
+
+  const minContributionError = validateMinContribution(
+    input.minContribution,
+    input.goal,
+  );
+  if (minContributionError) errors.minContribution = minContributionError;
+
+  return errors;
+}
+
+/**
+ * Validate a donation/contribution amount, expressed in whole XLM.
+ * @returns Error message if invalid, null if valid
+ */
+export function validateDonationAmount(amountXlm: string): string | null {
+  if (!amountXlm || amountXlm.trim() === "") {
+    return "Donation amount is required.";
+  }
+  const num = Number(amountXlm);
+  if (isNaN(num) || num <= 0) {
+    return "Donation amount must be a positive number.";
+  }
+  if (num < MIN_DONATION_XLM) {
+    return `Donation amount must be at least ${MIN_DONATION_XLM} XLM.`;
+  }
+  return null;
+}
+
 /**
  * Sanitize title by stripping HTML tags and trimming.
  */
@@ -207,3 +276,4 @@ export function sanitizeTitle(title: string): string {
 export function sanitizeDescription(description: string): string {
   return stripHtmlTags(description).trim();
 }
+

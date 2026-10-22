@@ -16,7 +16,7 @@ interface LazyLoadOptions {
  */
 export function useIntersectionObserver(
   options: LazyLoadOptions = {},
-): [React.RefObject<HTMLDivElement>, boolean] {
+): [React.RefObject<HTMLDivElement | null>, boolean] {
   const ref = useRef<HTMLDivElement>(null);
   const [isVisible, setIsVisible] = useState(false);
 
@@ -44,7 +44,7 @@ export function useIntersectionObserver(
 export function useLazyLoad<T>(
   loader: () => Promise<T>,
   options: LazyLoadOptions = {},
-): [React.RefObject<HTMLDivElement>, T | null, boolean, Error | null] {
+): [React.RefObject<HTMLDivElement | null>, T | null, boolean, Error | null] {
   const [ref, isVisible] = useIntersectionObserver(options);
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(false);

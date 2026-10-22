@@ -1,14 +1,24 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import dynamic from "next/dynamic";
 import Image from "next/image";
-import { Loader2, Copy, Check, ExternalLink } from "lucide-react";
+import { Copy, Check, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { CountdownTimer } from "@/components/ui/CountdownTimer";
 import { ShareButton } from "@/components/ui/ShareButton";
-import { ContributionLeaderboard } from "@/components/ui/ContributionLeaderboard";
+import { ContributorList } from "@/components/campaign-detail/ContributorList";
 import { EmbedCodeGenerator } from "@/components/ui/EmbedCodeGenerator";
+
+// Lazy-load UpdatesFeed — not needed on initial paint
+const UpdatesFeed = dynamic(
+  () =>
+    import("@/components/campaign-detail/UpdatesFeed").then(
+      (m) => m.UpdatesFeed,
+    ),
+  { ssr: false },
+);
 import { useCampaign } from "@/hooks/useCampaign";
 import { useWallet } from "@/hooks/useWallet";
 import { CampaignActions } from "./CampaignActions";
@@ -25,7 +35,8 @@ import { GoalSuccessModal } from "@/components/ui/GoalSuccessModal";
 import { GoalSuccessBadge } from "@/components/ui/GoalSuccessBadge";
 import { ShareModal } from "@/components/ui/ShareModal";
 import { PausedBanner } from "@/components/ui/PausedBanner";
-import { CampaignAnalytics } from "@/components/ui/CampaignAnalytics";
+import { LazyCampaignAnalytics } from "@/lib/lazy-components";
+import { CampaignDetailSkeleton } from "@fund-my-cause/components";
 import { useTranslations } from "next-intl";
 
 function ContractIdRow({ contractId }: { contractId: string }) {
@@ -111,11 +122,7 @@ export function CampaignDetailContent({ contractId }: { contractId: string }) {
   }, [info, stats, address]);
 
   if (loading) {
-    return (
-      <div className="flex justify-center py-24">
-        <Loader2 size={32} className="animate-spin text-indigo-400" />
-      </div>
-    );
+    return <CampaignDetailSkeleton />;
   }
 
   if (error || !info || !stats) {
@@ -227,7 +234,7 @@ export function CampaignDetailContent({ contractId }: { contractId: string }) {
           </div>
         </div>
 
-        <CampaignAnalytics stats={stats} info={info} />
+        <LazyCampaignAnalytics stats={stats} info={info} />
 
         <p className="leading-relaxed text-gray-700 dark:text-gray-300">
           {info.description}
@@ -241,10 +248,16 @@ export function CampaignDetailContent({ contractId }: { contractId: string }) {
           ) : null;
         })()}
 
-        <ContributionLeaderboard
+        <ContributorList
           contractId={contractId}
           totalRaised={stats.totalRaised}
           connectedAddress={address}
+        />
+
+        <UpdatesFeed
+          campaignId={contractId}
+          campaignTitle={info.title}
+          connectedAddress={address ?? undefined}
         />
 
         <ShareButton campaignId={contractId} campaignTitle={info.title} />
@@ -299,7 +312,7 @@ export function CampaignDetailContent({ contractId }: { contractId: string }) {
         {/* Trust Signals */}
         {(() => {
           const mock = ALL_CAMPAIGNS.find((c) => c.id === contractId);
-          const trustData = {
+          const trustData: Record<string, unknown> = {
             isVerified: true,
             campaignCount: 3,
             accountAgeDays: 420,

@@ -7,6 +7,87 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **#1518/#1519 Shared resilience primitives** — moved the generic three-state circuit
+  breaker into `@fund-my-cause/shared-utils` and added a shared exponential-backoff retry
+  helper. Indexer HTTP/RPC clients and the Horizon wrapper now delegate to the shared
+  implementations; existing `@fund-my-cause/rpc-client` and indexer imports remain valid.
+- **Crowdfund event topics renamed from `("campaign", <event>)` to `("crowdfund", <event>)`** (see
+  ADR-010). Event names and payloads are unchanged. Indexers must subscribe to the `crowdfund`
+  scope for campaign events; events emitted before this release keep the old scope on the ledger.
+- **#1350 Campaigns page split into container/presentational components** — `CampaignList`,
+  `CampaignFilters`, and `CampaignCard` extracted to `src/components/campaigns/`; the page
+  now wires state through a `CampaignsContainer` and delegates rendering to those presentational
+  components.
+
+### Added
+- **#1531 90 % line-coverage floor on crowdfund contract** — `make contracts:coverage` runs
+  `cargo llvm-cov` for the `crowdfund` package and fails with a non-zero exit code when line
+  coverage drops below 90 %. New branch tests in
+  `contracts/crowdfund/tests/refund_withdraw_coverage.rs` exercise previously-uncovered guards
+  in `src/refund.rs` and `src/withdraw.rs` (AlreadyWithdrawn, GoalNotReached, soft_cap path,
+  partial-release proportional refund, record_release accumulation).
+
+### Removed
+- **Deprecated `/health` endpoint** — removed the legacy `GET /health` route from
+  `backend/recommendations/service.py` and `backend/fraud_detection/pipeline.py`. It was a
+  duplicate of `GET /healthz` (which additionally reports a timestamp) and `GET /readyz`;
+  no client called `/health` specifically, only its own test suite. Associated
+  `test_health` tests were removed, and `tests_error_schema.py` now asserts against
+  `/healthz` instead.
+
+### Added
+- **#893 REST endpoint audit** — `services/graphql-api/docs/rest-endpoints.md` documents
+  every REST route in `services/graphql-api` (`GET /health`, `GET /status`, `GET /metrics`,
+  `POST /graphql`) with a caller cross-reference against `apps/interface` and `sdks/js`.
+  All routes are confirmed active with zero deprecated callers.  The frontend migrated fully
+  to GraphQL for *data* operations; the three non-GraphQL routes are operational/infra
+  endpoints with no GraphQL equivalents and no candidates for removal.
+- **#894 Indexer database index migration** — `services/indexer/src/migrations/` adds a
+  structured migration system for the in-memory EventStore:
+  - `001_add_event_indexes.ts` — adds secondary `contractIndex` and `typeIndex` Maps that
+    eliminate full-table scans on `queryByContract` and `queryByType` (O(n) → O(k log k),
+    where k = matching events).  Includes `up()`, `down()` (rollback), and `verify()`.
+  - `run-migrations.ts` — migration runner that applies or rolls back all migrations in
+    order.  Idempotent; safe to run on restart.
+  - `EventStore` extended with `enableIndexes()`, `disableIndexes()`, `verifyIndexes()`,
+    and the `IndexedEventStore` interface; secondary indexes maintained on every `addEvents`
+    call (O(1) amortised overhead per event).
+  - Migrations applied automatically at indexer startup via `runMigrations(store, 'up')`.
+- **#895 Centralised structured logging** — all backend services now emit structured logs
+  consistent with `docs/logging-conventions.md`:
+  - `services/monitoring-service/src/logger.ts` — pino logger with `service: monitoring-service`
+    binding and `requestLogger(traceId)` helper (mirrors `graphql-api` and `indexer` loggers).
+  - All `console.log` / `console.error` calls removed from `incident-response.ts`,
+    `pagerduty-integration.ts`, `alert-transport.ts`, and `index.ts`; replaced with
+    structured `logger.info` / `logger.error` / `logger.warn` / `logger.debug` calls.
+  - `backend/recommendations/service.py` — structlog added with `merge_contextvars` processor
+    chain, `TraceIDMiddleware` registered on the FastAPI app, and `log.info` / `log.debug`
+    calls on recommendation request/cache-hit/cache-miss paths.  Mirrors the canonical
+    implementation in `backend/fraud_detection/pipeline.py`.
+  - `structlog==24.1.0` added to `backend/recommendations/requirements.txt`.
+- **#896 Indexer event handler split** — `services/indexer/src/handlers/` introduces a
+  domain-driven dispatch layer:
+  - `types.ts` — `EventHandler` shared interface (`eventType: string`, `handle(events, repo)`).
+  - `campaign.handler.ts` — handles `campaign` events with domain-specific log fields
+    (creator, title, goal, deadline).
+  - `donation.handler.ts` — handles `donation` events and the legacy `Contribute` alias
+    (backward compat with original Soroban contract event names); logs per-batch total amount.
+  - `achievement.handler.ts` — handles `achievement` events (badge, points, achievement_type).
+  - `dispatcher.ts` — `EventDispatcher` groups a mixed batch by type, routes each group to
+    the matching handler, and falls back to the repository for unknown types (zero event loss).
+    Alias routing registered at construction time via `static aliases` on handler classes.
+  - `index.ts` barrel re-exports all handlers and the dispatcher.
+  - `services/indexer/src/index.ts` updated: ingestion loop now calls `dispatcher.dispatch(events)`
+    instead of `eventRepository.addEvents(events)`.
+  - Unit tests: `campaign.handler.test.ts`, `donation.handler.test.ts`,
+    `achievement.handler.test.ts`, `dispatcher.test.ts` (mixed batch, alias routing,
+    fallback, empty batch, end-state equivalence with pre-refactor behavior).
+
+### Removed
+- **#893** No REST endpoints removed — all existing routes have active callers.
+  (See `services/graphql-api/docs/rest-endpoints.md` for the full audit record.)
+
 ### Added
 - Seed/fixture generators for local testing and development (#731)
   - `scripts/seed-testnet.sh` — Unix/Linux/Mac script to deploy sample campaigns to testnet covering all lifecycle states (active, funded, failed, refunding)

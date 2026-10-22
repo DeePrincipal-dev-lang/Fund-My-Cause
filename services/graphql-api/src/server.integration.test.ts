@@ -29,6 +29,7 @@ function createMockContext(overrides: Partial<Context> = {}): Context {
       get: vi.fn().mockResolvedValue(null),
       set: vi.fn().mockResolvedValue(undefined),
       del: vi.fn().mockResolvedValue(undefined),
+      delPattern: vi.fn().mockResolvedValue(undefined),
     },
     contractService: {
       getCampaign: vi.fn(),
@@ -78,8 +79,16 @@ const sampleCampaign = (overrides: Record<string, any> = {}) => ({
   ...overrides,
 });
 
-async function execute(server: ApolloServer<Context>, query: string, variables: Record<string, any>, context: Context) {
-  const response = await server.executeOperation({ query, variables }, { contextValue: context });
+async function execute(
+  server: ApolloServer<Context>,
+  query: string,
+  variables: Record<string, any>,
+  context: Context,
+) {
+  const response = await server.executeOperation(
+    { query, variables },
+    { contextValue: context },
+  );
   if (response.body.kind !== "single") {
     throw new Error("Expected a single GraphQL response");
   }
@@ -116,7 +125,7 @@ describe("GraphQL API integration", () => {
         }
       }`,
       { id: "camp_1" },
-      context
+      context,
     );
 
     expect(result.errors).toBeUndefined();
@@ -138,11 +147,13 @@ describe("GraphQL API integration", () => {
       server,
       `query GetCampaign($id: ID!) { campaign(id: $id) { id } }`,
       { id: "missing" },
-      context
+      context,
     );
 
     expect(result.data?.campaign).toBeNull();
-    expect(result.errors?.[0]?.message).toContain("Campaign not found: missing");
+    expect(result.errors?.[0]?.message).toContain(
+      "Campaign not found: missing",
+    );
   });
 
   it("rejects an invalid GraphQL query with a validation error rather than crashing the server", async () => {
@@ -152,7 +163,7 @@ describe("GraphQL API integration", () => {
       server,
       `query { campaign(id: "camp_1") { fieldThatDoesNotExist } }`,
       {},
-      context
+      context,
     );
 
     expect(result.data).toBeUndefined();
@@ -161,7 +172,10 @@ describe("GraphQL API integration", () => {
 
   it("runs a full paginated campaigns query end-to-end", async () => {
     const context = createMockContext();
-    const campaigns = [sampleCampaign({ id: "a" }), sampleCampaign({ id: "b" })];
+    const campaigns = [
+      sampleCampaign({ id: "a" }),
+      sampleCampaign({ id: "b" }),
+    ];
     (context.contractService.getCampaigns as any).mockResolvedValue(campaigns);
     (context.contractService.getCampaignCount as any).mockResolvedValue(2);
 
@@ -175,7 +189,7 @@ describe("GraphQL API integration", () => {
         }
       }`,
       {},
-      context
+      context,
     );
 
     expect(result.errors).toBeUndefined();
@@ -204,7 +218,7 @@ describe("GraphQL API integration", () => {
           minContribution: "10",
         },
       },
-      context
+      context,
     );
 
     // createCampaign is non-null in the schema, so the thrown error nullifies
@@ -231,17 +245,20 @@ describe("GraphQL API integration", () => {
           title: "New Campaign",
           description: "desc",
           goal: "1000",
-          deadline: new Date().toISOString(),
+          deadline: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
           category: "Health",
           minContribution: "10",
         },
       },
-      context
+      context,
     );
 
     expect(result.errors).toBeUndefined();
-    expect(result.data?.createCampaign).toMatchObject({ id: "new_1", raised: "0" });
-    expect(context.cache.del).toHaveBeenCalledWith("campaigns:*");
+    expect(result.data?.createCampaign).toMatchObject({
+      id: "new_1",
+      raised: "0",
+    });
+    expect(context.cache.delPattern).toHaveBeenCalledWith("campaigns:*");
   });
 
   it("runs a full authenticate mutation end-to-end for a valid signature", async () => {
@@ -265,8 +282,12 @@ describe("GraphQL API integration", () => {
           user { address }
         }
       }`,
-      { signature: "a-long-enough-signature", message: "msg", address: "GADDR" },
-      context
+      {
+        signature: "a-long-enough-signature",
+        message: "msg",
+        address: "GADDR",
+      },
+      context,
     );
 
     expect(result.errors).toBeUndefined();

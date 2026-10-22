@@ -1,12 +1,35 @@
+"use client";
+
 import React, { createContext, useContext, ReactNode } from "react";
 
 export type Theme = "dark" | "light";
 
-interface ThemeContextType {
+/**
+ * Public contract returned by {@link useTheme}.
+ *
+ * `theme` starts at `initialTheme` (or `"dark"` when there is no provider —
+ * see the fallback contract below). `toggleTheme`/`setTheme` are fresh
+ * function values on every render (they aren't memoized) — safe to call, but
+ * don't rely on their identity for `useEffect`/`useCallback` dependency lists
+ * or `React.memo` prop comparisons.
+ *
+ * SSR-safe: neither this hook nor `ThemeProvider` reads `window` or
+ * `document`, so the first render is identical on the server and the client.
+ *
+ * Fallback contract: calling `useTheme()` outside a `<ThemeProvider>` does
+ * not throw. It returns a default dark-theme context whose `toggleTheme`/
+ * `setTheme` are no-ops, so a component stays renderable in isolation (a
+ * unit test, an example, a provider that hasn't mounted yet) instead of
+ * crashing. The tradeoff is that a genuinely missing provider fails
+ * silently — nothing shows the theme actually applied.
+ */
+export interface UseThemeReturn {
   theme: Theme;
   toggleTheme: () => void;
   setTheme: (theme: Theme) => void;
 }
+
+type ThemeContextType = UseThemeReturn;
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
@@ -44,12 +67,13 @@ export function ThemeProvider({
   );
 }
 
-export function useTheme(): ThemeContextType {
+const defaultThemeContext: ThemeContextType = {
+  theme: "dark",
+  toggleTheme: () => {},
+  setTheme: () => {},
+};
+
+export function useTheme(): UseThemeReturn {
   const context = useContext(ThemeContext);
-  if (!context) {
-    throw new Error(
-      "useTheme must be used within a ThemeProvider. Wrap your component tree with <ThemeProvider>."
-    );
-  }
-  return context;
+  return context || defaultThemeContext;
 }

@@ -3,13 +3,13 @@
 import { useCallback } from "react";
 
 export function ErrorSimulator() {
-  if (process.env.NODE_ENV !== "development") {
-    return null;
-  }
-
   const simulateError = useCallback(() => {
     throw new Error("Simulated error for testing error boundary");
   }, []);
+
+  if (process.env.NODE_ENV !== "development") {
+    return null;
+  }
 
   return (
     <div className="fixed bottom-4 right-4 z-50">

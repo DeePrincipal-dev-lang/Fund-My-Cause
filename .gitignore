@@ -9,7 +9,27 @@ target
 # Cargo.lock is intentionally tracked — see README
 task1.md
 
+# Contract coverage (Issue #1170)
+# The HTML report is large and reproducible — don't commit it.
+# coverage/summary.txt IS committed so reviewers can see trends in PRs.
+coverage/html/
+coverage/lcov.info
+
 # Test fixtures (generated)
 fixtures/seed-data.json
 fixtures/test-fixtures.json
 fixtures/archive/
+contracts/achievements/test_snapshots/
+contracts/crowdfund/test_snapshots/
+contracts/registry/test_snapshots/
+.claude/worktrees/
+**/test_snapshots/coverage/
+
+# Stray tooling output at repo root (#1467)
+/check*.txt
+/m6[0-9][0-9].txt
+/do-*.ps1
+
+# Python caches from local test runs (#1467)
+__pycache__/
+.pytest_cache/

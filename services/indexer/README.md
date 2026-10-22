@@ -2,6 +2,12 @@
 
 Off-chain indexer service for Fund-My-Cause. Ingests Soroban contract events and provides fast queries via REST API.
 
+## Reconciliation Strategy
+
+Reorg handling and duplicate-event idempotency are documented in
+[RECONCILIATION.md](./RECONCILIATION.md). Per-event-type processor
+architecture is documented in [PROCESSOR_REGISTRY.md](./PROCESSOR_REGISTRY.md).
+
 ## Quick Start
 
 ### Environment Variables
@@ -9,6 +15,9 @@ Off-chain indexer service for Fund-My-Cause. Ingests Soroban contract events and
 ```bash
 SOROBAN_RPC_URL=https://soroban-testnet.stellar.org:443
 CROWDFUND_CONTRACT_ID=<your-contract-id>
+REGISTRY_CONTRACT_ID=<your-registry-contract-id>  # optional; see "Event Handlers" below
+QF_CONTRACT_ID=<your-qf-contract-id>  # optional
+ACHIEVEMENTS_CONTRACT_ID=<your-achievements-contract-id>  # optional
 PORT=3001
 LOG_LEVEL=info
 ```
@@ -100,10 +109,45 @@ Get overall service statistics.
 
 ## Architecture
 
-- **RPC Client**: Connects to Soroban RPC and streams contract events
+- **RPC Client**: Connects to Soroban RPC and streams contract events for every contract ID in `contractIds` (crowdfund + optionally registry)
+- **Event Dispatcher**: Groups a mixed batch of events by type and routes each group to its domain handler; unknown types fall back to the repository directly so no event is lost
+- **Event Handlers**: One class per (contract type, event type) pair, modularized under `src/handlers/<contractType>/` — see below
 - **Event Store**: In-memory event storage, the single live data-access layer for this service
 - **Health Checker**: Tracks service health and metrics
 - **Express Server**: REST API (`/events`, `/stats`, `/health`, `/ready`) for querying indexed data
+
+## Event Handlers (#1125)
+
+Handlers are grouped by the Soroban contract that emits their event type, so
+adding a new contract never requires touching an existing contract's handler
+code:
+
+```
+src/handlers/
+  types.ts                    # EventHandler interface + ContractType
+  dispatcher.ts                # router (eventType -> handler instance)
+  handler-registry.ts          # canonical eventType -> handler constructor
+  crowdfund/                   # contracts/crowdfund events
+    campaign.handler.ts         # eventType: "campaign"
+    donation.handler.ts         # eventType: "donation" (alias: "Contribute")
+    achievement.handler.ts      # eventType: "achievement"
+  qf/                          # contracts/qf events
+    calculated.handler.ts       # eventType: "qf_calc"
+  achievements/                # contracts/achievements events
+    unlocked.handler.ts         # eventType: "ach_unl"
+    points-awarded.handler.ts   # eventType: "ach_pts"
+  registry/                    # contracts/registry events
+    registered.handler.ts       # eventType: "reg_proj" (alias: "registered")
+```
+
+Every handler implements the shared `EventHandler` interface (`eventType`,
+`contractType`, `handle()`) documented in `src/handlers/types.ts`. To add a
+new contract type: create `src/handlers/<contractType>/`, implement
+`EventHandler` for each of its event types, export the classes from
+`src/handlers/index.ts`, add the event-type-to-handler entry in
+`src/handlers/handler-registry.ts`, and add the contract's ID to the
+`contractIds` passed to `SorobanRPCClient`. `createEventDispatcher()` picks
+up the new entry automatically.
 
 ## Connection Pool Configuration
 
@@ -132,18 +176,16 @@ All values are configurable via environment variables (see `.env.example`). The 
 
 ### Future migration
 
-When a durable store (e.g. PostgreSQL, SQLite) is introduced, replace `src/store-config.ts` with real connection-pool settings such as:
+When a durable store (e.g. PostgreSQL, SQLite) is introduced, replace `src/store-config.ts` with the shared pool config from `@fund-my-cause/shared-utils` (`packages/shared-utils/src/db-config.ts`, #1128) — the single source of truth for pool tuning across every backend service:
 
 ```typescript
-// Example future pg pool config
-{
-  max: 10,
-  idleTimeoutMillis: 30_000,
-  connectionTimeoutMillis: 5_000,
-}
+import { loadDbPoolConfig } from "@fund-my-cause/shared-utils";
+
+const dbPool = loadDbPoolConfig();
+// { max, min, idleTimeoutMillis, connectionTimeoutMillis, retryAttempts, retryBackoffMs }
 ```
 
-The `StoreConfig` interface is designed to make this migration visible: a grep for `StoreConfig` will find every place the capacity and concurrency settings are consumed.
+The `StoreConfig` interface is designed to make this migration visible: a grep for `StoreConfig` will find every place the capacity and concurrency settings are consumed. See `docs/db-pool-conventions.md` for the full parameter reference and the equivalent Python loader used by `fraud_detection` and `recommendations`.
 
 ### Data-access decision (#837)
 

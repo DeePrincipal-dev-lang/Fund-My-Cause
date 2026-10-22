@@ -1,3 +1,5 @@
 {
-    "kiroAgent.configureMCP": "Disabled"
+  "kiroAgent.configureMCP": "Disabled",
+  "makefile.configureOnOpen": false,
+  "git.ignoreLimitWarning": true
 }

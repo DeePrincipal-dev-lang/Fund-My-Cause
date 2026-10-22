@@ -17,17 +17,40 @@ import { AchievementSystem } from "@/components/gamification/AchievementSystem";
 import { Leaderboard } from "@/components/gamification/Leaderboard";
 import { ReferralProgram } from "@/components/gamification/ReferralProgram";
 import type { ProfileData } from "@/types/profile";
-import type { CampaignData } from "@/lib/soroban";
-import type { LeaderboardEntry } from "@/types/gamification";
+import type { CampaignData } from "@fund-my-cause/types";
+import { AchievementType, type LeaderboardEntry } from "@/types/gamification";
 import { BreadcrumbProvider } from "@/context/BreadcrumbContext";
 import { Breadcrumb } from "@/components/ui/Breadcrumb";
 
 // Mock leaderboard rows pending Issue #12 (real contract-backed ranking).
 function buildMockLeaderboard(address: string): LeaderboardEntry[] {
   return [
-    { rank: 1, address, displayName: "You", totalPoints: 2150, contributionCount: 14, level: 5, achievements: 2, badge: "Super Supporter" },
-    { rank: 2, address: "GABCDEFGHIJKLMNOPQRSTUVWXYZ234567ABCDEFGHIJKLMNOPQRSTUVW", totalPoints: 1890, contributionCount: 11, level: 4, achievements: 3 },
-    { rank: 3, address: "GZYXWVUTSRQPONMLKJIHGFEDCBA234567ZYXWVUTSRQPONMLKJIHGFED", totalPoints: 1420, contributionCount: 9, level: 3, achievements: 1 },
+    {
+      rank: 1,
+      address,
+      displayName: "You",
+      totalPoints: 2150,
+      contributionCount: 14,
+      level: 5,
+      achievements: 2,
+      badge: "Super Supporter",
+    },
+    {
+      rank: 2,
+      address: "GABCDEFGHIJKLMNOPQRSTUVWXYZ234567ABCDEFGHIJKLMNOPQRSTUVW",
+      totalPoints: 1890,
+      contributionCount: 11,
+      level: 4,
+      achievements: 3,
+    },
+    {
+      rank: 3,
+      address: "GZYXWVUTSRQPONMLKJIHGFEDCBA234567ZYXWVUTSRQPONMLKJIHGFED",
+      totalPoints: 1420,
+      contributionCount: 9,
+      level: 3,
+      achievements: 1,
+    },
   ];
 }
 
@@ -147,7 +170,9 @@ export default function ProfilePage({
             {isOwner && (
               <button
                 type="button"
-                onClick={() => unlockAchievement("first_contribution" as any)}
+                onClick={() =>
+                  unlockAchievement(AchievementType.FIRST_CONTRIBUTION)
+                }
                 className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700"
               >
                 Unlock First Contribution Achievement

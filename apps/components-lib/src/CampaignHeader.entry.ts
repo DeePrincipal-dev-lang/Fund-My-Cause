@@ -1,1 +1,11 @@
-export { CampaignHeader, type CampaignHeaderProps, type CampaignHeaderClassNames } from "./CampaignHeader";
+export {
+  CampaignHeader,
+  CampaignHeaderTitle,
+  CampaignHeaderMeta,
+  CampaignHeaderActions,
+  type CampaignHeaderProps,
+  type CampaignHeaderClassNames,
+  type CampaignHeaderTitleProps,
+  type CampaignHeaderMetaProps,
+  type CampaignHeaderActionsProps,
+} from "./CampaignHeader";

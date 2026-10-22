@@ -1,13 +1,17 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { CATEGORY_TAXONOMY, getCategoryBySlug } from "@/lib/categories";
-import CategoryPageClient from "./CategoryPageClient";
 
 export function generateStaticParams() {
   return CATEGORY_TAXONOMY.map((cat) => ({ slug: cat.slug }));
 }
 
-export default function CategoryPage({ params }: { params: { slug: string } }) {
-  const category = getCategoryBySlug(params.slug);
+export default async function CategoryPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = await params;
+  const category = getCategoryBySlug(slug);
   if (!category) notFound();
-  return <CategoryPageClient slug={params.slug} />;
+  redirect(`/en/campaigns?category=${slug}`);
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Download, FileText, FileJson, FileSpreadsheet } from "lucide-react";
+import { FileText, FileJson, FileSpreadsheet } from "lucide-react";
 import { CampaignData } from "@/types/soroban";
 
 interface AnalyticsExportProps {

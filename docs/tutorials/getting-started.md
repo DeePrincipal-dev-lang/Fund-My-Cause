@@ -11,12 +11,11 @@ cd Fund-My-Cause
 
 ## 2. Install dependencies
 
-```bash
-# Node workspace (installs frontend deps)
-npm install
+Follow **[docs/SETUP.md](../SETUP.md)** once from the repository root. The root
+npm workspace install covers the frontend, services, SDKs, and shared packages:
 
-# Frontend app
-cd apps/interface && npm install && cd ../..
+```bash
+npm install
 ```
 
 ## 3. Get a testnet account

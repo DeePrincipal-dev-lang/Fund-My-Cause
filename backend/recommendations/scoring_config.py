@@ -201,3 +201,29 @@ def load_scoring_config(
 #: Import this constant wherever you need weights rather than calling
 #: :func:`load_scoring_config` on every request.
 SCORING_CONFIG: ScoringWeightsConfig = load_scoring_config()
+
+
+# ---------------------------------------------------------------------------
+# Startup hook
+# ---------------------------------------------------------------------------
+
+def assert_startup_config() -> ScoringWeightsConfig:
+    """
+    Explicit startup hook: reload and validate the scoring config from the
+    current process environment, raising :class:`ValueError` on any invalid
+    value.
+
+    Services should call this once during bootstrap (e.g. inside
+    ``service.start()`` or ``main()``) so misconfiguration fails fast,
+    independently of the module-level ``SCORING_CONFIG`` import side effect.
+
+    Returns the validated config so the caller can cache it.
+
+    Raises
+    ------
+    ValueError
+        If the current environment produces an invalid scoring config.
+    """
+    cfg = load_scoring_config()
+    validate_scoring_config(cfg)
+    return cfg

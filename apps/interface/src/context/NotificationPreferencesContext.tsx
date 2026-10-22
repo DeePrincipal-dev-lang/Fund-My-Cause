@@ -2,7 +2,11 @@
 
 import React, { createContext, useContext, ReactNode } from "react";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
-import type { NotificationType } from "@/store/useNotificationStore";
+import {
+  NOTIFICATION_PREFS_STORAGE_KEY,
+  DEFAULT_NOTIFICATION_CATEGORY_PREFS,
+  type NotificationType,
+} from "@/store/useNotificationStore";
 
 export interface NotificationPreferences {
   categories: Record<NotificationType, boolean>;
@@ -12,13 +16,11 @@ export interface NotificationPreferences {
   };
 }
 
-const DEFAULTS: NotificationPreferences = {
-  categories: {
-    contribution: true,
-    goal_reached: true,
-    deadline: true,
-    info: true,
-  },
+// Re-exported so callers of this context don't also need to import from the store.
+export { NOTIFICATION_PREFS_STORAGE_KEY };
+
+export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
+  categories: DEFAULT_NOTIFICATION_CATEGORY_PREFS,
   channels: {
     inApp: true,
     browserPush: false,
@@ -43,8 +45,8 @@ export function NotificationPreferencesProvider({
   children: ReactNode;
 }) {
   const [prefs, setPrefs] = useLocalStorage<NotificationPreferences>(
-    "fmc:notif-prefs",
-    DEFAULTS,
+    NOTIFICATION_PREFS_STORAGE_KEY,
+    DEFAULT_NOTIFICATION_PREFERENCES,
   );
 
   const setCategoryEnabled = (type: NotificationType, enabled: boolean) => {
@@ -81,11 +83,14 @@ export function NotificationPreferencesProvider({
   );
 }
 
+const fallbackPrefsContext: PrefsContextType = {
+  prefs: DEFAULT_NOTIFICATION_PREFERENCES,
+  setCategoryEnabled: () => {},
+  setChannelEnabled: () => {},
+  isCategoryEnabled: () => true,
+};
+
 export function useNotificationPreferences() {
   const ctx = useContext(PrefsContext);
-  if (!ctx)
-    throw new Error(
-      "useNotificationPreferences must be used within NotificationPreferencesProvider",
-    );
-  return ctx;
+  return ctx || fallbackPrefsContext;
 }

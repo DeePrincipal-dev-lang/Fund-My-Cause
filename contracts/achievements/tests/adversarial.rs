@@ -16,6 +16,8 @@ use common::deploy_and_init;
 #[should_panic]
 fn unauthorized_score_inflation_via_award_user_points_is_rejected() {
     let env = Env::default();
+    // deploy_and_init calls `initialize`, which requires auth.
+    env.mock_all_auths();
     let (client, _admin, _platform) = deploy_and_init(&env);
     let attacker = Address::generate(&env);
 
@@ -30,10 +32,11 @@ fn unauthorized_score_inflation_via_award_user_points_is_rejected() {
 #[test]
 fn repeated_unlock_attempts_cannot_farm_points() {
     let env = Env::default();
+    // deploy_and_init calls `initialize`, which requires auth, so mock before it.
+    env.mock_all_auths();
     let (client, _admin, _platform) = deploy_and_init(&env);
     let attacker = Address::generate(&env);
 
-    env.mock_all_auths();
     client.unlock_achievement(&attacker, &2, &String::from_str(&env, "meta"));
     assert_eq!(client.get_points(&attacker), 150);
 
@@ -53,10 +56,11 @@ fn repeated_unlock_attempts_cannot_farm_points() {
 #[test]
 fn out_of_range_achievement_type_is_rejected_not_undefined() {
     let env = Env::default();
+    // deploy_and_init calls `initialize`, which requires auth, so mock before it.
+    env.mock_all_auths();
     let (client, _admin, _platform) = deploy_and_init(&env);
     let attacker = Address::generate(&env);
 
-    env.mock_all_auths();
     for bogus_type in [0u32, 14, 1_000_000] {
         let result =
             client.try_unlock_achievement(&attacker, &bogus_type, &String::from_str(&env, "x"));

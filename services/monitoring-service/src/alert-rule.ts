@@ -1,97 +1,41 @@
-/**
- * Alert rule evaluation — Issue #907
- *
- * Rule evaluation is entirely decoupled from notification transport.
- * Rules operate on raw metric values; when a rule fires it produces an
- * `AlertRuleResult` and delegates delivery to whatever `AlertTransport` was
- * injected at construction time.
- *
- * Structure:
- *   AlertRuleContext   — metric reading passed to every rule
- *   AlertRuleResult    — outcome of evaluating one rule
- *   AlertRule          — interface that every rule implements
- *   ThresholdAlertRule — fires when a value exceeds a static threshold
- *   RateAlertRule      — fires when a rate of change exceeds a threshold
- *   AlertRuleEvaluator — orchestrates a list of rules and calls transport on trigger
- */
+import { createLogger } from "@fund-my-cause/shared-utils";
 
-import type { AlertTransport, AlertPayload } from './alert-transport.js';
+import type { AlertPayload, Transport } from "./alert-transport.js";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+const logger = createLogger("monitoring-service:alert-rule");
 
-/** Metric snapshot passed into every rule for evaluation. */
 export interface AlertRuleContext {
-  /** Name of the metric (e.g. "cpu_usage", "error_rate"). */
   metric: string;
-  /** Current observed value. */
   value: number;
-  /** Configured threshold value for this metric. */
   threshold: number;
-  /**
-   * Optional previous value — required by rate-based rules.
-   * Ignored by threshold rules.
-   */
   previousValue?: number;
-  /**
-   * Time window in seconds over which the rate is computed.
-   * Required by rate-based rules; ignored by threshold rules.
-   */
   windowSeconds?: number;
-  /** Arbitrary key/value labels attached to this metric reading. */
   labels?: Record<string, string>;
 }
 
-/** Outcome produced by evaluating a single rule. */
 export interface AlertRuleResult {
-  /** Unique identifier of the rule that was evaluated. */
   ruleId: string;
-  /** `true` if the rule conditions were satisfied (alert should fire). */
   triggered: boolean;
-  /** Severity to assign when `triggered` is true. */
-  severity: 'critical' | 'warning' | 'info';
-  /** Human-readable explanation of the outcome. */
+  severity: "critical" | "warning" | "info";
   message: string;
-  /** The context snapshot that was used for evaluation. */
   context: AlertRuleContext;
 }
 
-/** Contract that every alert rule must satisfy. */
 export interface AlertRule {
-  /** Unique rule identifier. */
   readonly ruleId: string;
-  /**
-   * Evaluate the rule against a metric context.
-   * Must not throw — malformed contexts produce a non-triggered result.
-   */
   evaluate(ctx: AlertRuleContext): AlertRuleResult;
 }
 
-// ── ThresholdAlertRule ────────────────────────────────────────────────────────
-
 export interface ThresholdAlertRuleOptions {
-  /** Unique identifier for this rule instance. */
   ruleId: string;
-  /**
-   * The comparison direction:
-   *   'above' — fires when value > threshold
-   *   'below' — fires when value < threshold
-   */
-  direction: 'above' | 'below';
-  /** Severity emitted when the rule fires. */
-  severity: 'critical' | 'warning' | 'info';
+  direction: "above" | "below";
+  severity: "critical" | "warning" | "info";
 }
 
-/**
- * Fires when a metric value crosses a static threshold.
- *
- * Examples:
- *   new ThresholdAlertRule({ ruleId: 'cpu-critical', direction: 'above', severity: 'critical' })
- *   → triggers when ctx.value > ctx.threshold
- */
 export class ThresholdAlertRule implements AlertRule {
   readonly ruleId: string;
-  private readonly direction: 'above' | 'below';
-  private readonly severity: 'critical' | 'warning' | 'info';
+  private readonly direction: "above" | "below";
+  private readonly severity: "critical" | "warning" | "info";
 
   constructor(options: ThresholdAlertRuleOptions) {
     this.ruleId = options.ruleId;
@@ -101,47 +45,32 @@ export class ThresholdAlertRule implements AlertRule {
 
   evaluate(ctx: AlertRuleContext): AlertRuleResult {
     const triggered =
-      this.direction === 'above' ? ctx.value > ctx.threshold : ctx.value < ctx.threshold;
+      this.direction === "above" ? ctx.value > ctx.threshold : ctx.value < ctx.threshold;
 
     const message = triggered
       ? `${ctx.metric} is ${ctx.value} (${this.direction} threshold ${ctx.threshold})`
       : `${ctx.metric} is within bounds (${ctx.value} vs threshold ${ctx.threshold})`;
 
     return {
-      ruleId:    this.ruleId,
+      ruleId: this.ruleId,
       triggered,
-      severity:  this.severity,
+      severity: this.severity,
       message,
-      context:   ctx,
+      context: ctx,
     };
   }
 }
 
-// ── RateAlertRule ─────────────────────────────────────────────────────────────
-
 export interface RateAlertRuleOptions {
-  /** Unique identifier for this rule instance. */
   ruleId: string;
-  /**
-   * The rate direction:
-   *   'increase' — fires when the rate of change exceeds the threshold
-   *   'decrease' — fires when the rate of change falls below -threshold
-   */
-  direction: 'increase' | 'decrease';
-  /** Severity emitted when the rule fires. */
-  severity: 'critical' | 'warning' | 'info';
+  direction: "increase" | "decrease";
+  severity: "critical" | "warning" | "info";
 }
 
-/**
- * Fires when the per-second rate of change of a metric exceeds a threshold.
- *
- * Requires `ctx.previousValue` and `ctx.windowSeconds` to be set.
- * Returns a non-triggered result with an explanatory message when they are absent.
- */
 export class RateAlertRule implements AlertRule {
   readonly ruleId: string;
-  private readonly direction: 'increase' | 'decrease';
-  private readonly severity: 'critical' | 'warning' | 'info';
+  private readonly direction: "increase" | "decrease";
+  private readonly severity: "critical" | "warning" | "info";
 
   constructor(options: RateAlertRuleOptions) {
     this.ruleId = options.ruleId;
@@ -152,83 +81,287 @@ export class RateAlertRule implements AlertRule {
   evaluate(ctx: AlertRuleContext): AlertRuleResult {
     if (ctx.previousValue === undefined || !ctx.windowSeconds || ctx.windowSeconds <= 0) {
       return {
-        ruleId:    this.ruleId,
+        ruleId: this.ruleId,
         triggered: false,
-        severity:  this.severity,
-        message:   `${ctx.metric}: insufficient data for rate calculation (need previousValue and windowSeconds)`,
-        context:   ctx,
+        severity: this.severity,
+        message: `${ctx.metric}: insufficient data for rate calculation (need previousValue and windowSeconds)`,
+        context: ctx,
       };
     }
 
     const ratePerSecond = (ctx.value - ctx.previousValue) / ctx.windowSeconds;
     const triggered =
-      this.direction === 'increase'
+      this.direction === "increase"
         ? ratePerSecond > ctx.threshold
         : ratePerSecond < -ctx.threshold;
 
-    const direction = this.direction === 'increase' ? 'increased' : 'decreased';
+    const direction = this.direction === "increase" ? "increased" : "decreased";
     const message = triggered
       ? `${ctx.metric} ${direction} at ${ratePerSecond.toFixed(4)}/s (threshold ${ctx.threshold}/s)`
       : `${ctx.metric} rate is within bounds (${ratePerSecond.toFixed(4)}/s vs threshold ${ctx.threshold}/s)`;
 
     return {
-      ruleId:    this.ruleId,
+      ruleId: this.ruleId,
       triggered,
-      severity:  this.severity,
+      severity: this.severity,
       message,
-      context:   ctx,
+      context: ctx,
     };
   }
 }
 
-// ── AlertRuleEvaluator ────────────────────────────────────────────────────────
+export interface AlertmanagerAlert {
+  status: "firing" | "resolved";
+  labels: Record<string, string>;
+  annotations: Record<string, string>;
+  startsAt: string;
+  endsAt?: string;
+  generatorURL?: string;
+  fingerprint?: string;
+}
 
-/**
- * Orchestrates evaluation of a list of alert rules against a metric context.
- *
- * The evaluator has no knowledge of how alerts are delivered — it delegates
- * entirely to the injected `AlertTransport`.  This is the primary decoupling
- * point addressed by Issue #907.
- *
- * Usage:
- *   const transport = new CompositeAlertTransport([emailTransport, slackTransport]);
- *   const evaluator = new AlertRuleEvaluator([rule1, rule2], transport);
- *   await evaluator.evaluate({ metric: 'cpu_usage', value: 92, threshold: 80, labels: {} });
- */
+export interface AlertmanagerWebhookPayload {
+  version: string;
+  groupKey: string;
+  status: "firing" | "resolved";
+  receiver: string;
+  groupLabels: Record<string, string>;
+  commonLabels: Record<string, string>;
+  commonAnnotations: Record<string, string>;
+  externalURL: string;
+  alerts: AlertmanagerAlert[];
+}
+
+export interface EvaluationResult {
+  ruleId: string;
+  fired: boolean;
+  payload?: AlertPayload;
+  deliveryResults?: Awaited<ReturnType<Transport["send"]>>;
+  error?: string;
+}
+
+export interface AlertmanagerRule {
+  id: string;
+  description: string;
+  severity: AlertPayload["severity"];
+  matches: (alert: AlertmanagerAlert) => boolean;
+  buildMessage: (alert: AlertmanagerAlert) => string;
+  buildContext: (alert: AlertmanagerAlert) => Record<string, string>;
+}
+
+const DEFAULT_WEBHOOK_RULES: AlertmanagerRule[] = [
+  {
+    id: "high-error-rate",
+    description: "Fires when error rate exceeds threshold",
+    severity: "critical",
+    matches: (alert) =>
+      (alert.labels["alertname"] === "HighErrorRate" ||
+        alert.labels["alertname"] === "ErrorRateHigh") &&
+      alert.status === "firing",
+    buildMessage: (alert) =>
+      alert.annotations["description"] ||
+      `High error rate detected on ${alert.labels["service"] ?? "unknown service"}`,
+    buildContext: (alert) => ({
+      service: alert.labels["service"] ?? "",
+      instance: alert.labels["instance"] ?? "",
+      environment: alert.labels["environment"] ?? "",
+      ...(alert.annotations["runbook_url"]
+        ? { runbook: alert.annotations["runbook_url"] }
+        : {}),
+    }),
+  },
+  {
+    id: "service-down",
+    description: "Fires when a monitored service is unavailable",
+    severity: "critical",
+    matches: (alert) =>
+      (alert.labels["alertname"] === "ServiceDown" ||
+        alert.labels["alertname"] === "InstanceDown") &&
+      alert.status === "firing",
+    buildMessage: (alert) =>
+      alert.annotations["description"] ||
+      `Service ${alert.labels["service"] ?? alert.labels["instance"] ?? "unknown"} is down`,
+    buildContext: (alert) => ({
+      service: alert.labels["service"] ?? "",
+      instance: alert.labels["instance"] ?? "",
+      job: alert.labels["job"] ?? "",
+    }),
+  },
+  {
+    id: "high-latency",
+    description: "Fires when p99 latency exceeds the configured SLO",
+    severity: "warning",
+    matches: (alert) =>
+      (alert.labels["alertname"] === "HighLatency" ||
+        alert.labels["alertname"] === "SlowRequests") &&
+      alert.status === "firing",
+    buildMessage: (alert) =>
+      alert.annotations["description"] ||
+      `High latency detected on ${alert.labels["service"] ?? "unknown service"}`,
+    buildContext: (alert) => ({
+      service: alert.labels["service"] ?? "",
+      quantile: alert.labels["quantile"] ?? "p99",
+    }),
+  },
+  {
+    id: "disk-space-low",
+    description: "Fires when disk free space falls below threshold",
+    severity: "warning",
+    matches: (alert) =>
+      alert.labels["alertname"] === "DiskSpaceLow" && alert.status === "firing",
+    buildMessage: (alert) =>
+      alert.annotations["description"] ||
+      `Low disk space on ${alert.labels["instance"] ?? "unknown"}`,
+    buildContext: (alert) => ({
+      instance: alert.labels["instance"] ?? "",
+      mountpoint: alert.labels["mountpoint"] ?? "/",
+    }),
+  },
+  {
+    id: "catch-all-critical",
+    description: "Catch-all for any critical severity alert not matched by a specific rule",
+    severity: "critical",
+    matches: (alert) =>
+      alert.labels["severity"] === "critical" && alert.status === "firing",
+    buildMessage: (alert) =>
+      alert.annotations["description"] ||
+      alert.annotations["summary"] ||
+      `Critical alert: ${alert.labels["alertname"] ?? "unknown"}`,
+    buildContext: (alert) => ({
+      alertname: alert.labels["alertname"] ?? "",
+      ...alert.labels,
+    }),
+  },
+];
+
 export class AlertRuleEvaluator {
-  private readonly rules: AlertRule[];
-  private readonly transport: AlertTransport;
+  private readonly metricRules: AlertRule[];
+  private readonly webhookRules: AlertmanagerRule[];
+  private readonly transport: Transport | null;
 
-  constructor(rules: AlertRule[], transport: AlertTransport) {
-    this.rules = rules;
-    this.transport = transport;
+  constructor(rules: AlertRule[], transport: Transport | null);
+  constructor(transport: Transport | null, extraRules?: AlertmanagerRule[]);
+  constructor(
+    rulesOrTransport: AlertRule[] | Transport | null,
+    transportOrRules?: Transport | null | AlertmanagerRule[],
+  ) {
+    if (Array.isArray(rulesOrTransport)) {
+      this.metricRules = rulesOrTransport;
+      this.webhookRules = [];
+      this.transport = (transportOrRules as Transport | null | undefined) ?? null;
+      return;
+    }
+
+    this.metricRules = [];
+    this.webhookRules = [
+      ...((transportOrRules as AlertmanagerRule[] | undefined) ?? []),
+      ...DEFAULT_WEBHOOK_RULES,
+    ];
+    this.transport = rulesOrTransport;
   }
 
-  /**
-   * Evaluate all rules against the supplied context.
-   *
-   * Rules that trigger cause `transport.deliver()` to be called.
-   * Transport failures are surfaced as thrown errors so callers can decide
-   * whether to retry or log and continue.
-   *
-   * @returns All evaluation results (triggered and non-triggered).
-   */
-  async evaluate(ctx: AlertRuleContext): Promise<AlertRuleResult[]> {
+  async evaluate(ctx: AlertRuleContext): Promise<AlertRuleResult[]>;
+  async evaluate(
+    webhookPayload: AlertmanagerWebhookPayload,
+  ): Promise<EvaluationResult[]>;
+  async evaluate(
+    input: AlertRuleContext | AlertmanagerWebhookPayload,
+  ): Promise<AlertRuleResult[] | EvaluationResult[]> {
+    if (Array.isArray((input as AlertmanagerWebhookPayload).alerts)) {
+      return this.evaluateWebhook(input as AlertmanagerWebhookPayload);
+    }
+    return this.evaluateMetric(input as AlertRuleContext);
+  }
+
+  async evaluateAlert(alert: AlertmanagerAlert): Promise<EvaluationResult[]> {
+    return this.evaluateWebhook({ alerts: [alert] });
+  }
+
+  getRuleIds(): string[] {
+    return [
+      ...this.webhookRules.map((rule) => rule.id),
+      ...this.metricRules.map((rule) => rule.ruleId),
+    ];
+  }
+
+  private async evaluateMetric(ctx: AlertRuleContext): Promise<AlertRuleResult[]> {
     const results: AlertRuleResult[] = [];
 
-    for (const rule of this.rules) {
+    for (const rule of this.metricRules) {
       const result = rule.evaluate(ctx);
       results.push(result);
 
-      if (result.triggered) {
+      if (result.triggered && this.transport) {
         const payload: AlertPayload = {
-          ruleId:    result.ruleId,
-          severity:  result.severity,
-          message:   result.message,
-          context:   { ...ctx, ...ctx.labels },
+          ruleId: result.ruleId,
+          severity: result.severity,
+          message: result.message,
+          context: { ...ctx, ...ctx.labels },
           timestamp: new Date().toISOString(),
         };
-        await this.transport.deliver(payload);
+        await this.transport.send(payload);
+      }
+    }
+
+    return results;
+  }
+
+  private async evaluateWebhook(
+    webhookPayload: Pick<AlertmanagerWebhookPayload, "alerts">,
+  ): Promise<EvaluationResult[]> {
+    const results: EvaluationResult[] = [];
+
+    for (const alert of webhookPayload.alerts ?? []) {
+      for (const rule of this.webhookRules) {
+        let fired = false;
+        try {
+          fired = rule.matches(alert);
+        } catch (error) {
+          results.push({
+            ruleId: rule.id,
+            fired: false,
+            error: `Rule.matches() threw: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          });
+          continue;
+        }
+
+        if (!fired) {
+          results.push({ ruleId: rule.id, fired: false });
+          continue;
+        }
+
+        const payload: AlertPayload = {
+          ruleId: rule.id,
+          severity: rule.severity,
+          message: rule.buildMessage(alert),
+          context: rule.buildContext(alert),
+          timestamp: alert.startsAt || new Date().toISOString(),
+        };
+
+        if (!this.transport) {
+          logger.warn(
+            { ruleId: rule.id, payload },
+            "Alert fired but no transport is configured",
+          );
+          results.push({ ruleId: rule.id, fired: true, payload });
+          continue;
+        }
+
+        try {
+          const deliveryResults = await this.transport.send(payload);
+          results.push({ ruleId: rule.id, fired: true, payload, deliveryResults });
+        } catch (error) {
+          results.push({
+            ruleId: rule.id,
+            fired: true,
+            payload,
+            error: `Delivery failed: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          });
+        }
       }
     }
 

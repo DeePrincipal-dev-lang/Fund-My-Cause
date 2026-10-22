@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { ReactQueryProvider } from "@/context/ReactQueryProvider";
-import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { ErrorBoundary } from "@fund-my-cause/components";
 import "@/app/globals.css";
 
 export const metadata: Metadata = {

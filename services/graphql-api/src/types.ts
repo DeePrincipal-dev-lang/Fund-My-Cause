@@ -2,6 +2,7 @@ import type { RedisClientType } from "redis";
 import type DataLoader from "dataloader";
 import type pino from "pino";
 import type { PubSubService } from "./services/pubsub.js";
+import type { QueryCostAnalyzer } from "./services/query-cost-analyzer.js";
 // Canonical source: @fund-my-cause/types. Values are PascalCase ("Active",
 // not "ACTIVE"), matching the crowdfund contract's Status enum. The public
 // GraphQL schema still exposes SCREAMING_CASE enum names (see schema.ts) —
@@ -9,166 +10,62 @@ import type { PubSubService } from "./services/pubsub.js";
 import type { CampaignStatus } from "@fund-my-cause/types";
 export type { CampaignStatus };
 
-// ── Contract types ─────────────────────────────────────────────────────────────
+// ── Shared domain types ────────────────────────────────────────────────────────
+//
+// These used to be declared here, giving the platform three hand-maintained
+// copies of every domain shape (frontend, graphql-api, indexer). They now live
+// in @fund-my-cause/types and are re-exported so this module stays the single
+// import path for the rest of the service — a change to the shared definitions
+// is a compile error here.
 
-/** Mirrors soroban-sdk Status enum. */
-export type ContractStatus =
-  | "Active"
-  | "Successful"
-  | "Refunded"
-  | "Cancelled"
-  | "Paused"
-  | "Archived";
+/** Raw Soroban view return shapes — see @fund-my-cause/types/contract. */
+export type {
+  ContractCategory,
+  RawCampaignInfo,
+  RawCampaignStats,
+  RawPerformanceMetrics,
+  RawCampaignIdList,
+} from "@fund-my-cause/types";
 
-/** Mirrors soroban-sdk Category enum. */
-export type ContractCategory =
-  | "Charity"
-  | "Technology"
-  | "Creative"
-  | "Event"
-  | "Personal"
-  | "Other";
+/**
+ * Server-side representation of the GraphQL schema — see
+ * @fund-my-cause/types/graphql-server. BigInt scalars are `bigint` here;
+ * the client-facing codegen types in @fund-my-cause/types/graphql use `string`.
+ */
+export type {
+  Campaign,
+  Contribution,
+  User,
+  CampaignUpdate,
+  Milestone,
+  Contributor,
+  CampaignProgress,
+  Statistics,
+  CampaignFilter,
+  PaginationInput,
+  CampaignSort,
+  GetCampaignsParams,
+  CreateCampaignInput,
+  UpdateCampaignInput,
+  RecordContributionInput,
+} from "@fund-my-cause/types/graphql-server";
 
-/** Raw return type of contract get_campaign_info view. */
-export interface RawCampaignInfo {
-  creator: string;
-  token: string;
-  goal: bigint;
-  deadline: bigint;
-  min_contribution: bigint;
-  max_contribution: bigint;
-  title: string;
-  description: string;
-  status: ContractStatus;
-  category: ContractCategory;
-  has_platform_config: boolean;
-  platform_fee_bps: number;
-  platform_address: string;
-}
+export {
+  MilestoneStatus,
+  SortField,
+  SortDirection,
+} from "@fund-my-cause/types/graphql-server";
 
-/** Raw return type of contract get_stats view. */
-export interface RawCampaignStats {
-  total_raised: bigint;
-  gross_raised: bigint;
-  goal: bigint;
-  soft_cap: bigint;
-  stretch_goal: bigint;
-  progress_bps: number;
-  contributor_count: number;
-  average_contribution: bigint;
-  largest_contribution: bigint;
-}
+// ── Service-local types ────────────────────────────────────────────────────────
 
-/** Raw return type of contract get_performance_metrics view. */
-export interface RawPerformanceMetrics {
-  success_rate_bps: number;
-  contribution_velocity: bigint;
-  trending: number;
-  milestones_reached: number;
-  total_milestones: number;
-  time_elapsed: bigint;
-  estimated_time_to_goal: bigint;
-  average_daily_contribution: bigint;
-}
-
-/** Raw return type of registry list / list_by_status. */
-export type RawCampaignIdList = string[];
-
-/** Campaign as exposed to GraphQL resolvers. */
-export interface Campaign {
-  /** Soroban contract address of the campaign */
-  id: string;
-  /** Alias for id (kept for GraphQL schema compat) */
-  contractId: string;
-  title: string;
-  description: string;
-  creator: string;
-  /** Funding goal in stroops */
-  goal: bigint;
-  /** Net amount raised in stroops */
-  raised: bigint;
-  /** ISO-8601 deadline */
-  deadline: string;
-  status: CampaignStatus;
-  category: string;
-  image?: string;
-  videoUrl?: string;
-  minContribution: bigint;
-  maxContribution: bigint;
-  totalContributors: number;
-  token: string;
-  platformFeeBps?: number;
-  hasRBACEnabled: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface Contribution {
-  id: string;
-  campaignId: string;
-  contributor: string;
-  amount: bigint;
-  timestamp: string;
-  transactionHash: string;
-}
-
-export interface User {
-  address: string;
-  totalContributed: bigint;
-  contributionCount: number;
-  campaigns: Campaign[];
-  contributions: Contribution[];
-  joinedAt: string;
-}
-
-export interface CampaignUpdate {
-  id: string;
-  campaignId: string;
-  content: string;
-  ipfsHash: string;
-  timestamp: string;
-}
-
-export interface Milestone {
-  id: string;
-  campaignId: string;
-  title: string;
-  description: string;
-  targetAmount: bigint;
-  releasePercentage: number;
-  status: MilestoneStatus;
-}
-
-export interface Contributor {
-  address: string;
-  amount: bigint;
-  contributionCount: number;
-  isTopContributor: boolean;
-}
-
-export interface CampaignProgress {
-  campaignId: string;
-  raised: bigint;
-  percentageFunded: number;
-  contributors: number;
-  daysRemaining: number;
-  timestamp: string;
-}
-
-export interface Statistics {
-  totalCampaigns: number;
-  activeCampaigns: number;
-  totalRaised: bigint;
-  totalContributors: number;
-  averageContribution: bigint;
-  successRate: number;
-}
-
-export enum MilestoneStatus {
-  PENDING = "PENDING",
-  REACHED = "REACHED",
-  RELEASED = "RELEASED",
-}
+import type {
+  Campaign,
+  Contribution,
+  User,
+  CampaignUpdate,
+  Milestone,
+  Contributor,
+} from "@fund-my-cause/types/graphql-server";
 
 // DataLoader types
 export interface DataLoaders {
@@ -187,6 +84,12 @@ export interface DataLoaders {
   userContributions: DataLoader<string, Contribution[]>;
 }
 
+/** An authenticated caller, derived from a verified JWT. */
+export interface AuthenticatedUser {
+  address: string;
+  isAuthenticated: boolean;
+}
+
 // Context type
 export interface Context {
   cache: any; // Redis cache service
@@ -194,10 +97,7 @@ export interface Context {
   dataLoader: DataLoaders;
   pubsub: PubSubService;
   authService: any; // Auth service
-  user?: {
-    address: string;
-    isAuthenticated: boolean;
-  };
+  user?: AuthenticatedUser;
   redis: RedisClientType;
   /** Trace ID for this request — generated once in the Apollo context factory
    *  and forwarded as X-Trace-ID to all downstream HTTP calls. */
@@ -206,68 +106,6 @@ export interface Context {
   log: pino.Logger;
   /** Rate limiter service — used by mutation resolvers for per-mutation limits. */
   rateLimiter?: any;
-}
-
-// API Response types
-export interface CampaignFilter {
-  status?: CampaignStatus[];
-  category?: string[];
-  minGoal?: bigint;
-  maxGoal?: bigint;
-  creator?: string;
-  search?: string;
-}
-
-export interface PaginationInput {
-  limit: number;
-  offset: number;
-}
-
-export interface CampaignSort {
-  field: SortField;
-  direction: SortDirection;
-}
-
-export enum SortField {
-  CREATED_AT = "CREATED_AT",
-  RAISED_AMOUNT = "RAISED_AMOUNT",
-  GOAL = "GOAL",
-  DEADLINE = "DEADLINE",
-  CONTRIBUTORS = "CONTRIBUTORS",
-}
-
-export enum SortDirection {
-  ASC = "ASC",
-  DESC = "DESC",
-}
-
-export interface GetCampaignsParams {
-  filter?: CampaignFilter;
-  pagination: PaginationInput;
-  sort?: CampaignSort;
-}
-
-export interface CreateCampaignInput {
-  title: string;
-  description: string;
-  goal: bigint;
-  deadline: string;
-  category: string;
-  image?: string;
-  videoUrl?: string;
-  minContribution: bigint;
-}
-
-export interface UpdateCampaignInput {
-  title?: string;
-  description?: string;
-  image?: string;
-  videoUrl?: string;
-}
-
-export interface RecordContributionInput {
-  campaignId: string;
-  contributor: string;
-  amount: bigint;
-  transactionHash: string;
+  /** Query cost analyzer — validates query complexity to prevent expensive nested queries. */
+  queryCostAnalyzer?: QueryCostAnalyzer;
 }

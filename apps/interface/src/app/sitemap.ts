@@ -1,13 +1,23 @@
 import type { MetadataRoute } from "next";
-import { fetchAllCampaigns } from "@/lib/soroban";
+import { fetchAllCampaigns } from "@/lib/graphql/client";
 import { getAllSlugs, getCampaignSlug } from "@/lib/slugs";
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://fund-my-cause.app";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticRoutes: MetadataRoute.Sitemap = [
-    { url: BASE_URL, lastModified: new Date(), changeFrequency: "daily", priority: 1 },
-    { url: `${BASE_URL}/campaigns`, lastModified: new Date(), changeFrequency: "hourly", priority: 0.9 },
+    {
+      url: BASE_URL,
+      lastModified: new Date(),
+      changeFrequency: "daily",
+      priority: 1,
+    },
+    {
+      url: `${BASE_URL}/campaigns`,
+      lastModified: new Date(),
+      changeFrequency: "hourly",
+      priority: 0.9,
+    },
   ];
 
   // Always include slug routes from the static registry

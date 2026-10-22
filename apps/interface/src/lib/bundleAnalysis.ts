@@ -127,20 +127,22 @@ export function calculateOptimizationPotential(
 /**
  * Report bundle metrics
  */
-export function reportBundleMetrics(
+export async function reportBundleMetrics(
   endpoint: string,
   metrics: BundleMetrics
 ): Promise<void> {
-  if (typeof window === "undefined") return Promise.resolve();
+  if (typeof window === "undefined") return;
 
-  return fetch(endpoint, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(metrics),
-    keepalive: true,
-  }).catch((error) => {
+  try {
+    await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(metrics),
+      keepalive: true,
+    });
+  } catch (error) {
     console.warn("Bundle metrics reporting failed:", error);
-  });
+  }
 }
 
 /**

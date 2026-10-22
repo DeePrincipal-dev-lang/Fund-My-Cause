@@ -1,4 +1,5 @@
 import { render } from '@testing-library/react';
+import { CampaignDetailSkeleton } from '@fund-my-cause/components';
 
 describe('Visual Regression - Components', () => {
   it('should render ProgressBar consistently', () => {
@@ -152,5 +153,22 @@ describe('Visual Regression - States', () => {
       </div>
     );
     expect(container.firstChild).toMatchSnapshot();
+  });
+});
+
+describe('Visual Regression - Skeleton States (#1112)', () => {
+  it('should render CampaignDetailSkeleton consistently', () => {
+    const { container, getByTestId } = render(<CampaignDetailSkeleton />);
+    const root = getByTestId('campaign-detail-skeleton');
+    expect(root).toHaveAttribute('aria-busy', 'true');
+    expect(root).toHaveAttribute('aria-label', 'Loading campaign details');
+    expect(container.firstChild).toMatchSnapshot();
+  });
+
+  it('CampaignDetailSkeleton applies custom className', () => {
+    const { getByTestId } = render(
+      <CampaignDetailSkeleton className="custom-class" />
+    );
+    expect(getByTestId('campaign-detail-skeleton')).toHaveClass('custom-class');
   });
 });

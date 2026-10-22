@@ -44,7 +44,9 @@ export function Modal({
   useEffect(() => {
     if (!isOpen) return;
     document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = "unset"; };
+    return () => {
+      document.body.style.overflow = "unset";
+    };
   }, [isOpen]);
 
   // Focus trap
@@ -52,18 +54,29 @@ export function Modal({
     if (!isOpen || !containerRef.current) return;
     const container = containerRef.current;
     const previousFocus = document.activeElement as HTMLElement | null;
-    const focusable = Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE));
-    focusable[0]?.focus();
+    container.querySelectorAll<HTMLElement>(FOCUSABLE)[0]?.focus();
 
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { onClose(); return; }
-      if (e.key !== "Tab" || !focusable.length) return;
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      // Re-query on every Tab press: the dialog's content (form steps,
+      // validation messages, async-loaded sections) can change while open,
+      // and a list captured only at open time would trap focus on stale nodes.
+      const focusable = Array.from(
+        container.querySelectorAll<HTMLElement>(FOCUSABLE),
+      );
+      if (!focusable.length) return;
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
       if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault(); last.focus();
+        e.preventDefault();
+        last.focus();
       } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault(); first.focus();
+        e.preventDefault();
+        first.focus();
       }
     };
 
@@ -100,7 +113,7 @@ export function Modal({
         className={cn(
           "relative bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full mx-4",
           "animate-in zoom-in-95 fade-in duration-200",
-          sizes[size]
+          sizes[size],
         )}
         role="dialog"
         aria-modal="true"

@@ -44,6 +44,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Build @fund-my-cause/sdk
+        working-directory: sdks/js
+        run: npm run build
+
       - name: Check for duplicate route trees
         working-directory: apps/interface
         run: npm run check:routes
@@ -83,13 +87,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Build @fund-my-cause/sdk
+        working-directory: sdks/js
+        run: npm run build
+
       - name: Typecheck (apps/interface)
         working-directory: apps/interface
-        run: npx tsc --noEmit
+        run: npm run typecheck
 
       - name: Typecheck (apps/components-lib)
         working-directory: apps/components-lib
-        run: npx tsc --noEmit
+        run: npm run typecheck
 
   test:
     runs-on: ubuntu-latest
@@ -114,6 +122,10 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Build @fund-my-cause/sdk
+        working-directory: sdks/js
+        run: npm run build
 
       - name: Run tests (apps/interface)
         working-directory: apps/interface
@@ -150,6 +162,10 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Build @fund-my-cause/sdk
+        working-directory: sdks/js
+        run: npm run build
 
       - name: Build (apps/interface)
         working-directory: apps/interface

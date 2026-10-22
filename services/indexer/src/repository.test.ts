@@ -50,10 +50,10 @@ function createMockEventRepository(): EventRepository & {
     _events,
     addEvents: vi.fn((events: IndexerEvent[]) => _events.push(...events)),
     queryByContract: vi.fn((id, limit = 100) =>
-      _events.filter((e) => e.contractId === id).slice(0, limit)
+      _events.filter((e) => e.contractId === id).slice(0, limit),
     ),
     queryByType: vi.fn((type, limit = 100) =>
-      _events.filter((e) => e.type === type).slice(0, limit)
+      _events.filter((e) => e.type === type).slice(0, limit),
     ),
     getAllEvents: vi.fn((limit = 100) => _events.slice(0, limit)),
     getCount: vi.fn(() => _events.length),
@@ -125,7 +125,10 @@ describe("EventStoreRepository integration (real EventStore)", () => {
 
   describe("satisfies EventRepository", () => {
     it("addEvents persists events retrievable via getAllEvents", () => {
-      const events = [makeEvent({ contractId: "C1" }), makeEvent({ contractId: "C2" })];
+      const events = [
+        makeEvent({ contractId: "C1" }),
+        makeEvent({ contractId: "C2" }),
+      ];
       repoImpl.addEvents(events);
       const all = repoImpl.getAllEvents(100);
       expect(all).toHaveLength(2);
@@ -211,11 +214,43 @@ describe("EventStoreRepository integration (real EventStore)", () => {
       const campaignId = "CAMP_CONTRIB_3";
       repoImpl.addEvents(
         Array.from({ length: 10 }, () =>
-          makeEvent({ contractId: campaignId, type: "Contribute" })
-        )
+          makeEvent({ contractId: campaignId, type: "Contribute" }),
+        ),
       );
       const contributions = repoImpl.getContributionsForCampaign(campaignId, 3);
       expect(contributions.length).toBeLessThanOrEqual(3);
+    });
+
+    it("finds contributions even when more recent non-Contribute events for the same campaign outnumber limit*10", () => {
+      // Regression test: the old implementation over-fetched
+      // queryByContract(campaignId, limit * 10) and filtered by type
+      // client-side. With limit=2 that fetches only the 20 most-recent
+      // events for the contract — if 20+ newer non-Contribute events exist,
+      // the real (older) Contribute events never make it into that window
+      // and are silently dropped.
+      const campaignId = "CAMP_CONTRIB_4";
+      const base = Date.now();
+
+      const contributeEvents = Array.from({ length: 2 }, (_, i) =>
+        makeEvent({
+          contractId: campaignId,
+          type: "Contribute",
+          timestamp: base + i, // oldest
+        }),
+      );
+      const noisyEvents = Array.from({ length: 25 }, (_, i) =>
+        makeEvent({
+          contractId: campaignId,
+          type: "Withdraw",
+          timestamp: base + 1000 + i, // all newer than the contributions
+        }),
+      );
+
+      repoImpl.addEvents([...noisyEvents, ...contributeEvents]);
+
+      const contributions = repoImpl.getContributionsForCampaign(campaignId, 2);
+      expect(contributions).toHaveLength(2);
+      expect(contributions.every((e) => e.type === "Contribute")).toBe(true);
     });
   });
 });

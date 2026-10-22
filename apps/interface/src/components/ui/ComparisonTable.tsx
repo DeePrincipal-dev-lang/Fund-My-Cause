@@ -5,8 +5,9 @@ import type { Campaign } from "@/types/campaign";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { formatXlm } from "@/lib/price";
 import { formatCampaignDateShort } from "@/lib/campaignDateFormatting";
-import { TrendingUp } from "lucide-react";
+import { TrendingUp, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getComparisonValue } from "@/lib/comparison";
 
 interface ComparisonTableProps {
   campaigns: Campaign[];
@@ -29,9 +30,9 @@ function TrendIndicator({ value, best }: { value: number; best: number }) {
 export function ComparisonTable({ campaigns, onRemove }: ComparisonTableProps) {
   if (campaigns.length === 0) return null;
 
-  const maxRaised = Math.max(...campaigns.map((c) => c.raised));
+  const maxRaised = Math.max(...campaigns.map((c) => getComparisonValue(c, "raised")));
   const maxContributors = Math.max(
-    ...campaigns.map((c) => c.contributorCount ?? 0),
+    ...campaigns.map((c) => getComparisonValue(c, "contributors")),
   );
   const maxProgress = Math.max(
     ...campaigns.map((c) => (c.goal > 0 ? c.raised / c.goal : 0)),

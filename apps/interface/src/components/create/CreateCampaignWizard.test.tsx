@@ -50,6 +50,11 @@ describe("CreateCampaignWizard validation", () => {
   });
 
   it("passes validation for a complete campaign draft", () => {
+    // Use a deadline 6 months from now (within the 1-year limit)
+    const sixMonthsFromNow = new Date();
+    sixMonthsFromNow.setMonth(sixMonthsFromNow.getMonth() + 6);
+    const deadline = sixMonthsFromNow.toISOString().split("T")[0];
+
     const data = {
       ...INITIAL,
       contractId: "C" + "A".repeat(55),

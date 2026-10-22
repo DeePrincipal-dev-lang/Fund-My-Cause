@@ -6,11 +6,11 @@ Implement the `/profile/[address]` route with profile customization, campaign di
 
 ## Tasks
 
-- [ ] 1. Create data models and profileStore
-  - [ ] 1.1 Define `ProfileData` interface and `DEFAULT_PROFILE` constant in `src/types/profile.ts`
+- [x] 1. Create data models and profileStore
+  - [x] 1.1 Define `ProfileData` interface and `DEFAULT_PROFILE` constant in `src/types/profile.ts`
     - Fields: `avatarUri: string`, `bio: string`, `socialLinks: string[]`
     - _Requirements: 5.2, 7.1, 7.2_
-  - [ ] 1.2 Implement `profileStore` in `src/lib/profileStore.ts`
+  - [x] 1.2 Implement `profileStore` in `src/lib/profileStore.ts`
     - `readProfile(address: string): ProfileData` — reads from `localStorage` key `fmc:profile:${address}`, validates shape, returns `DEFAULT_PROFILE` on missing/invalid data, handles `localStorage` unavailability
     - `writeProfile(address: string, data: ProfileData): void` — serializes to JSON, writes to `localStorage`, silently no-ops if unavailable
     - _Requirements: 7.1, 7.2, 7.3, 7.5_
@@ -20,8 +20,8 @@ Implement the `/profile/[address]` route with profile customization, campaign di
     - **Validates: Requirements 7.4, 7.5**
     - Tag: `Feature: user-profile-pages, Property 1 & 2`
 
-- [ ] 2. Implement validation helpers
-  - [ ] 2.1 Create `src/lib/profileValidation.ts` with `validateBio(bio: string): boolean` (max 280 chars) and `validateSocialLinks(links: string[]): boolean` (max 5 items, each parseable by `new URL()`)
+- [x] 2. Implement validation helpers
+  - [x] 2.1 Create `src/lib/profileValidation.ts` with `validateBio(bio: string): boolean` (max 280 chars) and `validateSocialLinks(links: string[]): boolean` (max 5 items, each parseable by `new URL()`)
     - _Requirements: 5.5, 5.6, 6.1_
   - [ ]* 2.2 Write property tests for validation helpers
     - **Property 3: Bio length validation** — for any string with length > 280, `validateBio` returns false
@@ -30,17 +30,17 @@ Implement the `/profile/[address]` route with profile customization, campaign di
     - **Validates: Requirements 5.5, 5.6, 6.1**
     - Tag: `Feature: user-profile-pages, Property 3, 4 & 5`
 
-- [ ] 3. Checkpoint — Ensure all tests pass, ask the user if questions arise.
+- [x] 3. Checkpoint — Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 4. Implement `useContributions` hook and `useProfileStats` hook
-  - [ ] 4.1 Create `src/hooks/useContributions.ts`
+- [x] 4. Implement `useContributions` hook and `useProfileStats` hook
+  - [x] 4.1 Create `src/hooks/useContributions.ts`
     - Accepts `address: string`
     - Iterates all known campaign contract IDs via `fetchContribution` from `soroban.ts`
     - Returns `{ contributions: ContributionEntry[], loading: boolean, error: string | null, retry: () => void }`
     - `ContributionEntry`: `{ contractId, campaignTitle, amount, date }`
     - Sorts results by date descending
     - _Requirements: 3.1, 3.4_
-  - [ ] 4.2 Create `src/hooks/useProfileStats.ts`
+  - [x] 4.2 Create `src/hooks/useProfileStats.ts`
     - Accepts campaigns array and contributions array
     - Computes `totalRaised`, `totalContributed`, `campaignCount`, `contributionCount`
     - Treats missing/undefined values as zero
@@ -51,8 +51,8 @@ Implement the `/profile/[address]` route with profile customization, campaign di
     - **Validates: Requirements 4.1, 4.2, 4.3, 4.4**
     - Tag: `Feature: user-profile-pages, Property 6 & 7`
 
-- [ ] 5. Build `ProfileHeader` component
-  - [ ] 5.1 Create `src/components/profile/ProfileHeader.tsx`
+- [x] 5. Build `ProfileHeader` component
+  - [x] 5.1 Create `src/components/profile/ProfileHeader.tsx`
     - Props: `address`, `profile: ProfileData`, `isOwner: boolean`, `onEdit: () => void`
     - Renders avatar (img from `avatarUri`) or identicon fallback when `avatarUri` is empty
     - Displays truncated address (first 6 + last 4 chars) with copy-to-clipboard button
@@ -60,15 +60,15 @@ Implement the `/profile/[address]` route with profile customization, campaign di
     - Renders "Edit Profile" button when `isOwner` is true
     - _Requirements: 1.3, 1.4, 5.1_
 
-- [ ] 6. Build `StatsBar` component
-  - [ ] 6.1 Create `src/components/profile/StatsBar.tsx`
+- [x] 6. Build `StatsBar` component
+  - [x] 6.1 Create `src/components/profile/StatsBar.tsx`
     - Props: `campaignCount`, `totalRaised`, `contributionCount`, `totalContributed`, `loading`
     - Renders four stat tiles; shows loading skeleton when `loading` is true
     - Formats XLM values to two decimal places
     - _Requirements: 4.3, 4.4_
 
-- [ ] 7. Build `CampaignsSection` component
-  - [ ] 7.1 Create `src/components/profile/CampaignsSection.tsx`
+- [x] 7. Build `CampaignsSection` component
+  - [x] 7.1 Create `src/components/profile/CampaignsSection.tsx`
     - Accepts `address: string`
     - Filters all campaigns from `fetchAllCampaigns()` where `campaign.creator === address`
     - Renders a campaign card per result showing title, status, raised, goal, deadline
@@ -76,16 +76,16 @@ Implement the `/profile/[address]` route with profile customization, campaign di
     - Shows loading skeleton while fetching, empty state when no campaigns found
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
 
-- [ ] 8. Build `ContributionsSection` component
-  - [ ] 8.1 Create `src/components/profile/ContributionsSection.tsx`
+- [x] 8. Build `ContributionsSection` component
+  - [x] 8.1 Create `src/components/profile/ContributionsSection.tsx`
     - Accepts `address: string`
     - Uses `useContributions` hook
     - Renders each contribution row: campaign title, amount in XLM, date
     - Shows loading skeleton, empty state, and retry button on error
     - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_
 
-- [ ] 9. Build `EditProfileModal` component
-  - [ ] 9.1 Create `src/components/profile/EditProfileModal.tsx`
+- [x] 9. Build `EditProfileModal` component
+  - [x] 9.1 Create `src/components/profile/EditProfileModal.tsx`
     - Props: `address`, `current: ProfileData`, `onSave`, `onClose`
     - Avatar file input: on submit, calls `uploadToPinata`, stores resulting `ipfs://` URI; shows error toast on Pinata failure and retains previous avatar
     - Bio textarea with live character counter (max 280 chars)
@@ -94,15 +94,15 @@ Implement the `/profile/[address]` route with profile customization, campaign di
     - On save, calls `writeProfile` then `onSave(updated)` to update parent state
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7_
 
-- [ ] 10. Build social links display in `ProfileHeader`
-  - [ ] 10.1 Extend `ProfileHeader` to render social links from `profile.socialLinks`
+- [x] 10. Build social links display in `ProfileHeader`
+  - [x] 10.1 Extend `ProfileHeader` to render social links from `profile.socialLinks`
     - Each link is an `<a>` with `target="_blank" rel="noopener noreferrer"`
     - Detect Twitter/X (`twitter.com`, `x.com`), GitHub (`github.com`), LinkedIn (`linkedin.com`) and render corresponding SVG icon
     - Hide social links section entirely when `socialLinks` is empty
     - _Requirements: 6.1, 6.2, 6.3, 6.4_
 
-- [ ] 11. Assemble `/profile/[address]` page
-  - [ ] 11.1 Create `src/app/profile/[address]/page.tsx` as a client component
+- [x] 11. Assemble `/profile/[address]` page
+  - [x] 11.1 Create `src/app/profile/[address]/page.tsx` as a client component
     - Validate `params.address` using existing `isValidContractId`-style check for Stellar G... addresses; show error message for invalid format
     - Use `useWallet` to determine `isOwner = address === params.address`
     - Compose `ProfileHeader`, `StatsBar`, `CampaignsSection`, `ContributionsSection`
@@ -110,7 +110,7 @@ Implement the `/profile/[address]` route with profile customization, campaign di
     - Pass `onSave` callback that calls `writeProfile` and updates local state
     - _Requirements: 1.1, 1.2, 1.4, 1.5_
 
-- [ ] 12. Checkpoint — Ensure all tests pass, ask the user if questions arise.
+- [x] 12. Checkpoint — Ensure all tests pass, ask the user if questions arise.
 
 ## Notes
 

@@ -6,6 +6,7 @@ import {
   getCampaignStatus,
   getCampaignProgress,
 } from "./campaign.service";
+import { clearChaos } from "@/lib/chaos";
 import type { Campaign } from "@/types/campaign";
 
 const mockCampaigns: Campaign[] = [
@@ -234,5 +235,167 @@ describe("Campaign Service", () => {
       expect(result.totalPages).toBe(1);
       expect(result.results).toHaveLength(0);
     });
+  });
+});
+
+// ── Resilience tests (split from __tests__/resilience.test.ts) ────────────────
+
+const future = new Date(Date.now() + 86400_000).toISOString();
+const past = new Date(Date.now() - 86400_000).toISOString();
+
+const baseResil: Omit<
+  Campaign,
+  "id" | "raised" | "goal" | "deadline" | "status"
+> = {
+  contractId: "C1",
+  title: "Test Campaign",
+  description: "A test campaign description",
+  creator: "GABC1234",
+  token: "XLM",
+  image: "https://example.com/img.jpg",
+};
+
+const activeResil: Campaign = {
+  ...baseResil,
+  id: "1",
+  raised: 500,
+  goal: 1000,
+  deadline: future,
+  status: "Active",
+};
+const fundedResil: Campaign = {
+  ...baseResil,
+  id: "2",
+  raised: 1000,
+  goal: 1000,
+  deadline: future,
+  status: "Successful",
+};
+const endedResil: Campaign = {
+  ...baseResil,
+  id: "3",
+  raised: 200,
+  goal: 1000,
+  deadline: past,
+  status: "Active",
+};
+
+const resilCampaigns = [activeResil, fundedResil, endedResil];
+
+beforeEach(() => {
+  clearChaos();
+});
+
+describe("campaign.service resilience", () => {
+  it("handles empty campaign list gracefully", () => {
+    const result = filterCampaigns([], "all");
+    expect(result).toEqual([]);
+  });
+
+  it("handles null/undefined campaigns array gracefully", () => {
+    expect(filterCampaigns(undefined as any, "all")).toEqual([]);
+    expect(sortCampaigns(null as any, "newest")).toEqual([]);
+    expect(searchCampaigns(undefined as any, "test")).toEqual([]);
+  });
+
+  it("handles partial data in getCampaignStatus", () => {
+    const partial = { ...activeResil, deadline: "", raised: 0, goal: 0 };
+    const status = getCampaignStatus(partial);
+    expect(["active", "funded"]).toContain(status);
+  });
+
+  it("handles negative values in getCampaignProgress", () => {
+    const negative = { ...activeResil, raised: -100, goal: 1000 };
+    expect(getCampaignProgress(negative)).toBe(0);
+  });
+
+  it("handles zero goal in getCampaignProgress", () => {
+    const zeroGoal = { ...activeResil, goal: 0 };
+    expect(getCampaignProgress(zeroGoal)).toBe(0);
+  });
+
+  it("handles missing deadline in getCampaignStatus", () => {
+    const missingDate = { ...activeResil, deadline: "" };
+    expect(getCampaignStatus(missingDate)).toBe("active");
+  });
+
+  it("searchCampaigns with empty query returns all", () => {
+    const result = searchCampaigns(resilCampaigns, "");
+    expect(result).toHaveLength(3);
+  });
+
+  it("searchCampaigns with non-string query returns all", () => {
+    const result = searchCampaigns(resilCampaigns, undefined as any);
+    expect(result).toHaveLength(3);
+  });
+
+  it("searchCampaigns with no matches returns empty", () => {
+    const result = searchCampaigns(resilCampaigns, "zzzznonexistent");
+    expect(result).toEqual([]);
+  });
+
+  it("queryCampaigns handles negative page", () => {
+    const result = queryCampaigns(resilCampaigns, {
+      page: -1,
+      pageSize: 10,
+    } as any);
+    expect(result.results).toHaveLength(3);
+    expect(result.total).toBe(3);
+  });
+
+  it("queryCampaigns handles missing opts", () => {
+    const result = queryCampaigns(resilCampaigns, undefined as any);
+    expect(result.results).toHaveLength(3);
+    expect(result.total).toBe(3);
+  });
+
+  it("queryCampaigns handles empty campaigns", () => {
+    const result = queryCampaigns([], {});
+    expect(result.results).toEqual([]);
+    expect(result.total).toBe(0);
+  });
+
+  it("sortCampaigns with ending-soon handles missing deadline", () => {
+    const noDeadline = { ...activeResil, deadline: "" };
+    const result = sortCampaigns(
+      [activeResil, noDeadline, fundedResil],
+      "ending-soon",
+    );
+    expect(result).toHaveLength(3);
+  });
+
+  it("sortCampaigns with most-funded handles zero goal", () => {
+    const zeroGoal = { ...activeResil, goal: 0, raised: 0 };
+    const result = sortCampaigns(
+      [activeResil, zeroGoal, fundedResil],
+      "most-funded",
+    );
+    expect(result).toHaveLength(3);
+  });
+});
+
+describe("campaign.service crash-proof", () => {
+  it("does not crash on NaN values", () => {
+    const nanCampaign = { ...activeResil, raised: NaN, goal: NaN };
+    const progress = getCampaignProgress(nanCampaign);
+    expect(Number.isNaN(progress) || progress >= 0).toBe(true);
+  });
+
+  it("does not crash on Infinity values", () => {
+    const infCampaign = { ...activeResil, raised: Infinity, goal: Infinity };
+    expect(() => getCampaignProgress(infCampaign)).not.toThrow();
+  });
+
+  it("does not crash on deeply malformed data", () => {
+    expect(() => filterCampaigns([null as any], "all")).not.toThrow();
+  });
+
+  it("does not crash on array with undefined entries", () => {
+    const withUndefined: Campaign[] = [
+      activeResil,
+      undefined as unknown as Campaign,
+      fundedResil,
+    ];
+    expect(() => filterCampaigns(withUndefined, "all")).not.toThrow();
   });
 });

@@ -9,7 +9,7 @@
  */
 
 import { renderHook, act } from "@testing-library/react";
-import { useFocusTrap } from "../useFocusTrap";
+import { useFocusTrap } from "./useFocusTrap";
 
 // Helper: build a container with focusable children attached to document.body
 function makeContainer(buttonCount = 2): HTMLDivElement {

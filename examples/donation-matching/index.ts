@@ -9,34 +9,30 @@
  */
 
 import "dotenv/config";
-import { Keypair, TransactionBuilder } from "@stellar/stellar-sdk";
 import { FmcClient } from "@fund-my-cause/sdk";
+import {
+  SOROBAN_RPC_URL,
+  NETWORK_PASSPHRASE,
+  HORIZON_URL,
+  makeSignTx,
+  keypairFromSecret,
+} from "@fund-my-cause/example-shared";
 
-const CONTRACT_ID   = process.env.CONTRACT_ID!;
-const CREATOR_KEY   = process.env.CREATOR_SECRET!;
-const SPONSOR_KEY   = process.env.SPONSOR_SECRET!;
-const CONTRIB_KEY   = process.env.STELLAR_SECRET!;
-const XLM_TOKEN_ID  = process.env.XLM_TOKEN_ID!;
+const CONTRACT_ID  = process.env.CONTRACT_ID!;
+const CREATOR_KEY  = process.env.CREATOR_SECRET!;
+const SPONSOR_KEY  = process.env.SPONSOR_SECRET!;
+const CONTRIB_KEY  = process.env.STELLAR_SECRET!;
+const XLM_TOKEN_ID = process.env.XLM_TOKEN_ID!;
 
 const client = new FmcClient({
   contractId:        CONTRACT_ID,
-  rpcUrl:            process.env.SOROBAN_RPC_URL    ?? "https://soroban-testnet.stellar.org",
-  networkPassphrase: process.env.NETWORK_PASSPHRASE ?? "Test SDF Network ; September 2015",
-  horizonUrl:        process.env.HORIZON_URL         ?? "https://horizon-testnet.stellar.org",
+  rpcUrl:            SOROBAN_RPC_URL,
+  networkPassphrase: NETWORK_PASSPHRASE,
+  horizonUrl:        HORIZON_URL,
 });
 
-function makeSignTx(secret: string) {
-  const kp = Keypair.fromSecret(secret);
-  return async (xdr: string) => {
-    const tx = TransactionBuilder.fromXDR(xdr, process.env.NETWORK_PASSPHRASE!);
-    tx.sign(kp);
-    return tx.toXDR();
-  };
-}
-
-const sponsorKeypair = Keypair.fromSecret(SPONSOR_KEY);
-const sponsorAddr    = sponsorKeypair.publicKey();
-const contribAddr    = Keypair.fromSecret(CONTRIB_KEY).publicKey();
+const sponsorAddr = keypairFromSecret(SPONSOR_KEY).publicKey;
+const contribAddr = keypairFromSecret(CONTRIB_KEY).publicKey;
 
 // ── 1. Set up 1:1 matching (100 XLM cap) ─────────────────────────────────────
 // Note: in production, the creator and sponsor must both sign the transaction.
@@ -45,7 +41,7 @@ const contribAddr    = Keypair.fromSecret(CONTRIB_KEY).publicKey();
 console.log("\n── Setting up 1:1 matching (cap: 100 XLM) ───────────");
 const setupHash = await client.setupMatching({
   sponsorAddress: sponsorAddr,
-  matchRatioBps:  10_000,   // 1:1
+  matchRatioBps:  10_000,
   maxMatchXlm:    100,
   signTx:         makeSignTx(SPONSOR_KEY),
 });

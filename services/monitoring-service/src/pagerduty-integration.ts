@@ -1,4 +1,9 @@
-import axios, { AxiosInstance } from 'axios';
+import axios, { AxiosInstance } from "axios";
+import { createLogger } from "@fund-my-cause/shared-utils";
+
+import type { AlertPayload, DeliveryResult, Transport } from "./alert-transport";
+
+const logger = createLogger("monitoring-service:pagerduty");
 
 interface PagerDutyIncidentRequest {
   title: string;
@@ -56,20 +61,19 @@ interface EscalateResponse {
  */
 export class PagerDutyIntegration {
   private client: AxiosInstance;
-  private readonly API_BASE_URL = 'https://api.pagerduty.com';
-  private readonly _api_key: string;
+  private readonly API_BASE_URL = "https://api.pagerduty.com";
   private readonly integration_key: string;
 
   constructor(api_key: string, integration_key?: string) {
-    this._api_key = api_key;
-    this.integration_key = integration_key || process.env.PAGERDUTY_INTEGRATION_KEY || '';
+    this.integration_key =
+      integration_key || process.env.PAGERDUTY_INTEGRATION_KEY || "";
 
     this.client = axios.create({
       baseURL: this.API_BASE_URL,
       headers: {
         Authorization: `Token token=${api_key}`,
-        'Content-Type': 'application/json',
-        Accept: 'application/vnd.pagerduty+json;version=2',
+        "Content-Type": "application/json",
+        Accept: "application/vnd.pagerduty+json;version=2",
       },
     });
   }
@@ -81,21 +85,21 @@ export class PagerDutyIntegration {
     request: PagerDutyIncidentRequest,
   ): Promise<PagerDutyIncident> {
     try {
-      const response = await this.client.post('/incidents', {
+      const response = await this.client.post("/incidents", {
         incidents: [
           {
-            type: 'incident',
+            type: "incident",
             title: request.title,
             description: request.description,
             service: {
               id: request.service_id,
-              type: 'service_reference',
+              type: "service_reference",
             },
             body: {
-              type: 'incident_body',
+              type: "incident_body",
               details: request.description,
             },
-            urgency: request.urgency || 'high',
+            urgency: request.urgency || "high",
             severity: request.severity,
             custom_fields: request.labels,
           },
@@ -113,10 +117,10 @@ export class PagerDutyIntegration {
         created_at: response.data.incidents[0].created_at,
         updated_at: response.data.incidents[0].updated_at,
         html_url: response.data.incidents[0].html_url,
-        urgency: request.urgency || 'high',
+        urgency: request.urgency || "high",
       };
     } catch (error) {
-      console.error('Failed to create PagerDuty incident:', error);
+      logger.error({ err: error }, "Failed to create PagerDuty incident");
       throw new Error(`Failed to create PagerDuty incident: ${error}`);
     }
   }
@@ -124,20 +128,23 @@ export class PagerDutyIntegration {
   /**
    * Acknowledge incident (set to triggered -> acknowledged)
    */
-  async acknowledgeIncident(incident_id: string, user_id?: string): Promise<AcknowledgeResponse> {
+  async acknowledgeIncident(
+    incident_id: string,
+    user_id?: string,
+  ): Promise<AcknowledgeResponse> {
     try {
       const response = await this.client.put(`/incidents/${incident_id}`, {
         incidents: [
           {
             id: incident_id,
-            type: 'incident_reference',
-            status: 'acknowledged',
+            type: "incident_reference",
+            status: "acknowledged",
             acknowledgements: [
               {
                 at: new Date().toISOString(),
                 acknowledger: {
-                  id: user_id || 'monitoring-service',
-                  type: 'service_reference',
+                  id: user_id || "monitoring-service",
+                  type: "service_reference",
                 },
               },
             ],
@@ -148,10 +155,10 @@ export class PagerDutyIntegration {
       return {
         success: response.status === 200,
         incident_id,
-        message: 'Incident acknowledged',
+        message: "Incident acknowledged",
       };
     } catch (error) {
-      console.error('Failed to acknowledge incident:', error);
+      logger.error({ err: error }, "Failed to acknowledge incident");
       return {
         success: false,
         incident_id,
@@ -163,15 +170,18 @@ export class PagerDutyIntegration {
   /**
    * Resolve incident
    */
-  async resolveIncident(incident_id: string, _user_id?: string): Promise<ResolveResponse> {
+  async resolveIncident(
+    incident_id: string,
+    _user_id?: string,
+  ): Promise<ResolveResponse> {
     const startTime = Date.now();
     try {
       const response = await this.client.put(`/incidents/${incident_id}`, {
         incidents: [
           {
             id: incident_id,
-            type: 'incident_reference',
-            status: 'resolved',
+            type: "incident_reference",
+            status: "resolved",
             resolution_time: new Date().toISOString(),
           },
         ],
@@ -181,10 +191,10 @@ export class PagerDutyIntegration {
         success: response.status === 200,
         incident_id,
         resolution_time_ms: Date.now() - startTime,
-        message: 'Incident resolved',
+        message: "Incident resolved",
       };
     } catch (error) {
-      console.error('Failed to resolve incident:', error);
+      logger.error({ err: error }, "Failed to resolve incident");
       return {
         success: false,
         incident_id,
@@ -205,10 +215,10 @@ export class PagerDutyIntegration {
         id: response.data.incident.id,
         incident_number: response.data.incident.incident_number,
         title: response.data.incident.title,
-        description: response.data.incident.body?.details || '',
+        description: response.data.incident.body?.details || "",
         status: response.data.incident.status,
-        severity: response.data.incident.severity || 'unknown',
-        service_id: response.data.incident.service?.id || '',
+        severity: response.data.incident.severity || "unknown",
+        service_id: response.data.incident.service?.id || "",
         created_at: response.data.incident.created_at,
         updated_at: response.data.incident.updated_at,
         html_url: response.data.incident.html_url,
@@ -216,7 +226,7 @@ export class PagerDutyIntegration {
         assignments: response.data.incident.assignments,
       };
     } catch (error) {
-      console.error('Failed to get incident:', error);
+      logger.error({ err: error }, "Failed to get incident");
       throw new Error(`Failed to get incident: ${error}`);
     }
   }
@@ -233,12 +243,12 @@ export class PagerDutyIntegration {
         incidents: [
           {
             id: incident_id,
-            type: 'incident_reference',
+            type: "incident_reference",
             assignments: [
               {
                 assignee: {
                   id: user_id,
-                  type: 'user_reference',
+                  type: "user_reference",
                 },
               },
             ],
@@ -253,11 +263,11 @@ export class PagerDutyIntegration {
         message: `Incident assigned to user ${user_id}`,
       };
     } catch (error) {
-      console.error('Failed to assign incident:', error);
+      logger.error({ err: error }, "Failed to assign incident");
       return {
         success: false,
         incident_id,
-        assigned_to: '',
+        assigned_to: "",
         message: `Failed to assign: ${error}`,
       };
     }
@@ -275,10 +285,10 @@ export class PagerDutyIntegration {
         incidents: [
           {
             id: incident_id,
-            type: 'incident_reference',
+            type: "incident_reference",
             escalation_policy: {
               id: escalation_policy_id,
-              type: 'escalation_policy_reference',
+              type: "escalation_policy_reference",
             },
           },
         ],
@@ -288,14 +298,14 @@ export class PagerDutyIntegration {
         success: response.status === 200,
         incident_id,
         escalation_policy: escalation_policy_id,
-        message: 'Incident escalated',
+        message: "Incident escalated",
       };
     } catch (error) {
-      console.error('Failed to escalate incident:', error);
+      logger.error({ err: error }, "Failed to escalate incident");
       return {
         success: false,
         incident_id,
-        escalation_policy: '',
+        escalation_policy: "",
         message: `Failed to escalate: ${error}`,
       };
     }
@@ -304,9 +314,11 @@ export class PagerDutyIntegration {
   /**
    * List on-call users
    */
-  async getOnCallUsers(schedule_id?: string): Promise<Array<{ id: string; name: string }>> {
+  async getOnCallUsers(
+    schedule_id?: string,
+  ): Promise<Array<{ id: string; name: string }>> {
     try {
-      const response = await this.client.get('/oncalls', {
+      const response = await this.client.get("/oncalls", {
         params: schedule_id ? { schedule_ids: [schedule_id] } : {},
       });
 
@@ -315,7 +327,7 @@ export class PagerDutyIntegration {
         name: oncall.user.summary,
       }));
     } catch (error) {
-      console.error('Failed to get on-call users:', error);
+      logger.error({ err: error }, "Failed to get on-call users");
       return [];
     }
   }
@@ -326,19 +338,19 @@ export class PagerDutyIntegration {
   async createEvent(
     title: string,
     description: string,
-    severity: 'critical' | 'error' | 'warning' | 'info',
+    severity: "critical" | "error" | "warning" | "info",
   ): Promise<{ event_id: string; status: string }> {
     try {
       // Use Events API v2 for simpler incident creation
       const response = await axios.post(
-        'https://events.pagerduty.com/v2/enqueue',
+        "https://events.pagerduty.com/v2/enqueue",
         {
           routing_key: this.integration_key,
-          event_action: 'trigger',
+          event_action: "trigger",
           payload: {
             summary: title,
             severity,
-            source: 'Fund My Cause Monitoring',
+            source: "Fund My Cause Monitoring",
             custom_details: {
               description,
             },
@@ -346,7 +358,7 @@ export class PagerDutyIntegration {
         },
         {
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
         },
       );
@@ -356,7 +368,7 @@ export class PagerDutyIntegration {
         status: response.data.status,
       };
     } catch (error) {
-      console.error('Failed to create PagerDuty event:', error);
+      logger.error({ err: error }, "Failed to create PagerDuty event");
       throw new Error(`Failed to create PagerDuty event: ${error}`);
     }
   }
@@ -364,7 +376,10 @@ export class PagerDutyIntegration {
   /**
    * Create note on incident
    */
-  async addNoteToIncident(incident_id: string, content: string): Promise<boolean> {
+  async addNoteToIncident(
+    incident_id: string,
+    content: string,
+  ): Promise<boolean> {
     try {
       await this.client.post(`/incidents/${incident_id}/notes`, {
         note: {
@@ -373,7 +388,7 @@ export class PagerDutyIntegration {
       });
       return true;
     } catch (error) {
-      console.error('Failed to add note to incident:', error);
+      logger.error({ err: error }, "Failed to add note to incident");
       return false;
     }
   }
@@ -383,10 +398,12 @@ export class PagerDutyIntegration {
    */
   async getIncidentAlerts(incident_id: string): Promise<any[]> {
     try {
-      const response = await this.client.get(`/incidents/${incident_id}/alerts`);
+      const response = await this.client.get(
+        `/incidents/${incident_id}/alerts`,
+      );
       return response.data.alerts || [];
     } catch (error) {
-      console.error('Failed to get incident alerts:', error);
+      logger.error({ err: error }, "Failed to get incident alerts");
       return [];
     }
   }
@@ -399,7 +416,7 @@ export class PagerDutyIntegration {
       const response = await this.client.get(`/services/${service_id}`);
       return response.data.service;
     } catch (error) {
-      console.error('Failed to get service:', error);
+      logger.error({ err: error }, "Failed to get service");
       return null;
     }
   }
@@ -409,13 +426,13 @@ export class PagerDutyIntegration {
    */
   async listServices(): Promise<Array<{ id: string; name: string }>> {
     try {
-      const response = await this.client.get('/services');
+      const response = await this.client.get("/services");
       return response.data.services.map((service: any) => ({
         id: service.id,
         name: service.name,
       }));
     } catch (error) {
-      console.error('Failed to list services:', error);
+      logger.error({ err: error }, "Failed to list services");
       return [];
     }
   }
@@ -425,11 +442,69 @@ export class PagerDutyIntegration {
    */
   async testConnection(): Promise<boolean> {
     try {
-      const response = await this.client.get('/users?limit=1');
+      const response = await this.client.get("/users?limit=1");
       return response.status === 200;
     } catch (error) {
-      console.error('PagerDuty connection test failed:', error);
+      logger.error({ err: error }, "PagerDuty connection test failed");
       return false;
     }
   }
+}
+
+export interface PagerDutyTransportOptions {
+  integration: PagerDutyIntegration;
+  serviceId: string;
+  urgency?: "high" | "low";
+}
+
+export class PagerDutyTransport implements Transport {
+  private readonly integration: PagerDutyIntegration;
+  private readonly serviceId: string;
+  private readonly urgency: "high" | "low";
+
+  constructor(options: PagerDutyTransportOptions) {
+    this.integration = options.integration;
+    this.serviceId = options.serviceId;
+    this.urgency = options.urgency ?? "high";
+  }
+
+  async send(alert: AlertPayload): Promise<DeliveryResult[]> {
+    try {
+      await this.integration.createIncident({
+        title: `[${alert.severity.toUpperCase()}] ${alert.ruleId}`,
+        description: alert.message,
+        severity: alert.severity,
+        service_id: this.serviceId,
+        urgency: this.urgency,
+        labels: Object.fromEntries(
+          Object.entries(alert.context).map(([key, value]) => [key, String(value)]),
+        ),
+      });
+      return [{ channel: "pagerduty", success: true }];
+    } catch (error) {
+      return [
+        {
+          channel: "pagerduty",
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      ];
+    }
+  }
+}
+
+export function buildPagerDutyTransportFromEnv(): PagerDutyTransport | null {
+  const apiKey = process.env.PAGERDUTY_API_KEY;
+  const serviceId = process.env.PAGERDUTY_SERVICE_ID;
+  if (!apiKey || !serviceId) {
+    return null;
+  }
+
+  return new PagerDutyTransport({
+    integration: new PagerDutyIntegration(
+      apiKey,
+      process.env.PAGERDUTY_INTEGRATION_KEY,
+    ),
+    serviceId,
+  });
 }

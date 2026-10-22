@@ -1,9 +1,9 @@
 %% Fund-My-Cause — verified data flow across apps/interface, services and contracts.
 %%
 %% This diagram documents the architecture as it actually is, not as it was
-%% designed. Four structural seams are labelled explicitly:
+%% designed. Three structural seams remain labelled explicitly (Seam 1 resolved by ADR-006):
 %%
-%%   1. Two independent frontend -> chain paths
+%%   1. [RESOLVED — ADR-006] Unified frontend read path via graphql-api
 %%   2. Two independently-versioned Soroban RPC clients
 %%   3. A type-sharing gap between the services
 %%   4. Two disconnected alerting stacks
@@ -13,12 +13,12 @@
 %%   -i docs/assets/architecture-data-flow.mmd \
 %%   -o docs/assets/architecture-data-flow.svg
 %%
-%% Last verified against the tree: 2026-07-26
+%% Last verified against the tree: 2026-08-22
 
 flowchart TB
     subgraph FE["apps/interface (Next.js 16, @stellar/stellar-sdk 14.6.1)"]
         UI["React routes &amp; components<br/>components/ui/CampaignCard.tsx"]
-        SOROBAN["lib/soroban.ts (616 lines)<br/>SorobanRpc.Server + Horizon.Server"]
+        SOROBAN["lib/soroban.ts<br/>Transaction Pipeline (simulation, auth assembly &amp; submission)"]
         STATUS["app/status/page.tsx<br/>fetch NEXT_PUBLIC_GRAPHQL_URL/status"]
     end
 
@@ -58,12 +58,12 @@ flowchart TB
         ALERTMGR["alertmanager.yml<br/>receivers: PagerDuty + Slack only"]
     end
 
-    %% ── Seam 1: two independent frontend -> chain paths ────────────────────
-    UI -->|"PATH A — direct RPC reads and tx submission"| SOROBAN
+    %% ── Frontend chain interaction: unified reads + client-side tx pipeline ──
+    UI -->|"Transaction Pipeline — client-side simulation, auth assembly & signed tx submission"| SOROBAN
     SOROBAN --> RPCNODE
     SOROBAN --> HORIZON
-    UI --> STATUS
-    STATUS -->|"PATH B — HTTP to the GraphQL service"| RESOLVERS
+    UI -->|"Unified Read Path — GraphQL queries for campaign & contribution state"| RESOLVERS
+    STATUS -->|"Health probe — HTTP /status"| RESOLVERS
     RESOLVERS --> CONTRACT
     CONTRACT --> RPC1
     RPC1 --> RPCNODE
@@ -91,13 +91,10 @@ flowchart TB
     MSALERTS --> INCIDENT
 
     %% ── Explicit seam callouts ─────────────────────────────────────────────
-    N1["SEAM 1 — DUAL FRONTEND PATHS<br/>apps/interface reads chain state twice over:<br/>directly via lib/soroban.ts, and again via<br/>services/graphql-api. Neither funnels through<br/>the other; they can disagree."]
     N2["SEAM 2 — DUAL RPC CLIENTS<br/>ContractService (SDK 14.6.1, rpc.Server) and<br/>SorobanRPCClient (SDK ^12.0.0, SorobanRpc.Server)<br/>each construct their own client. No shared<br/>factory, no shared retry/timeout policy."]
     N3["SEAM 3 — TYPE-SHARING GAP<br/>packages/types exports the full domain, but only<br/>apps/interface consumes it. graphql-api imports<br/>CampaignStatus alone and redefines the rest in<br/>src/types.ts; indexer imports nothing and defines<br/>its own IndexerEvent. Event shapes are not shared."]
     N4["SEAM 4 — DISCONNECTED ALERTING<br/>alertmanager.yml declares no webhook_configs, so<br/>no Prometheus alert ever reaches monitoring-service's<br/>POST /alerts. Its incident engine and PagerDuty<br/>client run on a parallel, unlinked track."]
 
-    N1 -.-> SOROBAN
-    N1 -.-> RESOLVERS
     N2 -.-> RPC1
     N2 -.-> RPC2
     N3 -.-> TYPES
@@ -107,6 +104,6 @@ flowchart TB
     classDef seam fill:#fff4e5,stroke:#d97706,stroke-width:2px,color:#7c2d12,text-align:left;
     classDef chain fill:#eef2ff,stroke:#4f46e5,color:#312e81;
     classDef store fill:#f1f5f9,stroke:#64748b,color:#0f172a;
-    class N1,N2,N3,N4 seam;
+    class N2,N3,N4 seam;
     class RPCNODE,HORIZON,CONTRACTS chain;
     class REDIS,STORE store;

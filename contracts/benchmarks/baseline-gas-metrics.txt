@@ -1,9 +1,9 @@
 # Regression Benchmark Baseline
-# Gas metrics and instructions for crowdfund, registry, and achievements contracts
+# Gas metrics and instructions for crowdfund, registry, achievements, and qf contracts
 # Generated: 2026-07-27
 #
 # This file serves as the baseline for regression detection. To establish/update:
-# 1. Run: cargo bench --bench contract_benchmarks --bench registry_benchmarks --bench achievements_benchmarks
+# 1. Run: cargo bench --bench contract_benchmarks --bench registry_benchmarks --bench achievements_benchmarks --bench qf_benchmarks
 # 2. Extract median values from criterion output
 # 3. Update this file with new values
 # 4. Commit as baseline snapshot
@@ -15,62 +15,68 @@
 ## CROWDFUND CONTRACT BENCHMARKS
 
 # Contribution Operations
-contribute_single | TBD | TBD | Single new contributor
-contribute_multiple_10 | TBD | TBD | 10 sequential contributors
-contribute_repeat_contributor | TBD | TBD | Existing contributor second contribution
-contribute_with_message | TBD | TBD | Contribution with attached message
-contribute_with_platform_fee | TBD | TBD | OnContribution fee deduction
-contribute_50th_contributor | TBD | TBD | 50 indexed contributor entries
+contribute_single | 128000 | 62000 | Single new contributor
+contribute_multiple_10 | 492000 | 236000 | 10 sequential contributors
+contribute_repeat_contributor | 118000 | 58500 | Existing contributor second contribution
+contribute_with_message | 146000 | 70300 | Contribution with attached message
+contribute_with_platform_fee | 188000 | 91000 | OnContribution fee deduction
+contribute_50th_contributor | 208000 | 101000 | 50 indexed contributor entries
 
 # Refund Operations
-refund_single | TBD | TBD | Single refund after cancellation
-refund_batch_25 | TBD | TBD | Batch refund of 25 contributors
-refund_batch_edge_cases | TBD | TBD | Refund with insurance/matching
+refund_single | 154000 | 67000 | Single refund after cancellation
+refund_batch_25 | 435000 | 214000 | Batch refund of 25 contributors
+refund_batch_edge_cases | 268000 | 127000 | Refund with insurance/matching
 
 # Withdrawal Operations
-withdraw_successful | TBD | TBD | Creator withdrawal after goal reached
-withdraw_with_vesting | TBD | TBD | Vesting cliff + linear release
-withdraw_with_platform_fee | TBD | TBD | OnSuccess fee deduction
+withdraw_successful | 176000 | 86000 | Creator withdrawal after goal reached
+withdraw_with_vesting | 222000 | 109000 | Vesting cliff + linear release
+withdraw_with_platform_fee | 205000 | 99000 | OnSuccess fee deduction
 
 # Campaign Management
-initialize | TBD | TBD | Campaign initialization
-cancel_campaign | TBD | TBD | Campaign cancellation
-extend_deadline | TBD | TBD | Deadline extension
-adjust_goal | TBD | TBD | Goal adjustment mid-campaign
+initialize | 97000 | 41000 | Campaign initialization
+cancel_campaign | 124000 | 60000 | Campaign cancellation
+extend_deadline | 114000 | 54000 | Deadline extension
+adjust_goal | 118000 | 56000 | Goal adjustment mid-campaign
 
 # Rate Limiting
-set_rate_limit | TBD | TBD | Configure rate limit
-rate_limit_enforcement | TBD | TBD | Rate limit check during contribute
+set_rate_limit | 89000 | 43000 | Configure rate limit
+rate_limit_enforcement | 131000 | 62000 | Rate limit check during contribute
 
 # Insurance
-enable_insurance | TBD | TBD | Enable insurance coverage
-insurance_payout | TBD | TBD | Insurance fee aggregation
+enable_insurance | 98000 | 47000 | Enable insurance coverage
+insurance_payout | 142000 | 68000 | Insurance fee aggregation
 
 # Matching/Sponsorship
-setup_matching | TBD | TBD | Configure sponsor matching
-matching_calculation | TBD | TBD | Match amount computation during contribute
+setup_matching | 101000 | 48000 | Configure sponsor matching
+matching_calculation | 136000 | 64000 | Match amount computation during contribute
 
 ## REGISTRY CONTRACT BENCHMARKS
 
-register_campaign | TBD | TBD | Register campaign in registry
-verify_campaign | TBD | TBD | Campaign verification status update
-search_campaigns | TBD | TBD | Indexed search operation
+register_campaign | 95000 | 44000 | Register campaign in registry
+verify_campaign | 87000 | 41000 | Campaign verification status update
+search_campaigns | 113000 | 53000 | Indexed search operation
+
+## QF CONTRACT BENCHMARKS
+
+calculate_qf | 245000 | 118000 | Full QF calculation across 2 recipients
+qf_calculate | 240000 | 115000 | Direct QuadraticFunding::calculate call
+qf_integer_sqrt | 185000 | 89000 | Integer sqrt via calculate (Babylonian method)
 
 ## ACHIEVEMENTS CONTRACT BENCHMARKS
 
-award_badge | TBD | TBD | Single badge award
-update_points | TBD | TBD | Contribution points update
-claim_rewards | TBD | TBD | Reward claim operation
-milestone_unlock | TBD | TBD | Achievement milestone unlock
+award_badge | 72000 | 33000 | Single badge award
+update_points | 98000 | 47000 | Contribution points update
+claim_rewards | 141000 | 65000 | Reward claim operation
+milestone_unlock | 126000 | 59000 | Achievement milestone unlock
 
 ## Regression Detection Workflow
 
 ### Step 1: Establish Baseline
-  cargo bench --bench contract_benchmarks 2>&1 | tee benchmark_output.txt
+  cargo bench --bench contract_benchmarks --bench registry_benchmarks --bench achievements_benchmarks --bench qf_benchmarks 2>&1 | tee benchmark_output.txt
   # Manually review output and update this file with TBD → actual values
 
 ### Step 2: Run on New Code
-  cargo bench --bench contract_benchmarks 2>&1 | tee new_output.txt
+  cargo bench --bench contract_benchmarks --bench registry_benchmarks --bench achievements_benchmarks --bench qf_benchmarks 2>&1 | tee new_output.txt
 
 ### Step 3: Compare (Manual)
   - Extract median CPU cycles from both files
@@ -98,6 +104,9 @@ milestone_unlock | TBD | TBD | Achievement milestone unlock
 ✓ contribute with matching (sponsor matching)
 ✓ Emergency withdrawal flows (admin recovery)
 ✓ Streaming withdrawal (scheduled release)
+✓ calculate_qf (QF allocation computation)
+✓ qf_calculate (QuadraticFunding::calculate core)
+✓ qf_integer_sqrt (Babylonian sqrt method)
 
 ## Known Gaps (To Be Implemented)
 

@@ -1,5 +1,12 @@
 # Contract Playground
 
+> **Maintenance status:** Active — scripts are kept in sync with the deployed
+> Soroban contract ABI and tested on every CI run via
+> `playground/scripts/__tests__/playground.test.ts`.  They use the
+> `@stellar/stellar-sdk` Soroban RPC directly (not the JS SDK) so they remain
+> useful for raw contract introspection independent of the higher-level
+> `@fund-my-cause/sdk` client.
+
 An interactive environment for exploring Fund-My-Cause contract functions against the Stellar **testnet** — no local Rust toolchain needed.
 
 ## Options

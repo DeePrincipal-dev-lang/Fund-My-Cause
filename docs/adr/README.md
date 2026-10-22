@@ -32,4 +32,10 @@ You do **not** need an ADR for routine implementation choices (which library to 
 | [ADR-001](./ADR-001-pull-based-refund-model.md) | Pull-based refund model | Accepted |
 | [ADR-002](./ADR-002-off-chain-indexer-architecture.md) | Off-chain indexer architecture | Accepted |
 | [ADR-003](./ADR-003-graphql-api-for-frontend-queries.md) | GraphQL API for frontend queries | Accepted |
-| [ADR-004](./ADR-004-contract-module-boundaries.md) | Soroban contract module boundaries (`contracts/common`) | Proposed |
+| [ADR-004](./ADR-004-contract-module-boundaries.md) | Soroban contract module boundaries (`contracts/common`) | Active |
+| [ADR-005](./ADR-005-fraud-detection-vs-recommendations-service-split.md) | Keeping `fraud_detection` and `recommendations` as separate services | Proposed |
+| [ADR-006](./ADR-006-unify-frontend-read-paths.md) | Unify Frontend Chain Read Paths via GraphQL API | Proposed |
+| [ADR-007](./ADR-007-stellar-contract-upgrade-strategy.md) | Stellar contract upgrade strategy & state migration | Accepted |
+| [ADR-008](./ADR-008-fraud-detection-scoring-pipeline-design.md) | Fraud-detection scoring pipeline design | Accepted |
+| [ADR-009](./ADR-009-crowdfund-storage-layout-and-upgrade.md) | Crowdfund storage layout and upgrade strategy | Proposed |
+| [ADR-010](./ADR-010-contract-event-naming-convention.md) | Contract event naming and topic convention | Proposed |

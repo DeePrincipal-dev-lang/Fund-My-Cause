@@ -16,7 +16,6 @@ import React, {
   useRef,
   useState,
   useCallback,
-  useReducer,
 } from "react";
 import { Pause, Play, TrendingUp } from "lucide-react";
 import Link from "next/link";

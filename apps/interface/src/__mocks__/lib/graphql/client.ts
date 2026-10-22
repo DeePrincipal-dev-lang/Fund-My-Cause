@@ -1,0 +1,9 @@
+export const fetchCampaign = jest.fn();
+export const fetchCampaignView = jest.fn();
+export const fetchAllCampaigns = jest.fn();
+export const fetchContribution = jest.fn();
+export const fetchContributorList = jest.fn();
+export const fetchTransactionHistory = jest.fn();
+export const fetchCampaignDetail = jest.fn();
+export const fetchApiStatus = jest.fn();
+export const getGraphqlSdk = jest.fn();

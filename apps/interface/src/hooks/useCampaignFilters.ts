@@ -65,20 +65,23 @@ export function useCampaignFilters(): UseCampaignFiltersReturn {
   );
   const [dateTo, setDateTo] = React.useState(searchParams.get("dateTo") ?? "");
 
-  const setParam = (key: string, value: string) => {
-    const params = new URLSearchParams(searchParams.toString());
-    if (value === "") {
-      params.delete(key);
-    } else if (key === "filter" && value === "all") {
-      params.delete(key);
-    } else if (key === "sort" && value === "recent") {
-      params.delete(key);
-    } else {
-      params.set(key, value);
-    }
-    if (key !== "page") params.delete("page");
-    router.replace(`/campaigns?${params.toString()}`, { scroll: false });
-  };
+  const setParam = React.useCallback(
+    (key: string, value: string) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (value === "") {
+        params.delete(key);
+      } else if (key === "filter" && value === "all") {
+        params.delete(key);
+      } else if (key === "sort" && value === "recent") {
+        params.delete(key);
+      } else {
+        params.set(key, value);
+      }
+      if (key !== "page") params.delete("page");
+      router.replace(`/campaigns?${params.toString()}`, { scroll: false });
+    },
+    [router, searchParams],
+  );
 
   const applyAdvanced = () => {
     const params = new URLSearchParams(searchParams.toString());
@@ -115,8 +118,7 @@ export function useCampaignFilters(): UseCampaignFiltersReturn {
   React.useEffect(() => {
     const timer = setTimeout(() => setParam("q", inputValue), 300);
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inputValue]);
+  }, [inputValue, setParam]);
 
   const activeGoalMin = toFiniteNumber(searchParams.get("goalMin"));
   const activeGoalMax = toFiniteNumber(searchParams.get("goalMax"));

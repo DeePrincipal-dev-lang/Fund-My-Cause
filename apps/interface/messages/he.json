@@ -51,7 +51,6 @@
     "searchPlaceholder": "חפש קמפיינים...",
     "sortNewest": "החדשים ביותר",
     "sortMostFunded": "הממומנים ביותר",
-    "sortEndingSoon": "מסתיימים בקרוב",
     "filterAll": "הכל",
     "filterActive": "פעילים",
     "filterFunded": "ממומנים",
@@ -82,7 +81,6 @@
     "pledgeNow": "תרום עכשיו",
     "successfullyFunded": "מומן בהצלחה",
     "campaignEnded": "הקמפיין הסתיים",
-    "pledgeTo": "תרום ל-{title}",
     "fundedAriaLabel": "{title} — מומן בהצלחה",
     "endedAriaLabel": "{title} — הקמפיין הסתיים",
     "pledgeAriaLabel": "תרום ל-{title}"
@@ -165,17 +163,11 @@
     "deadline": "מועד אחרון",
     "contributors": "תורמים",
     "token": "טוקן",
-    "removeFromComparison": "הסר את {title} מההשוואה",
-    "copiedToClipboard": "קישור ההשוואה הועתק ללוח!"
+    "removeFromComparison": "הסר את {title} מההשוואה"
   },
   "notFound": {
     "title": "404",
     "message": "הדף הזה לא קיים.",
     "goHome": "חזור לדף הבית"
-  },
-  "common": {
-    "loading": "טוען…",
-    "error": "משהו השתבש.",
-    "retry": "נסה שוב"
   }
 }

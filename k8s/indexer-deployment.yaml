@@ -1,0 +1,124 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: indexer
+  namespace: fund-my-cause
+  labels:
+    app: indexer
+    version: v1
+  annotations:
+    # Link to deployment runbook for restart/troubleshooting procedures
+    runbook.url: "https://github.com/Fund-My-Cause/Fund-My-Cause/blob/main/docs/runbooks/indexer-monitoring-service-deployment.md"
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: indexer
+  template:
+    metadata:
+      labels:
+        app: indexer
+        version: v1
+    spec:
+      containers:
+      - name: indexer
+        image: fund-my-cause/indexer:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 3001
+          name: http
+        - containerPort: 9090
+          name: metrics
+        env:
+        - name: SOROBAN_RPC_URL
+          valueFrom:
+            configMapKeyRef:
+              name: indexer-config
+              key: soroban_rpc_url
+        - name: CROWDFUND_CONTRACT_ID
+          valueFrom:
+            configMapKeyRef:
+              name: indexer-config
+              key: crowdfund_contract_id
+        - name: REGISTRY_CONTRACT_ID
+          valueFrom:
+            configMapKeyRef:
+              name: indexer-config
+              key: registry_contract_id
+        - name: PORT
+          value: "3001"
+        - name: LOG_LEVEL
+          value: "info"
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3001
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3001
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 2
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - indexer
+              topologyKey: kubernetes.io/hostname
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: indexer
+  namespace: fund-my-cause
+  labels:
+    app: indexer
+spec:
+  type: ClusterIP
+  ports:
+  - port: 3001
+    targetPort: 3001
+    protocol: TCP
+    name: http
+  - port: 9090
+    targetPort: 9090
+    protocol: TCP
+    name: metrics
+  selector:
+    app: indexer
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: indexer-config
+  namespace: fund-my-cause
+data:
+  soroban_rpc_url: "https://soroban-testnet.stellar.org:443"
+  crowdfund_contract_id: "REPLACE_WITH_ACTUAL_CONTRACT_ID"
+  registry_contract_id: "REPLACE_WITH_ACTUAL_REGISTRY_ID"

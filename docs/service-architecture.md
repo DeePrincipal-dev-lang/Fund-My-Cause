@@ -50,5 +50,5 @@ Previously this logic was scattered inline in `WalletContext`. `WalletContext` n
 
 ```bash
 cd apps/interface
-npx jest --config jest.config.ts src/services/services.test.ts
+npx jest src/services/services.test.ts
 ```

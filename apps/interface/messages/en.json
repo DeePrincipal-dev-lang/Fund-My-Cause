@@ -51,7 +51,6 @@
     "searchPlaceholder": "Search campaigns...",
     "sortNewest": "Newest",
     "sortMostFunded": "Most Funded",
-    "sortEndingSoon": "Ending Soon",
     "filterAll": "All",
     "filterActive": "Active",
     "filterFunded": "Funded",
@@ -82,7 +81,6 @@
     "pledgeNow": "Pledge Now",
     "successfullyFunded": "Successfully Funded",
     "campaignEnded": "Campaign Ended",
-    "pledgeTo": "Pledge to {title}",
     "fundedAriaLabel": "{title} — successfully funded",
     "endedAriaLabel": "{title} — campaign ended",
     "pledgeAriaLabel": "Pledge to {title}"
@@ -165,17 +163,11 @@
     "deadline": "Deadline",
     "contributors": "Contributors",
     "token": "Token",
-    "removeFromComparison": "Remove {title} from comparison",
-    "copiedToClipboard": "Comparison link copied to clipboard!"
+    "removeFromComparison": "Remove {title} from comparison"
   },
   "notFound": {
     "title": "404",
     "message": "This page doesn't exist.",
     "goHome": "Go Home"
-  },
-  "common": {
-    "loading": "Loading…",
-    "error": "Something went wrong.",
-    "retry": "Retry"
   }
 }

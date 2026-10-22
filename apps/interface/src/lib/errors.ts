@@ -228,7 +228,7 @@ function classifyWalletError(message: string): ErrorCode {
 }
 
 /** Returns true if the message looks like a wallet/signing error. */
-function isWalletError(message: string): boolean {
+export function isWalletError(message: string): boolean {
   return /wallet|freighter|sign|rejected|denied|insufficient|balance/i.test(
     message,
   );

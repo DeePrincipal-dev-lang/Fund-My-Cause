@@ -22,12 +22,21 @@ export const LazyBookmarks = dynamic(() => import('@/app/[locale]/bookmarks/page
 });
 
 // Component-level lazy loading
-export const LazyPledgeModal = dynamic(() => import('@/components/ui/PledgeModal'), {
-  loading: () => <div>Loading pledge form...</div>,
-  ssr: false,
-});
+export const LazyPledgeModal = dynamic(
+  () => import('@/components/ui/PledgeModal').then((mod) => mod.PledgeModal),
+  {
+    loading: () => <div>Loading pledge form...</div>,
+    ssr: false,
+  },
+);
 
-export const LazyFeatureFlagManager = dynamic(() => import('@/components/FeatureFlagManager'), {
-  loading: () => <div>Loading settings...</div>,
-  ssr: false,
-});
+export const LazyFeatureFlagManager = dynamic(
+  () =>
+    import('@/components/FeatureFlagManager').then(
+      (mod) => mod.FeatureFlagManagerUI,
+    ),
+  {
+    loading: () => <div>Loading settings...</div>,
+    ssr: false,
+  },
+);

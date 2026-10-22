@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useCallback } from "react";
-import { fetchCampaignView, type CampaignInfo, type CampaignStats } from "@/lib/soroban";
+import { fetchCampaignView } from "@/lib/graphql/client";
+import type { CampaignInfo, CampaignStats } from "@fund-my-cause/types";
 import { isValidContractId } from "@/lib/validation";
 import { QUERY_KEYS } from "@/lib/queryKeys";
 
@@ -19,17 +20,21 @@ export interface CampaignInitialData {
  *   for live updates. This is the key mechanism that makes ISR pages render
  *   meaningful HTML without JS while still refreshing automatically.
  */
-export function useCampaign(contractId: string, initialData?: CampaignInitialData) {
+export function useCampaign(
+  contractId: string,
+  initialData?: CampaignInitialData,
+) {
   const queryClient = useQueryClient();
   const [optimisticDelta, setOptimisticDelta] = useState<{
     raisedDelta: bigint;
     countDelta: number;
   } | null>(null);
 
-  const { data, isLoading: loading, error: rawError } = useQuery<
-    { info: CampaignInfo; stats: CampaignStats },
-    Error
-  >({
+  const {
+    data,
+    isLoading: loading,
+    error: rawError,
+  } = useQuery<{ info: CampaignInfo; stats: CampaignStats }, Error>({
     queryKey: QUERY_KEYS.campaign(contractId),
     queryFn: () => fetchCampaignView(contractId),
     enabled: isValidContractId(contractId),
@@ -44,11 +49,15 @@ export function useCampaign(contractId: string, initialData?: CampaignInitialDat
 
   const error =
     rawError?.message ??
-    (isValidContractId(contractId) ? null : `Invalid contract ID format: ${contractId}`);
+    (isValidContractId(contractId)
+      ? null
+      : `Invalid contract ID format: ${contractId}`);
 
   const refresh = useCallback(() => {
     setOptimisticDelta(null);
-    return queryClient.invalidateQueries({ queryKey: QUERY_KEYS.campaign(contractId) });
+    return queryClient.invalidateQueries({
+      queryKey: QUERY_KEYS.campaign(contractId),
+    });
   }, [queryClient, contractId]);
 
   /** Immediately apply an optimistic contribution (amountXlm in XLM) */
@@ -68,7 +77,8 @@ export function useCampaign(contractId: string, initialData?: CampaignInitialDat
       ? {
           ...baseStats,
           totalRaised: baseStats.totalRaised + optimisticDelta.raisedDelta,
-          contributorCount: baseStats.contributorCount + optimisticDelta.countDelta,
+          contributorCount:
+            baseStats.contributorCount + optimisticDelta.countDelta,
         }
       : baseStats;
 
@@ -98,7 +108,10 @@ export function useContribute(contractId: string) {
       const { contribute } = await import("@/lib/contract");
       return contribute(contractId, contributor, amount, signTx);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.campaign(contractId) }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.campaign(contractId),
+      }),
   });
 }
 
@@ -115,7 +128,10 @@ export function useWithdraw(contractId: string) {
       const { withdraw } = await import("@/lib/contract");
       return withdraw(contractId, creator, signTx);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.campaign(contractId) }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.campaign(contractId),
+      }),
   });
 }
 
@@ -132,7 +148,10 @@ export function useRefund(contractId: string) {
       const { refundSingle } = await import("@/lib/contract");
       return refundSingle(contractId, contributor, signTx);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.campaign(contractId) }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.campaign(contractId),
+      }),
   });
 }
 
@@ -151,7 +170,10 @@ export function useBatchRefund(contractId: string) {
       const { refundBatch } = await import("@/lib/contract");
       return refundBatch(contractId, caller, contributors, signTx);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.campaign(contractId) }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.campaign(contractId),
+      }),
   });
 }
 
@@ -168,7 +190,10 @@ export function usePause(contractId: string) {
       const { pauseCampaign } = await import("@/lib/contract");
       return pauseCampaign(contractId, admin, signTx);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.campaign(contractId) }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.campaign(contractId),
+      }),
   });
 }
 
@@ -185,6 +210,9 @@ export function useUnpause(contractId: string) {
       const { unpauseCampaign } = await import("@/lib/contract");
       return unpauseCampaign(contractId, admin, signTx);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.campaign(contractId) }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.campaign(contractId),
+      }),
   });
 }

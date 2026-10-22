@@ -1,10 +1,11 @@
-export const fetchCampaign = jest.fn();
-export const fetchCampaignView = jest.fn();
-export const fetchAllCampaigns = jest.fn();
-export const fetchContribution = jest.fn();
-export const fetchContributorList = jest.fn();
+export const getStaticCampaignIds = jest.fn(() => []);
 export const buildInitializeTx = jest.fn();
 export const buildWithdrawTx = jest.fn();
 export const buildCancelTx = jest.fn();
+export const buildPauseTx = jest.fn();
+export const buildUnpauseTx = jest.fn();
+export const buildRefundTx = jest.fn();
 export const buildUpdateMetadataTx = jest.fn();
+export const buildContributeTx = jest.fn();
+export const simulateTx = jest.fn();
 export const submitSignedTx = jest.fn();
