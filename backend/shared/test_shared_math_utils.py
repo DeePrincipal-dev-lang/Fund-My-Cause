@@ -1,126 +1,201 @@
 """
-Unit tests for shared_math_utils module.
+Unit tests for backend/shared/shared_math_utils.py (#1514).
+
+Covers
+------
+round_score
+  - Normal positive values are rounded to the requested precision.
+  - Default precision is 4 decimal places.
+  - Custom ndigits work correctly.
+  - Zero input returns 0.0.
+  - Negative input is clamped to 0.0.
+  - NaN input returns 0.0.
+  - +Inf / -Inf inputs return 0.0.
+  - Non-numeric input (str, None) returns 0.0.
+
+normalize
+  - Mid-range value normalises to the expected fraction.
+  - Value at the minimum normalises to 0.0.
+  - Value at the maximum normalises to 1.0.
+  - Value below the minimum is clamped to 0.0.
+  - Value above the maximum is clamped to 1.0.
+  - Degenerate range (minimum == maximum) returns 0.0.
+  - NaN in any argument returns 0.0.
+  - ±Inf in any argument returns 0.0.
+  - Negative minimum is handled correctly.
+  - Negative value within a negative range normalises correctly.
 """
 
 import math
+import sys
+import os
+
 import pytest
-from .shared_math_utils import (
-    jaccard_similarity,
-    normalize,
-    weighted_score,
-    logarithmic_scale,
-    exponential_moving_average,
-    percentile_rank,
-)
+
+# Allow running this file directly from backend/shared/ or from the repo root.
+sys.path.insert(0, os.path.dirname(__file__))
+
+from shared_math_utils import normalize, round_score
 
 
-class TestJaccardSimilarity:
-    def test_identical_strings(self):
-        assert jaccard_similarity("hello world", "hello world") == 1.0
+# ===========================================================================
+# round_score
+# ===========================================================================
 
-    def test_empty_strings(self):
-        assert jaccard_similarity("", "") == 1.0
+class TestRoundScore:
+    # -- Normal / happy path --------------------------------------------------
 
-    def test_no_overlap(self):
-        assert jaccard_similarity("hello", "world") == 0.0
+    def test_rounds_to_default_four_decimal_places(self):
+        assert round_score(0.123456) == pytest.approx(0.1235)
 
-    def test_partial_overlap(self):
-        result = jaccard_similarity("hello world", "hello python")
-        expected = 1.0 / 3.0  # {hello} / {hello, world, python}
-        assert abs(result - expected) < 1e-6
+    def test_rounds_to_custom_ndigits(self):
+        assert round_score(0.123456, ndigits=2) == pytest.approx(0.12)
 
-    def test_case_insensitive(self):
-        assert jaccard_similarity("Hello World", "hello world") == 1.0
+    def test_integer_input_works(self):
+        assert round_score(3) == pytest.approx(3.0)
 
+    def test_zero_returns_zero(self):
+        assert round_score(0.0) == 0.0
+
+    def test_exactly_representable_value_unchanged(self):
+        assert round_score(1.0) == pytest.approx(1.0)
+
+    def test_large_value_rounds_correctly(self):
+        assert round_score(9999.99999, ndigits=2) == pytest.approx(10000.0)
+
+    def test_ndigits_zero_returns_integer_like_float(self):
+        assert round_score(3.7, ndigits=0) == pytest.approx(4.0)
+
+    # -- Negative inputs ------------------------------------------------------
+
+    def test_negative_value_clamped_to_zero(self):
+        assert round_score(-1.0) == 0.0
+
+    def test_negative_zero_accepted_as_zero(self):
+        # -0.0 is equal to 0.0 in Python; must not be treated as negative.
+        assert round_score(-0.0) == 0.0
+
+    def test_negative_large_value_returns_zero(self):
+        assert round_score(-9999.0) == 0.0
+
+    # -- Non-finite inputs ----------------------------------------------------
+
+    def test_nan_returns_zero(self):
+        assert round_score(float("nan")) == 0.0
+
+    def test_positive_inf_returns_zero(self):
+        assert round_score(float("inf")) == 0.0
+
+    def test_negative_inf_returns_zero(self):
+        assert round_score(float("-inf")) == 0.0
+
+    # -- Non-numeric inputs ---------------------------------------------------
+
+    def test_string_input_returns_zero(self):
+        assert round_score("3.14") == 0.0  # type: ignore[arg-type]
+
+    def test_none_input_returns_zero(self):
+        assert round_score(None) == 0.0  # type: ignore[arg-type]
+
+    def test_list_input_returns_zero(self):
+        assert round_score([1, 2]) == 0.0  # type: ignore[arg-type]
+
+
+# ===========================================================================
+# normalize
+# ===========================================================================
 
 class TestNormalize:
-    def test_clamp_below_range(self):
-        assert normalize(-1.0, min_val=0.0, max_val=1.0) == 0.0
+    # -- Normal / happy path --------------------------------------------------
 
-    def test_clamp_above_range(self):
-        assert normalize(2.0, min_val=0.0, max_val=1.0) == 1.0
+    def test_mid_range_value(self):
+        assert normalize(50, 0, 100) == pytest.approx(0.5)
 
-    def test_within_range(self):
-        assert normalize(0.5, min_val=0.0, max_val=1.0) == 0.5
+    def test_value_at_minimum(self):
+        assert normalize(0, 0, 100) == pytest.approx(0.0)
 
-    def test_custom_range(self):
-        assert normalize(15.0, min_val=10.0, max_val=20.0) == 15.0
+    def test_value_at_maximum(self):
+        assert normalize(100, 0, 100) == pytest.approx(1.0)
 
-    def test_invalid_range(self):
-        with pytest.raises(ValueError):
-            normalize(0.5, min_val=1.0, max_val=1.0)
+    def test_fractional_result(self):
+        assert normalize(25, 0, 100) == pytest.approx(0.25)
 
+    def test_non_zero_minimum(self):
+        assert normalize(150, 100, 200) == pytest.approx(0.5)
 
-class TestWeightedScore:
-    def test_unit_weight(self):
-        assert weighted_score(10.0, weight=1.0) == 10.0
+    def test_float_arguments(self):
+        assert normalize(0.75, 0.0, 1.0) == pytest.approx(0.75)
 
-    def test_boost_weight(self):
-        assert weighted_score(10.0, weight=2.0) == 20.0
+    def test_result_is_between_zero_and_one_for_in_range_value(self):
+        result = normalize(37, 10, 90)
+        assert 0.0 <= result <= 1.0
 
-    def test_min_weight_enforced(self):
-        result = weighted_score(10.0, weight=0.5, min_weight=1.0)
-        assert result == 10.0  # weight clamped to min_weight
+    # -- Clamping -------------------------------------------------------------
 
-    def test_zero_score(self):
-        assert weighted_score(0.0, weight=5.0) == 0.0
+    def test_value_below_minimum_clamped_to_zero(self):
+        assert normalize(-10, 0, 100) == 0.0
 
+    def test_value_above_maximum_clamped_to_one(self):
+        assert normalize(150, 0, 100) == 1.0
 
-class TestLogarithmicScale:
-    def test_zero(self):
-        assert logarithmic_scale(0.0) == 0.0
+    def test_value_far_below_minimum_clamped_to_zero(self):
+        assert normalize(-1_000_000, 0, 100) == 0.0
 
-    def test_positive_value(self):
-        result = logarithmic_scale(math.e - 1)  # log1p(e-1) = log(e) = 1
-        assert abs(result - 1.0) < 1e-6
+    def test_value_far_above_maximum_clamped_to_one(self):
+        assert normalize(1_000_000, 0, 100) == 1.0
 
-    def test_negative_raises(self):
-        with pytest.raises(ValueError):
-            logarithmic_scale(-1.0)
+    # -- Degenerate range (minimum == maximum) --------------------------------
 
-    def test_base_10(self):
-        result = logarithmic_scale(9.0, base=10)
-        expected = math.log10(10.0)
-        assert abs(result - expected) < 1e-6
+    def test_zero_width_range_returns_zero(self):
+        assert normalize(5, 5, 5) == 0.0
 
+    def test_zero_width_range_with_zero_bounds_returns_zero(self):
+        assert normalize(0, 0, 0) == 0.0
 
-class TestExponentialMovingAverage:
-    def test_first_update(self):
-        result = exponential_moving_average(current=0.0, new_value=100.0, alpha=0.3)
-        expected = 0.3 * 100.0
-        assert abs(result - expected) < 1e-6
+    # -- Negative ranges / values ---------------------------------------------
 
-    def test_stable_state(self):
-        result = exponential_moving_average(current=100.0, new_value=100.0, alpha=0.3)
-        assert abs(result - 100.0) < 1e-6
+    def test_negative_minimum(self):
+        assert normalize(0, -100, 100) == pytest.approx(0.5)
 
-    def test_alpha_zero(self):
-        result = exponential_moving_average(current=100.0, new_value=50.0, alpha=0.0)
-        assert abs(result - 100.0) < 1e-6
+    def test_fully_negative_range(self):
+        assert normalize(-50, -100, -10) == pytest.approx(0.555555, rel=1e-4)
 
-    def test_alpha_one(self):
-        result = exponential_moving_average(current=100.0, new_value=50.0, alpha=1.0)
-        assert abs(result - 50.0) < 1e-6
+    def test_negative_value_within_negative_range(self):
+        assert normalize(-75, -100, 0) == pytest.approx(0.25)
 
-    def test_invalid_alpha(self):
-        with pytest.raises(ValueError):
-            exponential_moving_average(100.0, 50.0, alpha=1.5)
+    def test_value_at_negative_minimum(self):
+        assert normalize(-100, -100, 0) == pytest.approx(0.0)
 
+    def test_value_at_negative_maximum(self):
+        assert normalize(0, -100, 0) == pytest.approx(1.0)
 
-class TestPercentileRank:
-    def test_empty_sequence(self):
-        assert percentile_rank(5.0, []) == 0.0
+    # -- Non-finite inputs ----------------------------------------------------
 
-    def test_all_lower(self):
-        assert percentile_rank(10.0, [1.0, 2.0, 3.0]) == 1.0
+    def test_nan_value_returns_zero(self):
+        assert normalize(float("nan"), 0, 100) == 0.0
 
-    def test_all_higher(self):
-        assert percentile_rank(0.0, [1.0, 2.0, 3.0]) == 0.0
+    def test_nan_minimum_returns_zero(self):
+        assert normalize(50, float("nan"), 100) == 0.0
 
-    def test_middle_value(self):
-        result = percentile_rank(5.0, [1.0, 3.0, 5.0, 7.0, 9.0])
-        assert abs(result - 0.6) < 1e-6  # 3/5 values <= 5
+    def test_nan_maximum_returns_zero(self):
+        assert normalize(50, 0, float("nan")) == 0.0
 
-    def test_duplicates(self):
-        result = percentile_rank(5.0, [5.0, 5.0, 5.0])
-        assert abs(result - 1.0) < 1e-6
+    def test_inf_value_returns_zero(self):
+        assert normalize(float("inf"), 0, 100) == 0.0
+
+    def test_negative_inf_value_returns_zero(self):
+        assert normalize(float("-inf"), 0, 100) == 0.0
+
+    def test_inf_minimum_returns_zero(self):
+        assert normalize(50, float("-inf"), 100) == 0.0
+
+    def test_inf_maximum_returns_zero(self):
+        assert normalize(50, 0, float("inf")) == 0.0
+
+    # -- Non-numeric inputs ---------------------------------------------------
+
+    def test_string_value_returns_zero(self):
+        assert normalize("50", 0, 100) == 0.0  # type: ignore[arg-type]
+
+    def test_none_value_returns_zero(self):
+        assert normalize(None, 0, 100) == 0.0  # type: ignore[arg-type]

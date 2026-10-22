@@ -15,9 +15,13 @@ from typing import AsyncIterator
 import structlog
 from fastapi import FastAPI
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "shared"))
-from db_config import load_db_pool_config  # noqa: E402
-from structured_logger import configure_structlog  # noqa: E402
+# Shared scoring helpers — single implementation per #1514.
+from scoring import jaccard_similarity
+
+# ---------------------------------------------------------------------------
+# Logging — structlog configured for JSON output in production,
+# coloured console output in development.
+# ---------------------------------------------------------------------------
 
 from repository import (  # noqa: F401
     CampaignRecord, ContributionEvent, Flag, FlagReason, FlagSeverity, RefundEvent,
@@ -61,17 +65,9 @@ except ValueError as e:
 DB_POOL_CONFIG = load_db_pool_config()
 log.info("db_pool_config_resolved", **DB_POOL_CONFIG.__dict__)
 
-# Backward-compatibility aliases — tests_pipeline.py imports these from here.
-_CONTRIBUTIONS = _repo._CONTRIBUTIONS
-_REFUNDS = _repo._REFUNDS
-_CAMPAIGN_RECORDS = _repo._CAMPAIGN_RECORDS
-_QUEUE = _repo._QUEUE
-
-
-def __getattr__(name: str):
-    if name == "_last_duplicate_scan_at":
-        return _scoring._last_duplicate_scan_at
-    raise AttributeError(name)
+def scan_wash_contributions() -> list[Flag]:
+    """
+    Wash contribution heuristic.
 
 
 def __setattr__(name: str, value):  # type: ignore[override]
@@ -80,6 +76,211 @@ def __setattr__(name: str, value):  # type: ignore[override]
         return
     raise AttributeError(name)
 
+    for (campaign_id, wallet), count in wash_count.items():
+        if count >= WASH_MIN_OCCURRENCES:
+            flags.append(Flag(
+                id=_next_flag_id(),
+                reason=FlagReason.WASH_CONTRIBUTION,
+                severity=FlagSeverity.HIGH,
+                campaign_id=campaign_id,
+                wallet=wallet,
+                detail=f"Wallet performed {count} wash cycles within {WASH_WINDOW_SECONDS}s",
+            ))
+    return flags
+
+
+def scan_contribution_spikes() -> list[Flag]:
+    """
+    Sudden-spike heuristic.
+
+    If a campaign receives more than SPIKE_MAX_CONTRIBUTIONS in any
+    SPIKE_WINDOW_SECONDS rolling window, flag it as a potential sybil attack.
+    """
+    flags: list[Flag] = []
+    by_campaign: dict[str, list[float]] = {}
+    for c in _CONTRIBUTIONS:
+        by_campaign.setdefault(c.campaign_id, []).append(c.timestamp)
+
+    for campaign_id, timestamps in by_campaign.items():
+        ts = sorted(timestamps)
+        for i, t_start in enumerate(ts):
+            window = [t for t in ts[i:] if t - t_start <= SPIKE_WINDOW_SECONDS]
+            if len(window) > SPIKE_MAX_CONTRIBUTIONS:
+                flags.append(Flag(
+                    id=_next_flag_id(),
+                    reason=FlagReason.CONTRIBUTION_SPIKE,
+                    severity=FlagSeverity.MEDIUM,
+                    campaign_id=campaign_id,
+                    wallet=None,
+                    detail=(
+                        f"{len(window)} contributions in "
+                        f"{SPIKE_WINDOW_SECONDS}s window "
+                        f"(threshold: {SPIKE_MAX_CONTRIBUTIONS})"
+                    ),
+                ))
+                break  # one flag per campaign per scan
+    return flags
+
+
+def scan_duplicate_content() -> list[Flag]:
+    """
+    Duplicate-content heuristic.
+
+    Compares every pair of campaigns by title Jaccard similarity.
+    Pairs above DUPLICATE_JACCARD_THRESHOLD are flagged.
+    """
+    flags: list[Flag] = []
+    records = _CAMPAIGN_RECORDS
+    for i in range(len(records)):
+        for j in range(i + 1, len(records)):
+            a, b = records[i], records[j]
+            sim = jaccard_similarity(a.title, b.title)
+            if sim >= DUPLICATE_JACCARD_THRESHOLD:
+                flags.append(Flag(
+                    id=_next_flag_id(),
+                    reason=FlagReason.DUPLICATE_CONTENT,
+                    severity=FlagSeverity.LOW,
+                    campaign_id=b.id,
+                    wallet=None,
+                    detail=(
+                        f"Title Jaccard similarity {sim:.2f} with campaign {a.id} "
+                        f"(threshold: {DUPLICATE_JACCARD_THRESHOLD})"
+                    ),
+                ))
+    return flags
+
+
+def run_full_scan() -> list[Flag]:
+    """Execute all heuristics and append new flags to the moderation queue."""
+    scan_log = log.bind(operation="run_full_scan")
+    scan_log.info("scan_started")
+
+    new_flags: list[Flag] = []
+    new_flags.extend(scan_wash_contributions())
+    new_flags.extend(scan_contribution_spikes())
+    new_flags.extend(scan_duplicate_content())
+    for f in new_flags:
+        _enqueue(f)
+
+    scan_log.info("scan_completed", new_flags=len(new_flags), queue_depth=len(_QUEUE))
+    return new_flags
+
+
+# ---------------------------------------------------------------------------
+# Contribution notification model
+# ---------------------------------------------------------------------------
+
+@dataclass
+class ContributionPayload:
+    """
+    Payload posted by graphql-api to ``POST /contributions``.
+
+    Mirrors ``ContributionNotification`` in
+    ``services/graphql-api/src/services/fraud-client.ts``.
+    """
+    campaignId: str
+    contributor: str
+    amount: str          # stringified bigint
+    transactionHash: str
+    timestamp: float     # Unix epoch seconds
+
+
+# ---------------------------------------------------------------------------
+# Async scoring job queue (#904)
+# ---------------------------------------------------------------------------
+
+@dataclass
+class ScoringJob:
+    """A unit of async fraud-scoring work enqueued per incoming contribution."""
+    payload: ContributionPayload
+    enqueued_at: float = field(default_factory=time.time)
+
+
+#: Bounded asyncio queue — prevents unbounded memory growth under load.
+#: When full, POST /contributions returns 503 rather than blocking.
+_scoring_queue: asyncio.Queue[ScoringJob] = asyncio.Queue(maxsize=SCORING_QUEUE_MAXSIZE)
+
+# ---------------------------------------------------------------------------
+# Queue metrics — updated by _scoring_worker
+# ---------------------------------------------------------------------------
+_JOBS_PROCESSED: int = 0
+_TOTAL_FLAGS_FOUND: int = 0
+_AVG_LATENCY_MS_EMA: float = 0.0   # exponential moving average, α=0.1
+_LAST_JOB_AT: Optional[float] = None
+_EMA_ALPHA = 0.1                    # smoothing factor for latency EMA
+
+
+async def _scoring_worker() -> None:
+    """
+    Background coroutine that drains the scoring queue.
+
+    For each job:
+    1. Dequeue a ScoringJob.
+    2. Store the contribution in the in-memory event store.
+    3. Run the full heuristic scan (run_full_scan).
+    4. Update metrics (job count, flag count, EMA latency).
+    5. Mark the task done.
+
+    Any exception is logged and swallowed so the worker never crashes.
+    """
+    global _JOBS_PROCESSED, _TOTAL_FLAGS_FOUND, _AVG_LATENCY_MS_EMA, _LAST_JOB_AT
+
+    worker_log = log.bind(component="scoring_worker")
+    worker_log.info("scoring_worker_started")
+
+    while True:
+        job: ScoringJob = await _scoring_queue.get()
+        try:
+            payload = job.payload
+
+            # Store the contribution event
+            _CONTRIBUTIONS.append(ContributionEvent(
+                campaign_id=payload.campaignId,
+                wallet=payload.contributor,
+                amount=int(payload.amount) if payload.amount.isdigit() else 0,
+                timestamp=payload.timestamp,
+            ))
+
+            # Run the full scan to apply heuristics post-hoc
+            new_flags = run_full_scan()
+
+            # Update metrics
+            processing_latency_ms = (time.time() - job.enqueued_at) * 1000
+            _JOBS_PROCESSED += 1
+            _TOTAL_FLAGS_FOUND += len(new_flags)
+            _LAST_JOB_AT = time.time()
+
+            # Exponential moving average for latency
+            if _JOBS_PROCESSED == 1:
+                _AVG_LATENCY_MS_EMA = processing_latency_ms
+            else:
+                _AVG_LATENCY_MS_EMA = (
+                    _EMA_ALPHA * processing_latency_ms
+                    + (1 - _EMA_ALPHA) * _AVG_LATENCY_MS_EMA
+                )
+
+            worker_log.info(
+                "job_processed",
+                campaign_id=payload.campaignId,
+                contributor=payload.contributor,
+                new_flags=len(new_flags),
+                processing_latency_ms=round(processing_latency_ms, 2),
+                queue_depth_after=_scoring_queue.qsize(),
+                total_jobs_processed=_JOBS_PROCESSED,
+            )
+        except Exception as exc:
+            worker_log.error(
+                "job_processing_error",
+                error=str(exc),
+                campaign_id=getattr(job.payload, "campaignId", "unknown"),
+            )
+        finally:
+            _scoring_queue.task_done()
+
+
+# ---------------------------------------------------------------------------
+# Application lifespan: start/stop the scoring worker
+# ---------------------------------------------------------------------------
 
 @asynccontextmanager
 async def lifespan(app_: FastAPI) -> AsyncIterator[None]:
