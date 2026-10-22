@@ -108,6 +108,10 @@ Rather than a single transaction refunding all contributors (which would fail at
 
 An optional `PlatformConfig` can be set at initialization with a fee in basis points (e.g. `250` = 2.5%). The fee is deducted from the creator's payout on withdrawal and sent to the platform address.
 
+### Contract Upgrades & State Migration
+
+Contracts support in-place bytecode upgrades via Soroban's `update_current_contract_wasm` host function, preserving contract IDs, escrow balances, and active campaign state across releases. For architectural rationale, trade-offs, and migration procedures, see **[ADR-007: Stellar Contract Upgrade Strategy](./docs/adr/ADR-007-stellar-contract-upgrade-strategy.md)** and the **[Contract Upgrade Guide](./docs/contract-upgrades.md)**.
+
 ---
 
 ## Frontend
@@ -127,95 +131,11 @@ The app uses `@stellar/freighter-api` for wallet connectivity. The `WalletContex
 
 ---
 
-## Prerequisites
-
-### Contracts
-
-| Requirement | Version | Installation |
-|---|---|---|
-| Rust | 1.70+ | `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \| sh` |
-| wasm32 target | - | `rustup target add wasm32-unknown-unknown` |
-| Stellar CLI | 21.0+ | [Installation Guide](https://developers.stellar.org/docs/tools/developer-tools/cli/stellar-cli) |
-
-### Frontend
-
-| Requirement | Version | Installation |
-|---|---|---|
-| Node.js | 18+ | [nodejs.org](https://nodejs.org) |
-| npm | 9+ | Included with Node.js |
-| Freighter | Latest | [freighter.app](https://www.freighter.app/) |
-
-### Optional
-
-- Docker (for containerized deployment)
-- GitHub CLI (for release automation)
-
----
-
 ## Getting Started
 
-### 1. Clone
+Follow **[docs/SETUP.md](./docs/SETUP.md)** for the complete local setup: npm workspaces, the pinned Rust toolchain, Docker Compose, environment files, tests, and per-service startup. This README intentionally does not duplicate those steps.
 
-```bash
-git clone https://github.com/Fund-My-Cause/Fund-My-Cause.git
-cd Fund-My-Cause
-```
-
-### 2. Build & test the contract
-
-```bash
-# Build WASM
-cargo build --release --target wasm32-unknown-unknown
-
-# Run tests
-cargo test --workspace
-```
-
-### 3. Deploy to testnet
-
-```bash
-DEADLINE=$(date -d "+30 days" +%s)
-./scripts/deploy.sh <CREATOR_ADDRESS> <TOKEN_ADDRESS> 1000 $DEADLINE 10 "My Campaign" "A great cause" null [REGISTRY_CONTRACT_ID]
-```
-
-If `REGISTRY_CONTRACT_ID` is omitted, the script deploys a new registry contract.
-After campaign initialization, the script calls `registry.register(campaign_id)` automatically.
-
-Save the printed `Contract ID` and `Registry ID` — you'll need them in frontend config.
-
-### 4. Configure frontend environment
-
-Use the environment switcher script:
-
-```bash
-# Switch to development environment
-./scripts/switch-env.sh development
-
-# Or manually create .env.local
-cp apps/interface/.env.example apps/interface/.env.local
-# Edit .env.local with your contract IDs
-```
-
-For detailed configuration options, see [docs/environment-config.md](./docs/environment-config.md).
-
-### 5. Run the frontend
-
-```bash
-cd apps/interface
-npm install
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000).
-
-### 6. Run the backend services (optional)
-
-The frontend runs without them, but if you are working on `services/graphql-api`
-or `services/indexer`, see
-**[docs/services-local-development.md](./docs/services-local-development.md)**.
-It covers each service standalone: required environment variables, which service
-needs Redis (and which does not), why neither needs a database, and the
-known-issue workarounds you will otherwise hit on a fresh clone.
+For container deployment details, see [Docker](#docker) and [docs/docker.md](./docs/docker.md). For testnet deployment, see [docs/deployment.md](./docs/deployment.md).
 
 ---
 
@@ -324,6 +244,9 @@ We follow [coordinated disclosure](https://en.wikipedia.org/wiki/Coordinated_vul
 
 | Resource | Description |
 |----------|-------------|
+| [docs/INDEX.md](./docs/INDEX.md) | Complete documentation index and architecture catalog |
+| [docs/SETUP.md](./docs/SETUP.md) | Comprehensive monorepo local development setup and troubleshooting guide |
+| [docs/adr/](./docs/adr/README.md) | Architecture Decision Records (including [ADR-007](./docs/adr/ADR-007-stellar-contract-upgrade-strategy.md)) |
 | [docs/api/](./docs/api/README.md) | Full contract API reference — every function, type, event, and error code |
 | [docs/tutorials/](./docs/tutorials/README.md) | Step-by-step guides: getting started, contributing, dashboards, matching, saved searches |
 | [sdks/js/](./sdks/js/README.md) | TypeScript SDK — typed client for all contract operations |
@@ -368,3 +291,14 @@ Fund-My-Cause is powered by the Stellar network and Soroban smart contracts. Ste
 - [Stellar Docs](https://developers.stellar.org)
 - [Soroban Docs](https://soroban.stellar.org)
 - [Freighter Wallet](https://www.freighter.app)
+
+## Handsoff notes
+
+<!-- handsoff-issue-1350 -->
+- #1350: [Frontend] Split app/campaigns page into focused container/presentational components
+
+<!-- handsoff-issue-1351 -->
+- #1351: [Frontend] Consolidate duplicate data-fetching logic in src/services and src/lib/graphql
+
+<!-- handsoff-issue-1358 -->
+- #1358: [Frontend] Modularize webhook handling logic in src/lib/webhooks

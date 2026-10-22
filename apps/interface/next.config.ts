@@ -10,7 +10,10 @@ const IMAGE_CDN_URL = process.env.NEXT_PUBLIC_IMAGE_CDN_URL ?? "";
  * Content Security Policy for standard app routes.
  *
  * default-src 'self'          — baseline: only same-origin resources allowed
- * script-src  'self' + eval  — 'unsafe-eval' required by Next.js HMR in dev
+ * script-src  'self' + eval + inline (dev only) — 'unsafe-eval' and
+ *   'unsafe-inline' are required by Turbopack's dev-mode HMR bootstrap
+ *   inline scripts; without 'unsafe-inline' the CSP blocks hydration
+ *   entirely (self.__next_r never gets set → hydration invariant crash)
  * style-src   'self' 'unsafe-inline' — Tailwind injects inline styles
  * connect-src 'self' + RPC   — Soroban RPC, Horizon, CoinGecko price feed
  * img-src     'self' data:   — data URIs; Unsplash & IPFS for campaign images
@@ -20,7 +23,9 @@ const IMAGE_CDN_URL = process.env.NEXT_PUBLIC_IMAGE_CDN_URL ?? "";
  */
 const cspDefault = [
   "default-src 'self'",
-  isDev ? "script-src 'self' 'unsafe-eval'" : "script-src 'self'",
+  isDev
+    ? "script-src 'self' 'unsafe-eval' 'unsafe-inline'"
+    : "script-src 'self'",
   "style-src 'self' 'unsafe-inline'",
   [
     "connect-src 'self'",
@@ -48,7 +53,9 @@ const cspDefault = [
  */
 const cspEmbed = [
   "default-src 'self'",
-  isDev ? "script-src 'self' 'unsafe-eval'" : "script-src 'self'",
+  isDev
+    ? "script-src 'self' 'unsafe-eval' 'unsafe-inline'"
+    : "script-src 'self'",
   "style-src 'self' 'unsafe-inline'",
   [
     "connect-src 'self'",

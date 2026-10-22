@@ -12,7 +12,6 @@ import {
   X,
   Bell,
   AlertTriangle,
-  Globe,
   HelpCircle,
 } from "lucide-react";
 import { ProductTour } from "@/components/ui/ProductTour";
@@ -22,55 +21,11 @@ import { useNotifications } from "@/hooks/useNotifications";
 import { NotificationDropdown } from "@/components/ui/NotificationDropdown";
 import { WalletBalance } from "@/components/ui/WalletBalance";
 import { NETWORK_NAME } from "@/lib/constants";
-import { useLocale, useTranslations } from "next-intl";
-import { useRouter, usePathname } from "next/navigation";
-import { locales, localeNames, type Locale } from "@/i18n/config";
+import { useTranslations } from "next-intl";
+import { LanguageSelector } from "./LanguageSelector";
 
 function truncate(addr: string) {
   return `${addr.substring(0, 5)}...${addr.substring(addr.length - 4)}`;
-}
-
-function LanguageSelector() {
-  const locale = useLocale() as Locale;
-  const router = useRouter();
-  const pathname = usePathname();
-
-  const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const next = e.target.value as Locale;
-    const segments = pathname.split("/");
-    if (locales.includes(segments[1] as Locale)) {
-      segments[1] = next;
-    } else {
-      segments.splice(1, 0, next);
-    }
-    router.push(segments.join("/") || "/");
-  };
-
-  return (
-    <div className="flex items-center gap-1">
-      <Globe
-        size={14}
-        className="text-[var(--color-text-muted)] shrink-0"
-        aria-hidden="true"
-      />
-      <select
-        value={locale}
-        onChange={handleChange}
-        aria-label="Select language"
-        className="bg-transparent text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] focus:outline-none cursor-pointer"
-      >
-        {locales.map((l) => (
-          <option
-            key={l}
-            value={l}
-            className="bg-[var(--color-surface)] text-[var(--color-text-primary)]"
-          >
-            {localeNames[l]}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
 }
 
 const iconBtnCls =

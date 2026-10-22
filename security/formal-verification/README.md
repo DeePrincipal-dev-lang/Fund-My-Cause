@@ -247,3 +247,58 @@ Therefore: All can always refund
 - [Soroban Security Model](https://soroban.stellar.org/docs/learn/security)
 - [Formal Methods for Smart Contracts](https://arxiv.org/abs/1911.04640)
 - [Proof Techniques for Security](https://en.wikipedia.org/wiki/Formal_verification)
+
+## Verified Invariants
+
+This section documents which invariants have been formally specified and verified, and which remain gaps.
+
+### Specified and Verified
+
+The following invariants are formally specified in `properties.tla` (TLA+) and verified through property-based tests using **proptest**:
+
+| # | Invariant | Contract | Spec File | Test File | Method | Status |
+|---|-----------|----------|-----------|-----------|--------|--------|
+| 1 | Conservation of Funds | Crowdfund | `properties.tla` (ConservationOfFunds) | `contracts/crowdfund/tests/invariants.rs` | Proptest (150 cases) | Passing |
+| 2 | Refund Safety | Crowdfund | `properties.tla` (StatusConsistency) | `contracts/crowdfund/tests/invariants.rs`, `contracts/crowdfund/tests/adversarial.rs` | Deterministic + Proptest | Passing |
+| 3 | Access Control | Crowdfund | `properties.tla` (implicit) | `contracts/crowdfund/tests/adversarial.rs` | Negative-path tests | Partial |
+| 4 | State Transitions | Crowdfund | `properties.tla` (ValidTransitions) | `contracts/crowdfund/src/invariant_test.rs` | Deterministic | Passing |
+| 5 | Pool Conservation | QF | `properties.tla` (ConservationOfFunds) | `contracts/qf/src/tests/invariants.rs` | Proptest | Passing |
+| 6 | Non-Negative Payouts | QF | `properties.tla` (NonNegativeContributions) | `contracts/qf/src/tests/invariants.rs` | Proptest | Passing |
+| 7 | Monotonicity | QF | `properties.tla` (weak form) | `contracts/qf/src/tests/invariants.rs` | Proptest (weak) | Passing (weak) |
+
+Detailed invariant specifications are documented in [`invariants.md`](./invariants.md).
+
+### Tools Used
+
+- **proptest** — Property-based testing for runtime invariant verification with configurable case counts (100–150 cases per property).
+- **TLA+** (`properties.tla`) — Formal temporal logic specifications for state machine properties including ConservationOfFunds, ValidTransitions, StatusConsistency, and NonNegativeContributions.
+- **Deterministic tests** — Edge case and specific scenario verification in `contracts/crowdfund/src/invariant_test.rs` and `contracts/crowdfund/tests/invariants.rs`.
+- **Adversarial tests** — Negative-path and attack scenario testing in `contracts/crowdfund/tests/adversarial.rs`.
+
+### Coverage and Limitations
+
+**Covered**:
+- All core financial conservation laws for both crowdfund and qf contracts.
+- State transition validity and deadline enforcement.
+- Refund idempotency and double-spend prevention.
+- Platform fee conservation (creator + fee == contributions).
+
+**Known Gaps**:
+- **Front-running attacks** — Stellar/Soroban network transaction ordering is outside contract scope.
+- **Sybil attacks** — Identity verification is off-chain; invariants assume honest participants.
+- **Oracle failures** — External data feeds are assumed honest; no formal model of oracle failure.
+- **Strong monotonicity** — Only a weak form of monotonicity is tested for QF; the full strong property is not yet proven.
+- **TLA+ model checking** — `properties.tla` specs have not been run through a TLC model checker; this is planned as a future enhancement.
+- **Concurrent cross-contract interactions** — Multi-contract call sequences are not fully covered by current invariant tests.
+- **Storage overflow** — Edge cases with maximum storage values require additional formal treatment.
+- **Complete access control verification** — Full formal verification of all role-based transitions across every function entry point is partially implemented.
+
+### Future Enhancements
+
+1. **Automated Proof Generation** — Use formal methods tools to generate proofs from TLA+ specs.
+2. **Symbolic Execution** — Explore all possible execution paths using tools like K-Framework.
+3. **Model Checking** — Run TLC model checker against `properties.tla` for exhaustive state verification.
+4. **Theorem Proving** — Use Coq or Lean for interactive proofs of the most critical properties.
+5. **Full Monotonicity Proof** — Formal proof of the strong monotonicity property for QF allocations.
+6. **Adversarial Coverage** — Expand `adversarial.rs` to cover all access control edge cases and role-based transitions.
+7. **Coq Verification** — Move critical invariants (fund conservation, refund safety) from proptest to Coq for machine-checked proofs.

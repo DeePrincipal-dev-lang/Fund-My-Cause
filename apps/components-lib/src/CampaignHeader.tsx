@@ -2,6 +2,7 @@
 
 import React, { ReactNode } from "react";
 import { cn } from "./lib/utils";
+import { CampaignActions, type CampaignActionsProps } from "./CampaignActions";
 
 export interface CampaignHeaderClassNames {
   root?: string;
@@ -11,6 +12,73 @@ export interface CampaignHeaderClassNames {
   title?: string;
   organization?: string;
   description?: string;
+}
+
+export interface CampaignHeaderTitleProps {
+  /** Campaign title. */
+  title: string;
+  /** Heading level for the title. */
+  headingLevel?: 2 | 3 | 4;
+  /** Wraps the title text — used for search-term highlighting. */
+  renderTitle?: (title: string) => ReactNode;
+  className?: string;
+}
+
+export function CampaignHeaderTitle({
+  title,
+  headingLevel = 2,
+  renderTitle,
+  className,
+}: CampaignHeaderTitleProps) {
+  const Heading = `h${headingLevel}` as "h2" | "h3" | "h4";
+  return (
+    <Heading className={className}>
+      {renderTitle ? renderTitle(title) : title}
+    </Heading>
+  );
+}
+
+export interface CampaignHeaderMetaProps {
+  /** Owning organisation or creator. */
+  organization?: ReactNode;
+  /** Short summary rendered under the organisation line. */
+  description?: ReactNode;
+  className?: string;
+  classNames?: {
+    organization?: string;
+    description?: string;
+  };
+}
+
+export function CampaignHeaderMeta({
+  organization,
+  description,
+  className,
+  classNames,
+}: CampaignHeaderMetaProps) {
+  if (!organization && !description) return null;
+  const content = (
+    <>
+      {organization && (
+        <p className={classNames?.organization}>{organization}</p>
+      )}
+      {description && <p className={classNames?.description}>{description}</p>}
+    </>
+  );
+
+  if (className) {
+    return <div className={className}>{content}</div>;
+  }
+  return content;
+}
+
+export type CampaignHeaderActionsProps = CampaignActionsProps;
+
+export function CampaignHeaderActions({
+  layout = "inline",
+  ...props
+}: CampaignHeaderActionsProps) {
+  return <CampaignActions layout={layout} {...props} />;
 }
 
 export interface CampaignHeaderProps {
@@ -94,7 +162,6 @@ export function CampaignHeader({
   const resolvedSrc = (!failed && imageUrl) || fallbackImageUrl || "";
   const alt = imageAlt ?? `${title} - campaign header image`;
   const imageClass = cn("object-cover w-full h-full", classNames?.image);
-  const Heading = `h${headingLevel}` as "h2" | "h3" | "h4";
 
   return (
     <div className={cn(classNames?.root, className)}>
@@ -131,17 +198,26 @@ export function CampaignHeader({
       </div>
 
       <div className={classNames?.body}>
-        <Heading className={classNames?.title}>
-          {renderTitle ? renderTitle(title) : title}
-        </Heading>
-        {organization && (
-          <p className={classNames?.organization}>{organization}</p>
-        )}
-        {description && (
-          <p className={classNames?.description}>{description}</p>
-        )}
+        <CampaignHeaderTitle
+          title={title}
+          headingLevel={headingLevel}
+          renderTitle={renderTitle}
+          className={classNames?.title}
+        />
+        <CampaignHeaderMeta
+          organization={organization}
+          description={description}
+          classNames={{
+            organization: classNames?.organization,
+            description: classNames?.description,
+          }}
+        />
         {children}
       </div>
     </div>
   );
 }
+
+CampaignHeader.Title = CampaignHeaderTitle;
+CampaignHeader.Meta = CampaignHeaderMeta;
+CampaignHeader.Actions = CampaignHeaderActions;

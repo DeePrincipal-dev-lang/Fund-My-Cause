@@ -14,6 +14,10 @@ description = "Allowlist for known false positives"
 regexes = [
   # Test/example keys in docs and tests
   '''SCZANGBA_EXAMPLE''',
+  # Standard placeholder Soroban contract ID, already used throughout
+  # docs/ (backup-procedures.md, docker-deployment.md, event-monitoring.md)
+  # and e2e/ as an example/fallback value — not a real key.
+  '''CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4''',
   # Placeholder values
   '''your[_-]?secret[_-]?here''',
   '''<YOUR_''',

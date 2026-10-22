@@ -16,8 +16,11 @@
  *     (Stellar testnet recommends ≤10 concurrent RPC connections)
  *   - rpcRequestTimeoutMs=30,000 → matches Soroban RPC's recommended timeout
  *
- * When a durable store is introduced, replace this file with actual pool
- * settings (e.g., pg Pool { max, idleTimeoutMillis, connectionTimeoutMillis }).
+ * When a durable store is introduced, replace this file with the shared pool
+ * config from `@fund-my-cause/shared-utils` (`packages/shared-utils/src/db-config.ts`,
+ * #1128) rather than a locally-defined pool shape — that module is the single
+ * source of truth for DB pool tuning (max/min size, timeouts, retry policy)
+ * across every backend service. See `docs/db-pool-conventions.md`.
  */
 
 export interface StoreConfig {

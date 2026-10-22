@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect } from "react";
 import { X, Keyboard } from "lucide-react";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 

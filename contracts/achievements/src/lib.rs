@@ -77,6 +77,10 @@
 //! `unlock_achievement`.
 
 #![no_std]
+// The SDK deprecated `Events::publish` in favour of the `#[contractevent]` macro.
+// Migrating changes how events are encoded on the wire, so it is a behaviour change
+// for every off-chain consumer, not a lint cleanup, and is tracked separately.
+#![allow(deprecated)]
 
 mod achievements;
 mod errors;
@@ -96,7 +100,8 @@ pub use storage::*;
 pub use types::*;
 pub use validation::*;
 
-use common::{AccessControl, CommonError, EVENT_SCHEMA_VERSION};
+use common::math::{proportional, REWARD_DIVISOR};
+use common::{AccessControl, CommonError, EventEmitter, EVENT_SCHEMA_VERSION};
 use soroban_sdk::{contract, contractimpl, Address, Bytes, Env, String, Vec};
 
 /// Main achievement contract
@@ -339,12 +344,13 @@ impl AchievementsContract {
         env.events().publish(
             ("achievements", "points_awarded"),
             EventPointsAwarded {
-                user,
+                user: user.clone(),
                 points,
                 total_points,
                 schema_version: EVENT_SCHEMA_VERSION,
             },
         );
+        EventEmitter::achievement_points_awarded(&env, user, points, total_points);
 
         Ok(total_points)
     }
@@ -570,6 +576,10 @@ fn do_unlock(
             schema_version: EVENT_SCHEMA_VERSION,
         },
     );
+    // Also emit via the shared cross-contract event schema (contracts/common)
+    // so services/indexer can parse achievement events the same way it
+    // parses crowdfund/registry/qf events.
+    EventEmitter::achievement_unlocked(env, user.clone(), achievement_type, points);
 
     // Reconstruct full public NFT (nft_id derived, not read from ledger).
     let nft = AchievementNFT {
@@ -619,7 +629,7 @@ fn generate_nft_id(env: &Env, user: &Address, achievement_type: u32) -> String {
     }
 
     let hex_str = core::str::from_utf8(&hex_buf)
-        .unwrap_or_else(|_| "0000000000000000000000000000000000000000000000000000000000000000");
+        .unwrap_or("0000000000000000000000000000000000000000000000000000000000000000");
     String::from_str(env, hex_str)
 }
 
@@ -656,8 +666,10 @@ fn get_achievement_points(achievement_type: u32) -> u32 {
 
 /// Calculate contribution points
 fn calculate_contribution_points(amount: i128) -> u32 {
-    // 1 point per stroop (0.0000001 XLM)
-    ((amount / 1_000_000) as u32).clamp(1, 1000)
+    // 1 point per 1,000,000 stroops (0.1 XLM), clamped to the documented range.
+    proportional(amount, REWARD_DIVISOR, 1)
+        .unwrap_or(0)
+        .clamp(1, 1000) as u32
 }
 
 /// Store contribution record

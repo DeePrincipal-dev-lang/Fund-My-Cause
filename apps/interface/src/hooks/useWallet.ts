@@ -2,8 +2,9 @@ import { useEffect, useCallback } from "react";
 import { useToast } from "@/components/ui/Toast";
 import { useXlmBalance } from "@/hooks/useXlmBalance";
 import { useWalletSlice } from "@/hooks/useWalletSlice";
+import type { UseWalletReturn } from "@/types";
 
-export function useWallet() {
+export function useWallet(): UseWalletReturn {
   const {
     address,
     isConnecting,

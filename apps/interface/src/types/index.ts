@@ -87,6 +87,7 @@ export type {
   UseWalletBalanceReturn,
   UseContributionsReturn,
   UseTransactionsReturn,
+  UseWalletReturn,
   ErrorLog,
   ValidationResult,
   FormState,

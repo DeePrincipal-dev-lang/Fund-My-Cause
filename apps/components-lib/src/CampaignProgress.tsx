@@ -55,7 +55,7 @@ export interface CampaignProgressProps {
  *   timeRemaining={<CountdownTimer deadline={campaign.deadline} />}
  * />
  */
-export function CampaignProgress({
+function CampaignProgressComponent({
   percent,
   raisedText,
   goalText,
@@ -99,7 +99,9 @@ export function CampaignProgress({
         <ProgressBar progress={percent} animated={animated} />
       )}
       {(raisedText || goalText) && (
-        <div className={cn("flex justify-between text-sm", classNames?.amounts)}>
+        <div
+          className={cn("flex justify-between text-sm", classNames?.amounts)}
+        >
           <span className={classNames?.raised}>{raisedText}</span>
           <span className={classNames?.goal}>{goalText}</span>
         </div>
@@ -110,3 +112,5 @@ export function CampaignProgress({
     </div>
   );
 }
+
+export const CampaignProgress = React.memo(CampaignProgressComponent);

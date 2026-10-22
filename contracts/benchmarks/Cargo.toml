@@ -7,6 +7,8 @@ publish = false
 [dependencies]
 crowdfund    = { path = "../crowdfund" }
 achievements = { path = "../achievements" }
+qf           = { path = "../qf" }
+registry     = { path = "../registry" }
 soroban-sdk  = { version = "25.3.0", features = ["testutils"] }
 
 [dev-dependencies]
@@ -17,5 +19,13 @@ name = "contract_benchmarks"
 harness = false
 
 [[bench]]
+name = "registry_benchmarks"
+harness = false
+
+[[bench]]
 name = "achievements_benchmarks"
+harness = false
+
+[[bench]]
+name = "qf_benchmarks"
 harness = false

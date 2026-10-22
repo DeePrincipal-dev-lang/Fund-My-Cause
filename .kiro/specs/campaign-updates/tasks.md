@@ -6,13 +6,13 @@ Implement campaign updates incrementally: data layer first (`UpdateStore`), then
 
 ## Tasks
 
-- [ ] 1. Extend NotificationContext with campaign_update type
+- [x] 1. Extend NotificationContext with campaign_update type
   - Add `"campaign_update"` to the `NotificationType` union in `src/context/NotificationContext.tsx`
   - Add a `Megaphone` (or `Newspaper`) icon case for `"campaign_update"` in `NotificationDropdown.tsx`'s `typeIcon()` function
   - Add `onClick` navigation to `/campaigns/<campaignId>` for notifications that carry a `campaignId`
   - _Requirements: 5.2, 5.3, 5.4_
 
-- [ ] 2. Implement UpdateStore utility
+- [x] 2. Implement UpdateStore utility
   - Create `src/lib/updateStore.ts` exporting the `Update` interface and `getCids`, `createUpdate`, `fetchUpdate`, `editUpdate`, `deleteUpdate` functions
   - `createUpdate`: serialise `Update` to JSON, upload via `uploadToPinata`, prepend CID to `localStorage`, call optional `addNotification` callback
   - `fetchUpdate`: convert `ipfs://` CID to Pinata gateway URL, fetch and parse JSON
@@ -30,10 +30,10 @@ Implement campaign updates incrementally: data layer first (`UpdateStore`), then
     - **Property 10: Notification fired on successful create** — `addNotification` called exactly once with `type: "campaign_update"` and correct `campaignId`
     - **Validates: Requirements 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 5.1, 6.3, 6.4, 7.3**
 
-- [ ] 3. Checkpoint — Ensure all tests pass
+- [x] 3. Checkpoint — Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 4. Create PostUpdateModal component
+- [x] 4. Create PostUpdateModal component
   - Create `src/components/ui/PostUpdateModal.tsx` with props `{ campaignId, campaignTitle, authorAddress, existingCid?, existingUpdate?, onClose, onSuccess }`
   - Implement `idle | submitting | error` state machine
   - Validate `title` (non-empty after trim, max 100 chars) and `body` (non-empty after trim, max 2000 chars) before calling `UpdateStore.createUpdate` or `UpdateStore.editUpdate`
@@ -48,7 +48,7 @@ Implement campaign updates incrementally: data layer first (`UpdateStore`), then
     - Unit test: cancel button and Escape key close modal without calling `createUpdate`
     - **Validates: Requirements 3.2, 3.4, 3.7, 6.2**
 
-- [ ] 5. Add Post Update button to Dashboard
+- [x] 5. Add Post Update button to Dashboard
   - In `src/app/dashboard/page.tsx`, add a "Post Update" button to `DashboardCampaignCard` when `campaign.status === "Active"`
   - Track `postUpdateTarget: string | null` state in `DashboardPage`; set it on button click, clear it on modal close
   - Render `<PostUpdateModal>` when `postUpdateTarget` is set, passing the campaign ID, title, and connected address
@@ -60,7 +60,7 @@ Implement campaign updates incrementally: data layer first (`UpdateStore`), then
     - Unit test: button is disabled while modal is open; re-enabled after close
     - **Validates: Requirements 2.1, 2.3, 2.4**
 
-- [ ] 6. Create UpdateFeed and UpdateCard components
+- [x] 6. Create UpdateFeed and UpdateCard components
   - Create `src/components/ui/UpdateFeed.tsx` exporting `UpdateFeed` with props `{ campaignId, connectedAddress? }`
   - On mount, read CIDs via `UpdateStore.getCids`, fetch all updates in parallel with `Promise.allSettled`
   - Sort resolved updates by `createdAt` descending before rendering
@@ -78,13 +78,13 @@ Implement campaign updates incrementally: data layer first (`UpdateStore`), then
     - Unit test: "Edited" label present when `editedAt` is set
     - **Validates: Requirements 4.2, 4.3, 4.4, 4.5, 4.6, 6.5**
 
-- [ ] 7. Integrate UpdateFeed into CampaignDetailPage
+- [x] 7. Integrate UpdateFeed into CampaignDetailPage
   - In `src/app/campaigns/[id]/page.tsx` (or its `CampaignDetailContent` client component), import and render `<UpdateFeed campaignId={id} connectedAddress={address} />`
   - Place the feed below the campaign description and above the transaction history
   - Pass the connected wallet address from `useWallet()` so edit/delete controls appear for the creator
   - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 6.1, 7.1_
 
-- [ ] 8. Final checkpoint — Ensure all tests pass
+- [x] 8. Final checkpoint — Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 ## Notes

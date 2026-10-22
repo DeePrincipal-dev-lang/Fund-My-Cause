@@ -1,5 +1,5 @@
 import {
-  rpc as SorobanRpc,
+  rpc,
   Contract,
   TransactionBuilder,
   BASE_FEE,
@@ -39,7 +39,7 @@ import { parseAndThrow } from "./errors";
  * @see {@link FmcClient} for reading an individual campaign.
  */
 export class FmcRegistryClient {
-  private readonly rpc: SorobanRpc.Server;
+  private readonly rpc: rpc.Server;
   private readonly contract: Contract;
   private readonly networkPassphrase: string;
 
@@ -56,7 +56,7 @@ export class FmcRegistryClient {
    * transactions.
    */
   constructor(config: RegistryClientConfig) {
-    this.rpc               = new SorobanRpc.Server(config.rpcUrl);
+    this.rpc               = new rpc.Server(config.rpcUrl);
     this.contract          = new Contract(config.contractId);
     this.networkPassphrase = config.networkPassphrase;
   }
@@ -74,8 +74,8 @@ export class FmcRegistryClient {
       .build();
 
     const result = await this.rpc.simulateTransaction(tx);
-    if (SorobanRpc.Api.isSimulationError(result)) parseAndThrow(result.error);
-    return scValToNative((result as SorobanRpc.Api.SimulateTransactionSuccessResponse).result!.retval) as T;
+    if (rpc.Api.isSimulationError(result)) parseAndThrow(result.error);
+    return scValToNative((result as rpc.Api.SimulateTransactionSuccessResponse).result!.retval) as T;
   }
 
   /**

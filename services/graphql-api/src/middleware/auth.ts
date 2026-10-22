@@ -1,6 +1,6 @@
-import { GraphQLError } from "graphql";
 import type { AuthService } from "../services/auth.js";
 import type { Context } from "../types.js";
+import { AppError } from "../errors/AppError.js";
 
 /**
  * GraphQL middleware that enforces authentication on protected resolvers.
@@ -22,12 +22,7 @@ import type { Context } from "../types.js";
  */
 export function requireAuth(context: Context): void {
   if (!context.user || !context.user.isAuthenticated) {
-    throw new GraphQLError("Authentication required", {
-      extensions: {
-        code: "UNAUTHENTICATED",
-        http: { status: 401 },
-      },
-    });
+    throw new AppError("Authentication required", { code: "UNAUTHENTICATED" });
   }
 }
 

@@ -1,22 +1,10 @@
 /**
  * Centralized campaign date formatting utilities.
- * Ensures consistent date formatting across all campaign views.
+ * All formatting logic delegates to @fund-my-cause/shared-utils to ensure a
+ * single source of truth for date/time formatting across the monorepo.
  */
 
-const DATE_FORMAT_OPTIONS = {
-  short: {
-    month: "short" as const,
-    day: "numeric" as const,
-    year: "numeric" as const,
-  },
-  long: {
-    month: "long" as const,
-    day: "numeric" as const,
-    year: "numeric" as const,
-    weekday: "long" as const,
-  },
-  relative: undefined,
-} as const;
+import { formatLocalDate, formatLocalDateTime } from "@fund-my-cause/shared-utils";
 
 /**
  * Format campaign deadline in short form (e.g., "Mar 19, 2026")
@@ -28,7 +16,11 @@ export function formatCampaignDateShort(
   locale: string = "en-US",
 ): string {
   const dateObj = typeof date === "string" ? new Date(date) : date;
-  return dateObj.toLocaleDateString(locale, DATE_FORMAT_OPTIONS.short);
+  return formatLocalDate(dateObj, locale, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 /**
@@ -41,7 +33,12 @@ export function formatCampaignDateLong(
   locale: string = "en-US",
 ): string {
   const dateObj = typeof date === "string" ? new Date(date) : date;
-  return dateObj.toLocaleDateString(locale, DATE_FORMAT_OPTIONS.long);
+  return formatLocalDate(dateObj, locale, {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    weekday: "long",
+  });
 }
 
 /**
@@ -54,10 +51,17 @@ export function formatCampaignDateTime(
   locale: string = "en-US",
 ): string {
   const dateObj = typeof date === "string" ? new Date(date) : date;
-  const dateStr = dateObj.toLocaleDateString(locale, DATE_FORMAT_OPTIONS.short);
-  const timeStr = dateObj.toLocaleTimeString(locale, {
+  const dateStr = formatLocalDate(dateObj, locale, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+  const timeStr = formatLocalDate(dateObj, locale, {
     hour: "numeric",
     minute: "2-digit",
-  });
+  } as Intl.DateTimeFormatOptions);
+  // formatLocalDateTime gives "date, time" combined — we instead compose the
+  // "at" separator manually so the output matches the expected display contract.
+  void formatLocalDateTime; // imported for completeness; composed manually above
   return `${dateStr} at ${timeStr}`;
 }

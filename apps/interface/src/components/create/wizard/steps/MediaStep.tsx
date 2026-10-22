@@ -6,7 +6,8 @@ import { ImageUploader } from "@/components/ui/ImageUploader";
 import { VideoUploader } from "@/components/ui/VideoUploader";
 import { logError } from "@/lib/errorLogger";
 import { Input } from "@fund-my-cause/components";
-import { Field, fieldStyles } from "../fields";
+import { Field, fieldStyles } from "../Fields";
+import { useWizardStep } from "../useWizardStep";
 import type { StepProps } from "../types";
 
 /**
@@ -19,7 +20,7 @@ import type { StepProps } from "../types";
 export function MediaStep({ data, set }: StepProps) {
   const [uploadError, setUploadError] = useState<string | null>(null);
 
-  const videoUrlError = data.videoUrl ? validateVideoUrl(data.videoUrl) : null;
+  const { errorFor } = useWizardStep(data, { videoUrl: validateVideoUrl });
 
   return (
     <div className="space-y-4">
@@ -63,12 +64,12 @@ export function MediaStep({ data, set }: StepProps) {
               />
             </div>
           )}
-          {videoUrlError && (
+          {errorFor("videoUrl") && (
             <p role="alert" className="text-red-400 text-xs mt-1">
-              {videoUrlError}
+              {errorFor("videoUrl")}
             </p>
           )}
-          {data.videoUrl && !videoUrlError && (
+          {data.videoUrl && !errorFor("videoUrl") && (
             <p className="text-green-400 text-xs mt-1">✓ Video URL is valid</p>
           )}
         </div>

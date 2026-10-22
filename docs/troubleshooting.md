@@ -267,7 +267,7 @@ Reference: [environment-config.md](./environment-config.md)
 ```
 Error: "Cannot find module" or TypeScript type errors
 └── Are node_modules installed?
-    Fix: cd apps/interface && npm install
+    Fix: run `npm install` at the repository root (see [SETUP.md](./SETUP.md#npm-workspaces))
 
 Error: type errors in CI
 └── Run locally to see the same errors:

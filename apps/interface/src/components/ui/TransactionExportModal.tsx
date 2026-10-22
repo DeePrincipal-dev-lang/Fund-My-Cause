@@ -4,12 +4,8 @@ import React, { useState, useMemo } from "react";
 import {
   X,
   Download,
-  FileText,
-  FileSpreadsheet,
-  Receipt,
   Calendar,
   Loader2,
-  Braces,
 } from "lucide-react";
 import {
   exportCsv,
@@ -22,10 +18,12 @@ import {
   type ExportRecord,
   type DateRange,
 } from "@/lib/exportTransactions";
-
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-type ExportFormat = "csv" | "json" | "pdf" | "tax";
+import {
+  ExportFormatSelector,
+  type ExportFormat,
+  FORMAT_OPTIONS,
+} from "./export/ExportFormatSelector";
+import { ExportColumnPicker } from "./export/ExportColumnPicker";
 
 interface TransactionExportModalProps {
   records: ExportRecord[];
@@ -34,60 +32,10 @@ interface TransactionExportModalProps {
   onClose: () => void;
 }
 
-// ── Format options ────────────────────────────────────────────────────────────
-
-const FORMAT_OPTIONS: {
-  id: ExportFormat;
-  label: string;
-  description: string;
-  icon: React.ReactNode;
-}[] = [
-  {
-    id: "csv",
-    label: "CSV",
-    description: "Spreadsheet-ready. Date, amount, contributor, status.",
-    icon: <FileSpreadsheet size={18} />,
-  },
-  {
-    id: "json",
-    label: "JSON",
-    description: "Machine-readable JSON array. Useful for integrations.",
-    icon: <Braces size={18} />,
-  },
-  {
-    id: "pdf",
-    label: "PDF",
-    description: "Print-ready report with summary. Opens browser print dialog.",
-    icon: <FileText size={18} />,
-  },
-  {
-    id: "tax",
-    label: "Tax Report",
-    description:
-      "CSV formatted for crypto tax tools. Includes acquisition date and asset fields.",
-    icon: <Receipt size={18} />,
-  },
-];
-
-const COLUMN_LABELS: Record<ExportColumn, string> = {
-  date: "Date",
-  time: "Time (UTC)",
-  txHash: "Tx Hash",
-  contributor: "Contributor",
-  campaign: "Campaign",
-  campaignId: "Campaign ID",
-  amountXlm: "Amount (XLM)",
-  status: "Status",
-};
-
-// ── Input helpers ─────────────────────────────────────────────────────────────
-
 const inputCls =
   "w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 " +
   "rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white " +
   "focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-400";
-
-// ── Component ─────────────────────────────────────────────────────────────────
 
 export function TransactionExportModal({
   records,
@@ -115,7 +63,7 @@ export function TransactionExportModal({
     setSelectedColumns((prev) => {
       const next = new Set(prev);
       if (next.has(col)) {
-        if (next.size > 1) next.delete(col); // keep at least one
+        if (next.size > 1) next.delete(col);
       } else {
         next.add(col);
       }
@@ -147,23 +95,19 @@ export function TransactionExportModal({
   const isEmpty = filteredRecords.length === 0;
 
   return (
-    /* Backdrop */
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="export-modal-title"
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
     >
-      {/* Overlay */}
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
         aria-hidden="true"
       />
 
-      {/* Panel */}
       <div className="relative z-10 w-full max-w-md bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-800 overflow-hidden max-h-[90vh] flex flex-col">
-        {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-800 shrink-0">
           <div className="flex items-center gap-2">
             <Download
@@ -188,78 +132,15 @@ export function TransactionExportModal({
         </div>
 
         <div className="px-6 py-5 space-y-5 overflow-y-auto">
-          {/* Format selector */}
-          <fieldset>
-            <legend className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
-              Format
-            </legend>
-            <div className="space-y-2">
-              {FORMAT_OPTIONS.map((opt) => (
-                <label
-                  key={opt.id}
-                  className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition ${
-                    format === opt.id
-                      ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950/40"
-                      : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="export-format"
-                    value={opt.id}
-                    checked={format === opt.id}
-                    onChange={() => setFormat(opt.id)}
-                    className="mt-0.5 accent-indigo-600"
-                  />
-                  <span
-                    className={`mt-0.5 ${format === opt.id ? "text-indigo-600 dark:text-indigo-400" : "text-gray-400"}`}
-                    aria-hidden="true"
-                  >
-                    {opt.icon}
-                  </span>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      {opt.label}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                      {opt.description}
-                    </p>
-                  </div>
-                </label>
-              ))}
-            </div>
-          </fieldset>
+          <ExportFormatSelector format={format} onFormatChange={setFormat} />
 
-          {/* Column selection (CSV & JSON only) */}
           {showColumnPicker && (
-            <fieldset>
-              <legend className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
-                Columns
-              </legend>
-              <div className="flex flex-wrap gap-2">
-                {ALL_COLUMNS.map((col) => (
-                  <label
-                    key={col}
-                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs cursor-pointer transition ${
-                      selectedColumns.has(col)
-                        ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300"
-                        : "border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-300"
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedColumns.has(col)}
-                      onChange={() => toggleColumn(col)}
-                      className="accent-indigo-600 w-3 h-3"
-                    />
-                    {COLUMN_LABELS[col]}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
+            <ExportColumnPicker
+              selectedColumns={selectedColumns}
+              onToggleColumn={toggleColumn}
+            />
           )}
 
-          {/* Date range filter */}
           <fieldset>
             <legend className="flex items-center gap-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
               <Calendar size={12} aria-hidden="true" />
@@ -304,7 +185,6 @@ export function TransactionExportModal({
             </div>
           </fieldset>
 
-          {/* Record count summary */}
           <div
             className={`flex items-center justify-between text-xs px-3 py-2 rounded-lg ${
               isEmpty
@@ -329,7 +209,6 @@ export function TransactionExportModal({
           </div>
         </div>
 
-        {/* Footer */}
         <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50 shrink-0">
           <button
             onClick={onClose}

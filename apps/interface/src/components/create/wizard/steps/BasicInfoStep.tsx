@@ -9,7 +9,8 @@ import {
 } from "@/lib/validation";
 import { CATEGORY_TAXONOMY } from "@/lib/categories";
 import { Input, Select, Textarea } from "@fund-my-cause/components";
-import { fieldStyles } from "../fields";
+import { fieldStyles } from "../Fields";
+import { useWizardStep } from "../useWizardStep";
 import type { StepProps } from "../types";
 
 /**
@@ -20,15 +21,13 @@ import type { StepProps } from "../types";
  * required-field check happens in `validateBasicInfoStep` on Next.
  */
 export function BasicInfoStep({ data, set }: StepProps) {
-  const titleError = data.title ? validateTitle(data.title) : null;
-  const descError = data.description
-    ? validateDescription(data.description)
-    : null;
-  const goalError = data.goal ? validateGoal(data.goal) : null;
-  const deadlineError = data.deadline ? validateDeadline(data.deadline) : null;
-  const minContribError = data.minContribution
-    ? validateMinContribution(data.minContribution, data.goal)
-    : null;
+  const { errorFor } = useWizardStep(data, {
+    title: validateTitle,
+    description: validateDescription,
+    goal: validateGoal,
+    deadline: validateDeadline,
+    minContribution: (value, all) => validateMinContribution(value, all.goal),
+  });
 
   return (
     <div className="space-y-4">
@@ -49,7 +48,7 @@ export function BasicInfoStep({ data, set }: StepProps) {
       <Input
         {...fieldStyles}
         label="Title"
-        error={titleError}
+        error={errorFor("title")}
         required
         placeholder="My Campaign"
         value={data.title}
@@ -58,7 +57,7 @@ export function BasicInfoStep({ data, set }: StepProps) {
       <Textarea
         {...fieldStyles}
         label="Description"
-        error={descError}
+        error={errorFor("description")}
         required
         rows={3}
         placeholder="What are you raising funds for?"
@@ -80,7 +79,7 @@ export function BasicInfoStep({ data, set }: StepProps) {
         <Input
           {...fieldStyles}
           label="Goal (XLM)"
-          error={goalError}
+          error={errorFor("goal")}
           required
           type="number"
           min="1"
@@ -91,7 +90,7 @@ export function BasicInfoStep({ data, set }: StepProps) {
         <Input
           {...fieldStyles}
           label="Min Contribution (XLM)"
-          error={minContribError}
+          error={errorFor("minContribution")}
           required
           type="number"
           min="1"
@@ -103,7 +102,7 @@ export function BasicInfoStep({ data, set }: StepProps) {
       <Input
         {...fieldStyles}
         label="Deadline"
-        error={deadlineError}
+        error={errorFor("deadline")}
         required
         type="date"
         value={data.deadline}

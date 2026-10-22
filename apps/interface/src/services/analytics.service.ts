@@ -1,5 +1,6 @@
 import { CampaignData } from "@/types/soroban";
 import { getCachedAnalyticsData, invalidateAnalyticsCache, setCachedAnalyticsData } from "@/lib/cacheStrategy";
+import { apiClient } from "@/lib/api-client";
 
 export interface RealtimeAnalyticsPayload {
   campaigns: CampaignData[];
@@ -88,15 +89,12 @@ export async function fetchAnalyticsSnapshot(
 
   try {
     const query = campaignIds.map((id) => `campaignId=${encodeURIComponent(id)}`).join("&");
-    const response = await fetch(`/api/analytics/snapshot${query ? `?${query}` : ""}`);
-    if (!response.ok) {
-      return { campaigns: [], timestamp: Date.now() };
-    }
-
-    const payload = (await response.json()) as RealtimeAnalyticsPayload;
+    const payload = await apiClient.get<RealtimeAnalyticsPayload>(
+      `/api/analytics/snapshot${query ? `?${query}` : ""}`,
+    );
     setCachedAnalyticsData<RealtimeAnalyticsPayload>(ANALYTICS_CACHE_KEY, payload, SNAPSHOT_TTL);
     return payload;
-  } catch (error) {
+  } catch {
     return { campaigns: [], timestamp: Date.now() };
   }
 }

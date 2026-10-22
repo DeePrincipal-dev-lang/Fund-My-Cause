@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { Search, Plus, Check, ChevronDown } from "lucide-react";
+import { Search, Plus, ChevronDown } from "lucide-react";
 import { ALL_CAMPAIGNS } from "@/lib/campaigns";
 import { useComparison } from "@/context/ComparisonContext";
 import { cn } from "@/lib/utils";

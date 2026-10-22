@@ -6,7 +6,7 @@ Implement the campaign image upload feature incrementally: validation utility fi
 
 ## Tasks
 
-- [ ] 1. Create ImageValidator utility
+- [x] 1. Create ImageValidator utility
   - Create `src/lib/imageValidation.ts` exporting `validateImageFile`, `ACCEPTED_TYPES`, `MAX_FILE_SIZE`, and `ValidationResult` type
   - Implement type-check first, then size-check, returning the appropriate error strings from Requirements 1.1–1.4
   - _Requirements: 1.1, 1.2, 1.3, 1.4_
@@ -19,7 +19,7 @@ Implement the campaign image upload feature incrementally: validation utility fi
     - Include edge-case unit test: both type and size invalid → type error returned first
     - **Validates: Requirements 1.1, 1.2, 1.3, 1.4**
 
-- [ ] 2. Create CropTool component
+- [x] 2. Create CropTool component
   - Add `react-image-crop` to dependencies
   - Create `src/components/ui/CropTool.tsx` with props `{ imageSrc, onConfirm, onCancel }`
   - Lock aspect ratio to `16 / 9`
@@ -31,7 +31,7 @@ Implement the campaign image upload feature incrementally: validation utility fi
     - Unit test: aspect ratio is configured as 16/9
     - **Validates: Requirements 3.4, 3.5**
 
-- [ ] 3. Create ImageUploader component
+- [x] 3. Create ImageUploader component
   - Create `src/components/ui/ImageUploader.tsx` with props `{ onUpload, onClear, currentUri? }`
   - Implement the state machine: `idle → dragging → cropping → uploading → done / error`
   - Wire drag-and-drop handlers (`onDragEnter`, `onDragLeave`, `onDragOver`, `onDrop`) and hidden file input
@@ -51,10 +51,10 @@ Implement the campaign image upload feature incrementally: validation utility fi
     - **Property 11: Failed upload shows error and returns to idle**
     - **Validates: Requirements 2.1, 2.2, 2.3, 2.5, 3.1, 3.2, 3.3, 4.2, 4.3, 4.4**
 
-- [ ] 4. Checkpoint — Ensure all tests pass
+- [x] 4. Checkpoint — Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 5. Integrate ImageUploader into the create flow
+- [x] 5. Integrate ImageUploader into the create flow
   - In `src/app/create/page.tsx` Step2, replace the existing file-input implementation with `<ImageUploader onUpload={(uri) => set("imageUrl", uri)} onClear={() => set("imageUrl", "")} currentUri={data.imageUrl} />`
   - Remove the now-redundant inline `handleFile`, `preview`, `uploading`, and `uploadError` state from Step2
   - Verify `deploy()` already passes `imageUrl` as `socialLinks[0]` when non-empty, and `undefined` when empty (matches existing code; adjust if needed)
@@ -65,7 +65,7 @@ Implement the campaign image upload feature incrementally: validation utility fi
     - Mock `buildInitializeTx` and assert call arguments for both empty and non-empty `imageUrl`
     - **Validates: Requirements 5.1, 5.2**
 
-- [ ] 6. Add fallback image helpers and update CampaignCard
+- [x] 6. Add fallback image helpers and update CampaignCard
   - Add `getFallbackImage(id: string): string` and `isValidImageUri(uri?: string): boolean` to `src/lib/imageValidation.ts`
   - In `CampaignCard`, resolve image src using `isValidImageUri`; add `onError` handler that sets local state to `getFallbackImage(campaign.id)`
   - _Requirements: 6.1, 6.2, 6.3, 6.4_
@@ -76,7 +76,7 @@ Implement the campaign image upload feature incrementally: validation utility fi
     - **Property 15: onError triggers fallback**
     - **Validates: Requirements 6.1, 6.2, 6.3, 6.4**
 
-- [ ] 7. Final checkpoint — Ensure all tests pass
+- [x] 7. Final checkpoint — Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 ## Notes

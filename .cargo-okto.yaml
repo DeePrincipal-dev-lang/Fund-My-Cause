@@ -1,0 +1,19 @@
+# .cargo-okto.yaml - WASM binary size budgets
+# All contracts must stay under the Soroban deployment limit of 512 KiB
+
+budgets:
+  - contract: crowdfund
+    max_size_bytes: 512000
+    warning_size_bytes: 450000
+  - contract: registry
+    max_size_bytes: 512000
+    warning_size_bytes: 450000
+  - contract: achievements
+    max_size_bytes: 512000
+    warning_size_bytes: 450000
+  - contract: qf
+    max_size_bytes: 512000
+    warning_size_bytes: 450000
+  - contract: common
+    max_size_bytes: 512000
+    warning_size_bytes: 450000

@@ -1,21 +1,19 @@
 import React from "react";
-import Image from "next/image";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Navbar } from "@/components/layout/Navbar";
-import { ProgressBar } from "@/components/ui/ProgressBar";
-import { CountdownTimer } from "@/components/ui/CountdownTimer";
 import { ShareTrigger } from "./ShareTrigger";
-import { fetchCampaign, getStaticCampaignIds } from "@/lib/soroban";
+import { fetchCampaign } from "@/lib/graphql/client";
+import { getStaticCampaignIds } from "@/lib/soroban";
 import { ShareButton } from "@/components/ui/ShareButton";
 import { TransactionHistory } from "@/components/ui/TransactionHistory";
-import { XlmAmount } from "@/components/ui/XlmAmount";
-import { fetchXlmPrice } from "@/lib/price";
-import {
-  APP_BASE_URL,
-  DEFAULT_HERO_IMAGE,
-  CAMPAIGN_PAGE_REVALIDATE_SECONDS,
-} from "@/lib/constants";
+import { APP_BASE_URL, DEFAULT_HERO_IMAGE } from "@/lib/constants";
+import { getCampaignDetailData } from "@/lib/campaignDetail";
+import { CampaignDetailHero } from "@/components/campaign/CampaignDetailHero";
+import { CampaignDetailHeader } from "@/components/campaign/CampaignDetailHeader";
+import { CampaignDetailProgress } from "@/components/campaign/CampaignDetailProgress";
+import { CampaignDetailStats } from "@/components/campaign/CampaignDetailStats";
+import { CampaignDetailSocialLinks } from "@/components/campaign/CampaignDetailSocialLinks";
 import { CampaignActions } from "./CampaignActions";
 import { CampaignDetailContent } from "./CampaignDetailContent";
 
@@ -34,7 +32,7 @@ export async function generateStaticParams() {
 
 // ── ISR Configuration ─────────────────────────────────────────────────────────
 
-export const revalidate = CAMPAIGN_PAGE_REVALIDATE_SECONDS;
+export const revalidate = 60;
 
 // ── SEO ───────────────────────────────────────────────────────────────────────
 
@@ -82,118 +80,51 @@ export default async function CampaignDetailPage({
 }) {
   const { id } = await params;
 
-  let campaign;
+  let data;
   try {
-    campaign = await fetchCampaign(id);
+    data = await getCampaignDetailData(id);
   } catch {
     notFound();
   }
 
-  // Fetch XLM price in parallel — null if CoinGecko is unavailable
-  const xlmPrice = await fetchXlmPrice();
-
-  const progress =
-    campaign.goal > 0 ? (campaign.raised / campaign.goal) * 100 : 0;
-  const deadlinePassed = new Date(campaign.deadline) < new Date();
-  const goalMet = campaign.raised >= campaign.goal;
+  const { campaign, xlmPrice, progress, deadlinePassed, goalMet } = data;
 
   return (
-    <main className="min-h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-white">
+    <main className="min-h-screen bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-white">
       <Navbar />
 
-      {/* Hero image */}
-      <div className="w-full h-72 md:h-96 overflow-hidden relative">
-        <Image
-          src={DEFAULT_HERO_IMAGE.replace("w=1200", "w=1600")}
-          alt={campaign.title}
-          fill
-          className="object-cover"
-          priority
-          sizes="100vw"
+      <CampaignDetailHero title={campaign.title} />
+
+      <div className="mx-auto max-w-3xl space-y-8 px-6 py-10">
+        <CampaignDetailHeader
+          title={campaign.title}
+          creator={campaign.creator}
         />
-      </div>
 
-      <div className="max-w-3xl mx-auto px-6 py-10 space-y-8">
-        {/* Title + creator */}
-        <div>
-          <h1 className="text-3xl font-bold mb-2">{campaign.title}</h1>
-          <p className="text-gray-600 dark:text-gray-500 text-sm">
-            by{" "}
-            <span
-              className="font-mono text-gray-500 dark:text-gray-400"
-              title={campaign.creator}
-            >
-              {truncate(campaign.creator)}
-            </span>
-          </p>
-        </div>
+        <CampaignDetailProgress
+          progress={progress}
+          raised={campaign.raised}
+          goal={campaign.goal}
+          xlmPrice={xlmPrice}
+        />
 
-        {/* Progress */}
-        <div className="space-y-2">
-          <ProgressBar progress={progress} />
-          <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
-            <span>
-              <XlmAmount xlm={campaign.raised} price={xlmPrice} /> raised
-            </span>
-            <span>
-              <XlmAmount xlm={campaign.goal} price={xlmPrice} /> goal
-            </span>
-          </div>
-        </div>
+        <CampaignDetailStats
+          contributorCount={campaign.contributorCount}
+          averageContribution={campaign.averageContribution}
+          deadline={campaign.deadline}
+          xlmPrice={xlmPrice}
+        />
 
-        {/* Stats row */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
-          <div className="bg-gray-100 dark:bg-gray-900 rounded-xl p-4">
-            <p className="text-xl font-semibold">{campaign.contributorCount}</p>
-            <p className="text-gray-500 text-xs mt-1">Contributors</p>
-          </div>
-          <div className="bg-gray-100 dark:bg-gray-900 rounded-xl p-4">
-            <p className="text-xl font-semibold">
-              <XlmAmount xlm={campaign.averageContribution} price={xlmPrice} />
-            </p>
-            <p className="text-gray-500 text-xs mt-1">Avg. contribution</p>
-          </div>
-          <div className="bg-gray-100 dark:bg-gray-900 rounded-xl p-4">
-            <CountdownTimer deadline={campaign.deadline} />
-            <p className="text-gray-500 text-xs mt-1">Remaining</p>
-          </div>
-        </div>
-
-        {/* Description */}
-        <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
+        <p className="leading-relaxed text-gray-700 dark:text-gray-300">
           {campaign.description}
         </p>
 
-        {/* Share button */}
         <ShareTrigger campaignId={id} campaignTitle={campaign.title} />
-        {/* Transaction history */}
         <TransactionHistory contractId={id} campaignTitle={campaign.title} />
-
-        {/* Share buttons */}
         <ShareButton campaignId={id} campaignTitle={campaign.title} />
 
-        {/* Social links */}
-        {campaign.socialLinks.length > 0 && (
-          <div className="space-y-1">
-            <p className="text-sm text-gray-500 font-medium">Links</p>
-            <ul className="space-y-1">
-              {campaign.socialLinks.map((url) => (
-                <li key={url}>
-                  <a
-                    href={url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-indigo-600 dark:text-indigo-400 hover:underline text-sm break-all"
-                  >
-                    {url}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+        <CampaignDetailSocialLinks links={campaign.socialLinks} />
 
-        {/* Action buttons — client component for wallet interaction */}
         <CampaignActions
           contractId={id}
           creator={campaign.creator}

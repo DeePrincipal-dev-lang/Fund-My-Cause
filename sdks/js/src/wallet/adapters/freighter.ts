@@ -31,14 +31,18 @@ export const freighterAdapter: WalletAdapter = {
     return result.signedTxXdr;
   },
   async getNetwork() {
-    const result = await getNetworkDetails();
-    // A network read failing is not actionable for the caller — it just means
-    // we cannot check for a mismatch, so report "unknown" rather than throw.
-    if (result.error) return null;
-    return {
-      network: result.network,
-      networkPassphrase: result.networkPassphrase,
-    };
+    try {
+      const result = await getNetworkDetails();
+      // A network read failing is not actionable for the caller — it just means
+      // we cannot check for a mismatch, so report "unknown" rather than throw.
+      if (result?.error) return null;
+      return {
+        network: result.network,
+        networkPassphrase: result.networkPassphrase,
+      };
+    } catch {
+      return null;
+    }
   },
   onAccountChange(callback) {
     const watcher = new WatchWalletChanges(WALLET_WATCH_INTERVAL_MS);

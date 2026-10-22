@@ -128,6 +128,9 @@ inhibit_rules:
 receivers:
   # Default receiver
   - name: 'default'
+    webhook_configs:
+      - url: 'http://monitoring-service:9091/alerts'
+        send_resolved: true
     slack_configs:
       - channel: '#alerts'
         title: 'Alert: {{ .GroupLabels.alertname }}'
@@ -136,6 +139,9 @@ receivers:
 
   # Critical PagerDuty receiver
   - name: 'pagerduty-critical'
+    webhook_configs:
+      - url: 'http://monitoring-service:9091/alerts'
+        send_resolved: true
     pagerduty_configs:
       - service_key: 'YOUR_PAGERDUTY_SERVICE_KEY'
         description: '{{ .GroupLabels.alertname }}'
@@ -164,6 +170,9 @@ receivers:
 
   # DeFi PagerDuty receiver
   - name: 'pagerduty-defi'
+    webhook_configs:
+      - url: 'http://monitoring-service:9091/alerts'
+        send_resolved: true
     pagerduty_configs:
       - service_key: 'YOUR_PAGERDUTY_DEFI_SERVICE_KEY'
         description: '{{ .GroupLabels.alertname }}'

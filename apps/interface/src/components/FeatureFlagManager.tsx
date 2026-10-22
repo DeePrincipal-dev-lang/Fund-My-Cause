@@ -89,7 +89,7 @@ function FeatureFlagItem({
 
           <div className="flex-1">
             <h3 className="font-semibold text-gray-900">{flag.name}</h3>
-            {flag.metadata?.description && (
+            {typeof flag.metadata?.description === "string" && (
               <p className="text-sm text-gray-600">
                 {flag.metadata.description}
               </p>

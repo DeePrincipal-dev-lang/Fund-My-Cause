@@ -159,7 +159,7 @@ export function NextActionsPanel({ campaigns, onActionClick }: NextActionsPanelP
               <button
                 onClick={() => {
                   onActionClick?.(action.id);
-                  action.action.onClick();
+                  action.action?.onClick();
                 }}
                 className="flex-shrink-0 ml-2 px-3 py-1 text-xs font-medium rounded bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 whitespace-nowrap"
               >

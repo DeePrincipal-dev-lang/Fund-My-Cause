@@ -1,0 +1,26 @@
+query Campaign($id: ID!) {
+  campaign(id: $id) {
+    id
+    contractId
+    title
+    description
+    creator
+    goal
+    raised
+    deadline
+    status
+    category
+    image
+    videoUrl
+    minContribution
+    totalRaised
+    totalContributors
+    percentageFunded
+    daysRemaining
+    token
+    platformFeeBps
+    hasRBACEnabled
+    createdAt
+    updatedAt
+  }
+}

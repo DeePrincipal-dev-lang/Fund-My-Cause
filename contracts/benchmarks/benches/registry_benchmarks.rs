@@ -1,9 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use soroban_sdk::{
-    testutils::{Address as _},
-    Address, Env, String,
-};
 use registry::{RegistryContract, RegistryContractClient};
+use soroban_sdk::{testutils::Address as _, Address, Env, String};
 
 fn create_registry(env: &Env) -> (RegistryContractClient, Address) {
     env.mock_all_auths();
@@ -147,10 +144,9 @@ fn benchmark_registry_operations(c: &mut Criterion) {
             );
 
             // Update metadata
-            black_box(client.update_metadata(
-                &campaign_id,
-                &String::from_str(&env, "Updated Title"),
-            ))
+            black_box(
+                client.update_metadata(&campaign_id, &String::from_str(&env, "Updated Title")),
+            )
         })
     });
 }

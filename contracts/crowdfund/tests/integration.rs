@@ -2,13 +2,13 @@
 
 use soroban_sdk::{
     testutils::{Address as _, Ledger},
-    token, Address, Env, String,
+    Address, Env,
 };
 
-use crowdfund::{Category, CrowdfundContract, CrowdfundContractClient, PlatformConfig};
+use crowdfund::PlatformConfig;
 
 mod common;
-use common::{setup, Campaign};
+use common::setup;
 
 // ── full lifecycle: 5 contributors → deadline passes → creator withdraws ─────
 

@@ -65,12 +65,32 @@ export function useAdvancedSearch(campaigns: Campaign[]) {
     setInputValue(filters.query ?? "");
   }, [filters.query]);
 
+  const updateParam = useCallback(
+    (key: string, value: string | undefined) => {
+      const params = new URLSearchParams(searchParams.toString());
+      const shouldDelete =
+        !value ||
+        (key === "filter" && value === "all") ||
+        (key === "sort" && value === "newest") ||
+        (key === "page" && value === "1");
+      if (shouldDelete) {
+        params.delete(key);
+      } else {
+        params.set(key, value);
+      }
+      // Reset to page 1 on any filter change
+      if (key !== "page") params.delete("page");
+      const qs = params.toString();
+      router.replace(qs ? `${BASE_PATH}?${qs}` : BASE_PATH, { scroll: false });
+    },
+    [router, searchParams],
+  );
+
   // Debounce: push input changes to URL after 300 ms
   useEffect(() => {
     const t = setTimeout(() => updateParam("q", inputValue), 300);
     return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inputValue]);
+  }, [inputValue, updateParam]);
 
   // Record each new search query in preferences
   useEffect(() => {
@@ -81,6 +101,7 @@ export function useAdvancedSearch(campaigns: Campaign[]) {
       setPreferences(updated);
       savePreferences(updated);
     }
+    // preferences omitted intentionally: query recording must execute strictly when query string changes
   }, [filters.query]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Derived state ──────────────────────────────────────────────────────────
@@ -110,26 +131,6 @@ export function useAdvancedSearch(campaigns: Campaign[]) {
     filters.dateFrom ||
     filters.dateTo
   );
-
-  // ── URL helpers ────────────────────────────────────────────────────────────
-
-  function updateParam(key: string, value: string | undefined) {
-    const params = new URLSearchParams(searchParams.toString());
-    const shouldDelete =
-      !value ||
-      (key === "filter" && value === "all") ||
-      (key === "sort" && value === "newest") ||
-      (key === "page" && value === "1");
-    if (shouldDelete) {
-      params.delete(key);
-    } else {
-      params.set(key, value);
-    }
-    // Reset to page 1 on any filter change
-    if (key !== "page") params.delete("page");
-    const qs = params.toString();
-    router.replace(qs ? `${BASE_PATH}?${qs}` : BASE_PATH, { scroll: false });
-  }
 
   // Apply all advanced filter fields in a single URL update
   const applyAdvancedFilters = useCallback(
@@ -176,14 +177,12 @@ export function useAdvancedSearch(campaigns: Campaign[]) {
       }
       updateParam(key, value);
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [preferences, searchParams],
+    [preferences, updateParam],
   );
 
   const setPage = useCallback(
     (p: number) => updateParam("page", String(p)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [searchParams],
+    [updateParam],
   );
 
   const setPageSize = useCallback(

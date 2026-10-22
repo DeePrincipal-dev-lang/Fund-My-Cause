@@ -1,0 +1,35 @@
+name: Crowdfund Fuzz Testing (scheduled, non-blocking)
+
+# Runs the contracts/crowdfund cargo-fuzz harness on a schedule. This is
+# intentionally decoupled from pull_request/push triggers so a fuzz finding
+# never blocks merges — see contracts/crowdfund/README.md#fuzz-testing.
+on:
+  schedule:
+    - cron: "0 6 * * *" # daily at 06:00 UTC
+  workflow_dispatch: {}
+
+jobs:
+  fuzz:
+    name: Run crowdfund validation fuzz harness
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install nightly toolchain
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: Install cargo-fuzz
+        run: cargo install cargo-fuzz --locked
+
+      - name: Run fuzz_validation for a bounded time
+        working-directory: contracts/crowdfund/fuzz
+        run: cargo fuzz run fuzz_validation -- -max_total_time=300
+
+      - name: Upload crash artifacts (if any)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: crowdfund-fuzz-crashes
+          path: contracts/crowdfund/fuzz/artifacts/
+          if-no-files-found: ignore

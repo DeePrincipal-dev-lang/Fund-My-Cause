@@ -1,0 +1,77 @@
+query Campaigns(
+  $filter: CampaignFilter
+  $first: Int
+  $after: String
+  $pagination: PaginationInput
+  $sort: CampaignSort
+) {
+  campaigns(
+    filter: $filter
+    first: $first
+    after: $after
+    pagination: $pagination
+    sort: $sort
+  ) {
+    edges {
+      cursor
+      node {
+        id
+        contractId
+        title
+        description
+        creator
+        goal
+        raised
+        deadline
+        status
+        category
+        image
+        videoUrl
+        minContribution
+        totalRaised
+        totalContributors
+        percentageFunded
+        daysRemaining
+        token
+        platformFeeBps
+        hasRBACEnabled
+        createdAt
+        updatedAt
+      }
+    }
+    pageInfo {
+      hasNextPage
+      hasPreviousPage
+      startCursor
+      endCursor
+    }
+    totalCount
+  }
+}
+
+query ActiveCampaigns($limit: Int) {
+  activeCampaigns(limit: $limit) {
+    id
+    contractId
+    title
+    description
+    creator
+    goal
+    raised
+    deadline
+    status
+    category
+    image
+    videoUrl
+    minContribution
+    totalRaised
+    totalContributors
+    percentageFunded
+    daysRemaining
+    token
+    platformFeeBps
+    hasRBACEnabled
+    createdAt
+    updatedAt
+  }
+}

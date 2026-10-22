@@ -103,7 +103,7 @@ export async function validateVideoDuration(
       return `Video duration is too long. Maximum is ${minutes} minutes.`;
     }
     return null;
-  } catch (error) {
+  } catch {
     return "Could not read video duration";
   }
 }

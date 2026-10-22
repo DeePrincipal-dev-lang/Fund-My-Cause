@@ -10,7 +10,7 @@ This directory contains end-to-end tests for the Fund My Cause platform, powered
 - `campaign-creation.spec.ts` - Campaign creation wizard flow
 - `campaigns.spec.ts` - _(empty — see file for removal rationale; issue #950)_
 - `contribution-flow.spec.ts` - Full contribution journey (wallet connect → pledge → receipt)
-- `refund-flow.spec.ts` - Refund request and processing
+- `refund-flow.spec.ts` - Refund claim flow: single contributor, plus a multi-contributor pull-based scenario (#1063). Batch/partial refund have no UI, so they're covered at the contract level — see the note at the top of the file.
 - `visual-regression.spec.ts` - Visual regression tests (Chromium only)
 
 ## Duplicate-Test Audit (issue #950)

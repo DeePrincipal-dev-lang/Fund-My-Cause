@@ -12,13 +12,9 @@
  */
 
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
-import { Navbar } from "@/components/layout/Navbar";
-import { Breadcrumb } from "@/components/ui/Breadcrumb";
-import { BreadcrumbProvider } from "@/context/BreadcrumbContext";
-import { CampaignDetailContent } from "@/app/campaigns/[id]/CampaignDetailContent";
+import { notFound, redirect } from "next/navigation";
 import { resolveCampaignSlug, getAllSlugs } from "@/lib/slugs";
-import { fetchCampaign } from "@/lib/soroban";
+import { fetchCampaign } from "@/lib/graphql/client";
 import { APP_BASE_URL, DEFAULT_HERO_IMAGE } from "@/lib/constants";
 import { ALL_CAMPAIGNS } from "@/lib/campaigns";
 
@@ -53,7 +49,9 @@ export async function generateMetadata({
         description,
         url,
         siteName: "Fund-My-Cause",
-        images: [{ url: DEFAULT_HERO_IMAGE, width: 1200, height: 630, alt: c.title }],
+        images: [
+          { url: DEFAULT_HERO_IMAGE, width: 1200, height: 630, alt: c.title },
+        ],
         type: "website",
       },
       twitter: {
@@ -88,32 +86,5 @@ export default async function CampaignSlugPage({
   const campaignId = resolveCampaignSlug(slug);
   if (!campaignId) notFound();
 
-  // Resolve campaign title for breadcrumb (best-effort, no hard failure)
-  let campaignTitle = slug;
-  try {
-    const c = await fetchCampaign(campaignId!);
-    campaignTitle = c.title;
-  } catch {
-    const mock = ALL_CAMPAIGNS.find((c) => c.id === campaignId);
-    if (mock) campaignTitle = mock.title;
-  }
-
-  return (
-    <BreadcrumbProvider>
-      <main className="min-h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-white">
-        <Navbar />
-        <div className="max-w-3xl mx-auto px-6 pt-6">
-          <Breadcrumb
-            crumbs={[
-              { label: "Campaigns", href: "/campaigns" },
-              { label: campaignTitle },
-            ]}
-            className="text-gray-500"
-          />
-        </div>
-        {/* Reuse the same rich detail component as the [id] route */}
-        <CampaignDetailContent contractId={campaignId!} />
-      </main>
-    </BreadcrumbProvider>
-  );
+  redirect(`/en/campaigns/${campaignId}`);
 }

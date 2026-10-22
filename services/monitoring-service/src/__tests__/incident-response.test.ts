@@ -390,6 +390,16 @@ describe('IncidentResponseEngine', () => {
   });
 
   describe('Analysis', () => {
+    beforeEach(() => {
+      // analyzeMetric() requires either PROMETHEUS_URL or SIMULATION_MODE=true.
+      // Tests here exercise the explicit simulation path.
+      process.env.SIMULATION_MODE = 'true';
+    });
+
+    afterEach(() => {
+      delete process.env.SIMULATION_MODE;
+    });
+
     it('should analyze metric', () => {
       const analysis = engine.analyzeMetric('cpu_usage', 80, 300);
 
@@ -411,6 +421,14 @@ describe('IncidentResponseEngine', () => {
   });
 
   describe('Rollback', () => {
+    beforeEach(() => {
+      // rollback() requires either DEPLOYMENT_API_URL or SIMULATION_MODE=true.
+      process.env.SIMULATION_MODE = 'true';
+    });
+
+    afterEach(() => {
+      delete process.env.SIMULATION_MODE;
+    });
     it('should rollback deployment', async () => {
       const incident = {
         id: 'incident-1',

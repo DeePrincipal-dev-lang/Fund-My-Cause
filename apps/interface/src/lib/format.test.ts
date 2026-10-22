@@ -43,11 +43,16 @@ describe("formatUSD", () => {
 });
 
 describe("formatAddress", () => {
-  it("truncates long addresses", () => {
+  it("truncates long addresses with default parameters", () => {
     expect(formatAddress("GABCDEFGHIJKLMNOPQRSTUVWXYZ")).toBe("GABCD...WXYZ");
   });
   it("returns short addresses unchanged", () => {
     expect(formatAddress("GABC")).toBe("GABC");
+  });
+  it("supports custom start/end parameters", () => {
+    expect(formatAddress("GABCDEFGHIJKLMNOPQRSTUVWXYZ", 6, 4)).toBe(
+      "GABCDE...WXYZ",
+    );
   });
 });
 

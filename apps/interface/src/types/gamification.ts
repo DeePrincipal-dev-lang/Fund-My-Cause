@@ -12,17 +12,17 @@ export enum AchievementType {
   SUPER_SUPPORTER = "super_supporter",
   MEGA_DONOR = "mega_donor",
   CONSISTENT_CONTRIBUTOR = "consistent_contributor",
-  
+
   // Social achievements
   SOCIAL_BUTTERFLY = "social_butterfly",
   VIRAL_SHARER = "viral_sharer",
   REFERRAL_CHAMPION = "referral_champion",
-  
+
   // Engagement achievements
   CAMPAIGN_COMPLETIONIST = "campaign_completionist",
   MILESTONE_HUNTER = "milestone_hunter",
   COMMUNITY_SUPPORTER = "community_supporter",
-  
+
   // Special achievements
   EARLY_BIRD = "early_bird",
   GOAL_CRUSHER = "goal_crusher",
@@ -103,9 +103,11 @@ export interface LeaderboardEntry {
 }
 
 /**
- * User contribution record for leaderboard
+ * User contribution record for leaderboard.
+ * Distinct from the shared ContributionRecord in @fund-my-cause/types
+ * which represents contract-level contribution data.
  */
-export interface ContributionRecord {
+export interface GamificationContributionRecord {
   address: string;
   displayName?: string;
   totalContributed: number; // In stroops
@@ -244,7 +246,7 @@ export interface UserProfileWithGamification {
   bio?: string;
   joinDate: number;
   gamification: GamificationProfile;
-  contributions: ContributionRecord;
+  contributions: GamificationContributionRecord;
   streak: ContributionStreak;
   recentAchievements: Achievement[];
   referralStats: {

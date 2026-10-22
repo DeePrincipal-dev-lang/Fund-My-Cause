@@ -131,7 +131,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
       icon: <BookOpen size={16} />,
       category: "campaign" as const,
       action: () => router.push(`/campaigns/${campaign.id}`),
-      keywords: [campaign.title, campaign.category, "campaign"],
+      keywords: [campaign.title, campaign.category ?? "", "campaign"],
     })),
   ];
 
@@ -152,6 +152,17 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
       setQuery("");
       setActiveIndex(0);
       setTimeout(() => inputRef.current?.focus(), 0);
+    }
+  }, [isOpen]);
+
+  // Remember what had focus before the palette opened, and return focus there on close.
+  const triggerRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (isOpen) {
+      triggerRef.current = document.activeElement as HTMLElement | null;
+    } else if (triggerRef.current) {
+      triggerRef.current.focus();
+      triggerRef.current = null;
     }
   }, [isOpen]);
 
@@ -220,7 +231,9 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
             className="flex-1 bg-transparent border-none outline-none text-gray-900 dark:text-white placeholder-gray-500"
           />
           <button
+            type="button"
             onClick={onClose}
+            aria-label="Close command palette"
             className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 transition"
           >
             <X size={16} />

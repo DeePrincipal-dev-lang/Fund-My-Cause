@@ -20,8 +20,8 @@ export const CAMPAIGN_TEMPLATES: CampaignTemplate[] = [
       title: "Help [Name] with Medical Treatment",
       description:
         "We are raising funds to help cover medical expenses. Your contribution will make a direct impact on their recovery.",
-      goal: 50_000_000_000n, // 5000 XLM
-      minContribution: 1_000_000n, // 0.1 XLM
+      goal: 5000, // 5000 XLM
+      minContribution: 0.1, // 0.1 XLM
     },
   },
   {
@@ -34,8 +34,8 @@ export const CAMPAIGN_TEMPLATES: CampaignTemplate[] = [
       title: "Support [Artist] - New Album Release",
       description:
         "Help us produce and release our new album. Backers will receive exclusive content and early access.",
-      goal: 100_000_000_000n, // 10000 XLM
-      minContribution: 5_000_000n, // 0.5 XLM
+      goal: 10000, // 10000 XLM
+      minContribution: 0.5, // 0.5 XLM
     },
   },
   {
@@ -48,8 +48,8 @@ export const CAMPAIGN_TEMPLATES: CampaignTemplate[] = [
       title: "[Product Name] - Revolutionary Tech Solution",
       description:
         "We are building the next generation of [category]. Your support helps us bring this innovation to market.",
-      goal: 500_000_000_000n, // 50000 XLM
-      minContribution: 10_000_000n, // 1 XLM
+      goal: 50000, // 50000 XLM
+      minContribution: 1, // 1 XLM
     },
   },
   {
@@ -62,8 +62,8 @@ export const CAMPAIGN_TEMPLATES: CampaignTemplate[] = [
       title: "[Event Name] - Community Gathering",
       description:
         "Join us for an amazing community event. Your contribution helps us cover venue, catering, and entertainment.",
-      goal: 50_000_000_000n, // 5000 XLM
-      minContribution: 1_000_000n, // 0.1 XLM
+      goal: 5000, // 5000 XLM
+      minContribution: 0.1, // 0.1 XLM
     },
   },
   {
@@ -76,8 +76,8 @@ export const CAMPAIGN_TEMPLATES: CampaignTemplate[] = [
       title: "Support My Education Journey",
       description:
         "Help me pursue my educational goals. Your contribution will support tuition, materials, and living expenses.",
-      goal: 100_000_000_000n, // 10000 XLM
-      minContribution: 1_000_000n, // 0.1 XLM
+      goal: 10000, // 10000 XLM
+      minContribution: 0.1, // 0.1 XLM
     },
   },
 ];

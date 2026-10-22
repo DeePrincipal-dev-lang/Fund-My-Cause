@@ -3,7 +3,8 @@
 This document is the authoritative reference for structured logging and distributed
 trace-ID propagation across all Fund-My-Cause services.  New services **must** follow
 these conventions so that a single donation request can be correlated end-to-end
-across `graphql-api`, `fraud_detection`, `indexer`, and any future service.
+across `graphql-api`, `fraud_detection`, `recommendations`, `indexer`,
+`monitoring-service`, and any future service (#1126).
 
 ---
 
@@ -222,14 +223,19 @@ The same `fmc-67946a1b-3f8c2a0d9e4b71c2` appears in:
 | Variable     | Service       | Default  | Description              |
 |--------------|---------------|----------|--------------------------|
 | `LOG_LEVEL`  | all           | `info`   | Minimum log level        |
-| `LOG_FORMAT` | fraud_detection | console | Set to `json` in production |
+| `LOG_FORMAT` | fraud_detection, recommendations | console | Set to `json` in production |
+| `NODE_ENV`   | graphql-api, indexer, monitoring-service | development | Set to `production` to switch pino from pretty-printed to JSON output |
 
 ---
 
 ## 8. See also
 
 - [Log Aggregation Guide](./log-aggregation.md) — shipping, dashboards, alerts
+- [DB Pool Conventions](./db-pool-conventions.md) — the equivalent cross-service
+  convention doc for database connection-pool configuration (#1128)
 - `packages/shared-utils/src/trace.ts` — canonical TypeScript implementation
 - `backend/fraud_detection/pipeline.py` — canonical Python implementation
+- `backend/recommendations/service.py` — Python implementation (mirrors `pipeline.py`)
 - `services/graphql-api/src/logger.ts` — pino setup with `requestLogger()`
 - `services/indexer/src/logger.ts` — pino setup for the indexer
+- `services/monitoring-service/src/logger.ts` — pino setup with `requestLogger()`

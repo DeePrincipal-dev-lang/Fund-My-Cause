@@ -13,9 +13,11 @@ function timeAgo(timestamp: number): string {
   const diffSecs = Math.floor(diffMs / 1000);
   if (diffSecs < 60) return "just now";
   const diffMins = Math.floor(diffSecs / 60);
-  if (diffMins < 60) return `${diffMins} minute${diffMins !== 1 ? "s" : ""} ago`;
+  if (diffMins < 60)
+    return `${diffMins} minute${diffMins !== 1 ? "s" : ""} ago`;
   const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return `${diffHours} hour${diffHours !== 1 ? "s" : ""} ago`;
+  if (diffHours < 24)
+    return `${diffHours} hour${diffHours !== 1 ? "s" : ""} ago`;
   const diffDays = Math.floor(diffHours / 24);
   return `${diffDays} day${diffDays !== 1 ? "s" : ""} ago`;
 }
@@ -57,7 +59,8 @@ function UpdateCard({
   }
 
   const { update } = resolved;
-  const isAuthor = !!connectedAddress && connectedAddress === update.authorAddress;
+  const isAuthor =
+    !!connectedAddress && connectedAddress === update.authorAddress;
 
   const handleDelete = async () => {
     if (!confirmDelete) {
@@ -102,7 +105,11 @@ function UpdateCard({
                   : "text-gray-500 hover:text-red-400 hover:bg-gray-800"
               } disabled:opacity-40`}
             >
-              {deleting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+              {deleting ? (
+                <Loader2 size={13} className="animate-spin" />
+              ) : (
+                <Trash2 size={13} />
+              )}
             </button>
           </div>
         )}
@@ -136,16 +143,14 @@ function UpdateCard({
         </p>
       )}
 
-      {deleteError && (
-        <p className="text-xs text-red-400">{deleteError}</p>
-      )}
+      {deleteError && <p className="text-xs text-red-400">{deleteError}</p>}
     </div>
   );
 }
 
 // ── UpdateFeed ───────────────────────────────────────────────────────────────
 
-interface UpdateFeedProps {
+export interface UpdateFeedProps {
   campaignId: string;
   campaignTitle?: string;
   connectedAddress?: string;

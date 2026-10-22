@@ -1,26 +1,54 @@
-//! Typed event payloads for the registry contract.
+//! Registry Event Helpers
 //!
-//! Follows the shared convention documented in `common::events` (issue
-//! #924): topic = `("registry", event_name)`, named fields (never raw
-//! tuples), identifying fields first, `schema_version` last.
-use soroban_sdk::{contracttype, Address};
+//! This module re-exports shared event helpers for the registry contract.
+//! All event emission should use these helpers for consistency.
 
-/// Topic: `("registry", "initialized")`
-#[derive(Clone)]
-#[contracttype]
-pub struct EventInitialized {
-    pub admin: Address,
-    pub schema_version: u32,
-}
+use common::events::EventEmitter;
 
-/// Topic: `("registry", "registered")`
-///
-/// Emitted from `register`, `register_with_category`, and
-/// `register_with_status` — the same event shape regardless of which entry
-/// point added the campaign to the global list.
-#[derive(Clone)]
-#[contracttype]
-pub struct EventRegistered {
-    pub campaign_id: Address,
-    pub schema_version: u32,
+/// Registry-specific event helpers
+pub struct RegistryEvents;
+
+impl RegistryEvents {
+    /// Emit registry initialized event
+    pub fn initialized(env: &soroban_sdk::Env, admin: soroban_sdk::Address) {
+        EventEmitter::registry_initialized(env, admin);
+    }
+
+    /// Emit project registered event
+    pub fn project_registered(
+        env: &soroban_sdk::Env,
+        project_id: u64,
+        creator: soroban_sdk::Address,
+        name: soroban_sdk::String,
+        category: soroban_sdk::String,
+    ) {
+        EventEmitter::project_registered(env, project_id, creator, name, category);
+    }
+
+    /// Emit project updated event
+    pub fn project_updated(
+        env: &soroban_sdk::Env,
+        project_id: u64,
+        updated_by: soroban_sdk::Address,
+    ) {
+        EventEmitter::project_updated(env, project_id, updated_by);
+    }
+
+    /// Emit project verified event
+    pub fn project_verified(
+        env: &soroban_sdk::Env,
+        project_id: u64,
+        verifier: soroban_sdk::Address,
+    ) {
+        EventEmitter::project_verified(env, project_id, verifier);
+    }
+
+    /// Emit project archived event
+    pub fn project_archived(
+        env: &soroban_sdk::Env,
+        project_id: u64,
+        archived_by: soroban_sdk::Address,
+    ) {
+        EventEmitter::project_archived(env, project_id, archived_by);
+    }
 }

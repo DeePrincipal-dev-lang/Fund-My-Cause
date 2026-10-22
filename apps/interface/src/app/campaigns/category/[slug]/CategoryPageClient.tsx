@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Navbar } from "@/components/layout/Navbar";
 import { CampaignCard } from "@/components/ui/CampaignCard";
 import { VirtualizedGrid } from "@/components/ui/VirtualizedGrid";
-import { PledgeModal } from "@/components/ui/PledgeModal";
+import { LazyPledgeModal as PledgeModal } from "@/lib/lazy-components";
 import {
   EmptyState,
   NoCampaignsIllustration,

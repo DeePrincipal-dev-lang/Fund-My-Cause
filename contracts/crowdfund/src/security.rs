@@ -232,10 +232,16 @@ impl InputValidator {
     }
 }
 
-/// Access control helpers.
-pub struct AccessControl;
+/// Contributor allow/deny list helpers.
+///
+/// Renamed from `AccessControl` to `ContributorGate` to eliminate the name
+/// collision with `common::AccessControl` (the role-auth primitive shared
+/// across contracts).  This struct handles whitelist/blacklist membership
+/// checks for individual contributors — a semantically distinct concern from
+/// the role-based `require_auth` wrapper in `contracts/common`.
+pub struct ContributorGate;
 
-impl AccessControl {
+impl ContributorGate {
     /// Requires that the caller is the contract admin.
     ///
     /// # Arguments
@@ -366,16 +372,16 @@ mod tests {
         let target = Address::generate(&env);
 
         let empty: Vec<Address> = Vec::new(&env);
-        assert!(!AccessControl::is_whitelisted(&target, &empty));
-        assert!(!AccessControl::is_blacklisted(&target, &empty));
+        assert!(!ContributorGate::is_whitelisted(&target, &empty));
+        assert!(!ContributorGate::is_blacklisted(&target, &empty));
 
         let other = Address::generate(&env);
         let list = Vec::from_array(&env, [other.clone(), target.clone()]);
-        assert!(AccessControl::is_whitelisted(&target, &list));
-        assert!(AccessControl::is_blacklisted(&target, &list));
+        assert!(ContributorGate::is_whitelisted(&target, &list));
+        assert!(ContributorGate::is_blacklisted(&target, &list));
 
         let missing = Vec::from_array(&env, [other]);
-        assert!(!AccessControl::is_whitelisted(&target, &missing));
-        assert!(!AccessControl::is_blacklisted(&target, &missing));
+        assert!(!ContributorGate::is_whitelisted(&target, &missing));
+        assert!(!ContributorGate::is_blacklisted(&target, &missing));
     }
 }

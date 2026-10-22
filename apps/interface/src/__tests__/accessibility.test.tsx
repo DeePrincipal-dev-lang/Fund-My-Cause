@@ -1,8 +1,22 @@
+// Canonical accessibility test file.
+//
+// This file contains two layers of coverage:
+//   1. axe / jest-axe violation checks (component-level ARIA correctness)
+//   2. DOM structural markup checks (heading hierarchy, ARIA roles, labels)
+//
+// The structural checks were previously in src/test/accessibility.test.tsx
+// and have been consolidated here (see issue #1175).
+// src/test/accessibility.test.tsx is now a stub that redirects here.
+
 import React from "react";
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { axe, toHaveNoViolations } from "jest-axe";
 
 expect.extend(toHaveNoViolations);
+
+// ---------------------------------------------------------------------------
+// Layer 1: axe / jest-axe violation checks
+// ---------------------------------------------------------------------------
 
 describe("Accessibility (a11y) Regression Test Suite", () => {
   it("should pass accessibility checks for standard Button component", async () => {
@@ -98,5 +112,98 @@ describe("Accessibility (a11y) Regression Test Suite", () => {
 
     const results = await axe(container);
     expect(results).toHaveNoViolations();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Layer 2: DOM structural markup checks
+// Migrated from src/test/accessibility.test.tsx (issue #1175).
+// These verify heading hierarchy, ARIA roles, labels, and form structure
+// at the DOM level — complementary to, not redundant with, axe checks above.
+// ---------------------------------------------------------------------------
+
+describe("Accessibility - Navbar", () => {
+  it("should have proper heading hierarchy", () => {
+    render(
+      <div>
+        <h1>Fund My Cause</h1>
+        <h2>Featured Campaigns</h2>
+      </div>
+    );
+    expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2 })).toBeInTheDocument();
+  });
+
+  it("should have proper button labels", () => {
+    render(
+      <button aria-label="Connect wallet">
+        <span>Connect</span>
+      </button>
+    );
+    expect(screen.getByRole("button", { name: /connect wallet/i })).toBeInTheDocument();
+  });
+
+  it("should have semantic navigation", () => {
+    render(
+      <nav role="navigation" aria-label="Main navigation">
+        <button aria-label="Menu">Menu</button>
+        <a href="/">Home</a>
+      </nav>
+    );
+    expect(screen.getByRole("navigation")).toBeInTheDocument();
+  });
+});
+
+describe("Accessibility - Forms", () => {
+  it("should have associated labels with inputs", () => {
+    render(
+      <div>
+        <label htmlFor="amount">Amount</label>
+        <input id="amount" type="number" />
+      </div>
+    );
+    expect(screen.getByLabelText("Amount")).toBeInTheDocument();
+  });
+
+  it("should have proper form structure", () => {
+    render(
+      <form>
+        <label htmlFor="email">Email</label>
+        <input id="email" type="email" required />
+        <button type="submit">Submit</button>
+      </form>
+    );
+    expect(screen.getByLabelText("Email")).toBeInTheDocument();
+  });
+
+  it("should have error messages linked to inputs", () => {
+    render(
+      <div>
+        <label htmlFor="amount">Amount</label>
+        <input id="amount" type="number" aria-describedby="amount-error" />
+        <span id="amount-error" role="alert">Amount must be positive</span>
+      </div>
+    );
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+  });
+});
+
+describe("Accessibility - Interactive Elements", () => {
+  it("should have proper ARIA roles", () => {
+    render(
+      <div role="region" aria-label="Campaign progress">
+        <div role="progressbar" aria-valuenow={50} aria-valuemin={0} aria-valuemax={100} />
+      </div>
+    );
+    expect(screen.getByRole("progressbar")).toBeInTheDocument();
+  });
+
+  it("should have proper link text", () => {
+    render(
+      <a href="/campaign/1" aria-label="View campaign: Clean Water Initiative">
+        View Campaign
+      </a>
+    );
+    expect(screen.getByRole("link")).toHaveAccessibleName();
   });
 });

@@ -7,6 +7,7 @@
     "start": "tsx index.ts"
   },
   "dependencies": {
+    "@fund-my-cause/example-shared": "file:../shared",
     "@fund-my-cause/sdk": "file:../../sdks/js",
     "@stellar/stellar-sdk": "14.6.1",
     "dotenv": "^16.0.0"

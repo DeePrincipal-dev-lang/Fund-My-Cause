@@ -4,10 +4,11 @@ import type { CodegenConfig } from "@graphql-codegen/cli";
 // `gql` tagged template it exports) rather than by introspecting a running
 // server — services/graphql-api isn't normally running in local dev.
 const SCALARS = {
-  // Both scalars are serialized as strings on the wire — see
-  // services/graphql-api/src/resolvers.ts's BigInt/DateTime resolvers.
+  // BigInt is serialized as a string on the wire — see
+  // services/graphql-api/src/resolvers.ts's BigInt resolver.
+  // DateTime scalar was removed in #913 — it was defined in the schema but
+  // never used by any field (all date/time fields use String!).
   BigInt: "string",
-  DateTime: "string",
 };
 
 const config: CodegenConfig = {

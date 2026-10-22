@@ -1,8 +1,8 @@
 "use client";
 
 import React from "react";
-import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { ErrorSimulator } from "@/components/ErrorSimulator";
+import { ErrorBoundary } from "@fund-my-cause/components";
+import { DevErrorSimulator } from "@/components/DevErrorSimulator";
 
 interface RootPageContentProps {
   children: React.ReactNode;
@@ -11,7 +11,7 @@ interface RootPageContentProps {
 export function RootPageContent({ children }: RootPageContentProps) {
   return (
     <ErrorBoundary level="page">
-      <ErrorSimulator />
+      <DevErrorSimulator />
       {children}
     </ErrorBoundary>
   );

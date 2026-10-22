@@ -9,10 +9,9 @@ import { NotificationPreferencesProvider } from "@/context/NotificationPreferenc
 import { CurrencyProvider } from "@/context/CurrencyContext";
 import { ComparisonProvider } from "@/context/ComparisonContext";
 import { BookmarkProvider } from "@/context/BookmarkContext";
-import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ErrorHandlerInitializer } from "@/components/ErrorHandlerInitializer";
 import { SkipNav } from "@/components/ui/SkipNav";
-import { ThemeProvider } from "@fund-my-cause/components";
+import { ErrorBoundary, ThemeProvider } from "@fund-my-cause/components";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages } from "next-intl/server";
 import { rtlLocales, type Locale } from "@/i18n/config";
@@ -21,7 +20,7 @@ import { routing } from "@/i18n/routing";
 import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistration";
 import { CommandPaletteProvider } from "@/components/ui/CommandPaletteProvider";
 import { LimitedConnectivityBanner } from "@/components/ui/LimitedConnectivityBanner";
-import { ErrorSimulator } from "@/components/ErrorSimulator";
+import { DevErrorSimulator } from "@/components/DevErrorSimulator";
 
 export const metadata: Metadata = {
   title: "Fund My Cause",
@@ -64,7 +63,7 @@ export default async function LocaleLayout({
         <ServiceWorkerRegistration />
         <SkipNav />
         <LimitedConnectivityBanner />
-        <ErrorSimulator />
+        <DevErrorSimulator />
         <ErrorBoundary level="page">
           <ErrorHandlerInitializer />
           <ThemeProvider>

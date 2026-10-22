@@ -9,7 +9,7 @@ import { buildInitializeTx, submitSignedTx } from "@/lib/soroban";
 import { sanitizeTitle, sanitizeDescription } from "@/lib/validation";
 import { DraftIndicator } from "@/components/ui/DraftIndicator";
 import { CampaignPreview } from "@/components/ui/CampaignPreview";
-import { CheckCircle2, XCircle, FileText, X, Eye } from "lucide-react";
+import { CheckCircle2, XCircle, Eye } from "lucide-react";
 import { CampaignPreviewModal } from "@/components/ui/CampaignPreviewModal";
 import { BackButton } from "@/components/ui/BackButton";
 import { saveCampaignMeta } from "@/lib/categories";
@@ -18,7 +18,6 @@ import {
   STEPS,
   STEP,
   LAST_FORM_STEP,
-  PREVIEW_STEP,
   type TxStatus,
 } from "./wizard/types";
 import { BasicInfoStep } from "./wizard/steps/BasicInfoStep";
@@ -26,22 +25,15 @@ import { MediaStep } from "./wizard/steps/MediaStep";
 import { FaqTeamStep } from "./wizard/steps/FaqTeamStep";
 import { PlatformConfigStep } from "./wizard/steps/PlatformConfigStep";
 import { ReviewStep } from "./wizard/steps/ReviewStep";
+import { WizardProgressHeader } from "./wizard/WizardProgressHeader";
+import { ResumeDraftBanner } from "./wizard/ResumeDraftBanner";
 
-// Re-exported for consumers (and tests) that imported these from the wizard
-// module before the per-step split.
 export { INITIAL, STEPS, PREVIEW_STEP } from "./wizard/types";
 export type { CampaignFormData } from "./wizard/types";
 export { validateStep, validateAllSteps } from "./wizard/validators";
 
 const STROOPS_PER_XLM = 10_000_000;
 
-/**
- * Campaign-creation wizard.
- *
- * This component owns only the shell: chrome, step routing, draft banner, and
- * the deploy transaction. Per-step fields live in `./wizard/steps`, validation
- * in `./wizard/validators`, and navigation/form state in `./wizard/useWizardState`.
- */
 export function CreateCampaignWizard() {
   const { address, signTx, networkMismatch } = useWallet();
   const router = useRouter();
@@ -180,63 +172,13 @@ export function CreateCampaignWizard() {
             <h1 className="text-3xl font-bold mb-4">Create Campaign</h1>
 
             {hasDraft && showResumeBanner && !showPreview && (
-              <div className="flex items-center gap-3 mb-6 px-4 py-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800">
-                <FileText
-                  size={16}
-                  className="text-indigo-500 dark:text-indigo-400 shrink-0"
-                />
-                <p className="flex-1 text-sm text-indigo-700 dark:text-indigo-300">
-                  You have an unsaved draft. Want to pick up where you left off?
-                </p>
-                <button
-                  onClick={handleResumeDraft}
-                  className="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-200 transition whitespace-nowrap"
-                >
-                  Resume Draft
-                </button>
-                <button
-                  onClick={handleDismissDraft}
-                  aria-label="Dismiss draft"
-                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition"
-                >
-                  <X size={16} />
-                </button>
-              </div>
+              <ResumeDraftBanner
+                onResume={handleResumeDraft}
+                onDismiss={handleDismissDraft}
+              />
             )}
 
-            <div className="flex items-center gap-2 mb-8">
-              {STEPS.map((label, i) => (
-                <React.Fragment key={i}>
-                  <div className="flex flex-col items-center gap-1">
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition ${
-                        i < step
-                          ? "bg-indigo-600 text-white"
-                          : i === step
-                            ? "bg-indigo-500 text-white ring-2 ring-indigo-300"
-                            : "bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-500"
-                      }`}
-                    >
-                      {i < step ? (
-                        "✓"
-                      ) : i === PREVIEW_STEP ? (
-                        <Eye size={14} />
-                      ) : (
-                        i + 1
-                      )}
-                    </div>
-                    <span className="text-xs text-gray-500 hidden sm:block">
-                      {label}
-                    </span>
-                  </div>
-                  {i < STEPS.length - 1 && (
-                    <div
-                      className={`flex-1 h-px ${i < step ? "bg-indigo-600" : "bg-gray-300 dark:bg-gray-700"}`}
-                    />
-                  )}
-                </React.Fragment>
-              ))}
-            </div>
+            <WizardProgressHeader step={step} />
 
             {showPreview ? (
               <>

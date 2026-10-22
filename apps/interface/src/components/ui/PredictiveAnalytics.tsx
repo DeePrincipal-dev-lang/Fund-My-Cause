@@ -1,7 +1,7 @@
 "use client";
 
 import { CampaignData } from "@/types/soroban";
-import { buildTrendForecast, compareCampaigns, predictSuccessProbability } from "@/lib/predictiveModeling";
+import { buildTrendForecast, compareCampaigns } from "@/lib/predictiveModeling";
 
 interface Props {
   campaigns: CampaignData[];

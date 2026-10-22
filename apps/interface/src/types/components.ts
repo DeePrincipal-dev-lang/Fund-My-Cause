@@ -5,6 +5,9 @@
 
 import type { ReactNode } from "react";
 import type { Campaign, FAQ, TeamMember } from "./campaign";
+import type { Milestone } from "./milestone";
+import type { Comment } from "./comment";
+import type { NotificationResponse } from "./api";
 
 /**
  * Modal component props
@@ -218,7 +221,7 @@ export interface WalletBalanceProps {
  * Notification dropdown component props
  */
 export interface NotificationDropdownProps {
-  notifications?: Notification[];
+  notifications?: NotificationResponse[];
   onNotificationClick?: (notificationId: string) => void;
   onMarkAsRead?: (notificationId: string) => void;
   isLoading?: boolean;
@@ -275,40 +278,4 @@ export interface VideoPlayerProps {
   title?: string;
   autoplay?: boolean;
   controls?: boolean;
-}
-
-/**
- * Milestone type
- */
-export interface Milestone {
-  id: string;
-  title: string;
-  description: string;
-  targetAmount: number;
-  status: "pending" | "achieved" | "failed";
-  dueDate?: string;
-}
-
-/**
- * Comment type
- */
-export interface Comment {
-  id: string;
-  author: string;
-  content: string;
-  createdAt: string;
-  replies?: Comment[];
-}
-
-/**
- * Notification type
- */
-export interface Notification {
-  id: string;
-  type: "campaign_update" | "contribution_received" | "goal_reached" | "campaign_ended";
-  title: string;
-  message: string;
-  campaignId?: string;
-  read: boolean;
-  createdAt: string;
 }
