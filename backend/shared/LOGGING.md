@@ -55,6 +55,31 @@ Context fields help with:
 - Performance analysis
 - Audit trails
 
+## Fraud Detection Fields
+
+Request-scoped fraud-detection logs include `trace_id` from the active request
+context. The trace ID is merged into events by `configure_structlog()` and is
+also returned in the `x-trace-id` response header. Background worker and
+startup events include a request trace ID only when it is explicitly
+propagated to that work.
+
+The `event` field contains the event name. Fraud events use these additional
+fields where applicable:
+
+| Event or event group | Fields |
+| --- | --- |
+| `request_started`, `request_completed` | `method`, `path`; completion also has `status_code` |
+| `contribution_queued`, `job_processed` | `campaign_id`, `contributor`; queued events also have `amount`, `tx_hash`, `queue_depth`; processed events also have `new_flags`, `processing_latency_ms`, `queue_depth_after`, `total_jobs_processed` |
+| `contributions_idempotency_*` | `idempotency_key` or `key_length`, depending on the event |
+| `contributions_ingest_invalid_payload`, `job_processing_error` | `error`; worker errors also have `campaign_id` |
+| `scan_completed` | `new_flags`, `queue_depth` |
+| `moderation_queue_queried` | `returned`, `total` |
+| `flag_marked_reviewed`, `flag_not_found` | `flag_id` |
+
+Other event-specific fields include `component`, `operation`, `store_size`,
+and resolved database-pool settings. Do not add secrets or credentials to log
+context.
+
 ## Configuration
 
 The structured logging is configured once at startup. Services should call

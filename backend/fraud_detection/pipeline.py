@@ -9,7 +9,6 @@ See ADR-008: docs/adr/ADR-008-fraud-detection-scoring-pipeline-design.md
 from __future__ import annotations
 
 import asyncio
-import logging
 import time
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
