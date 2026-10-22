@@ -92,19 +92,15 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import re
 import time
 from contextlib import asynccontextmanager
-from contextvars import ContextVar
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import AsyncIterator, Callable, Optional
+from typing import AsyncIterator, Optional
 
 import structlog
 from fastapi import FastAPI, BackgroundTasks, Request, Response
 from fastapi.responses import JSONResponse
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.types import ASGIApp
 
 # ---------------------------------------------------------------------------
 # Logging — structlog configured for JSON output in production,
@@ -132,73 +128,15 @@ structlog.configure(
 log: structlog.BoundLogger = structlog.get_logger("fraud_detection")
 
 # ---------------------------------------------------------------------------
-# Trace-ID convention
+# Trace-ID convention — imported from the canonical module
 # ---------------------------------------------------------------------------
 
-#: The canonical header name — must match TRACE_ID_HEADER in shared-utils.
-TRACE_ID_HEADER = "x-trace-id"
-
-#: Valid Fund-My-Cause trace IDs match this pattern.
-_TRACE_ID_RE = re.compile(r"^fmc-[0-9a-f]{8}-[0-9a-f]{16}$")
-
-#: Holds the trace ID for the current request.  structlog middleware reads
-#: this to bind ``trace_id`` onto every log line inside the request.
-_trace_id_var: ContextVar[str] = ContextVar("trace_id", default="")
-
-
-def _is_valid_trace_id(value: str) -> bool:
-    return bool(_TRACE_ID_RE.match(value))
-
-
-# ---------------------------------------------------------------------------
-# Trace-ID middleware
-# ---------------------------------------------------------------------------
-
-class TraceIDMiddleware(BaseHTTPMiddleware):
-    """
-    Extract (or generate) an X-Trace-ID for every inbound request.
-
-    - If the caller supplies a well-formed ``X-Trace-ID`` header, it is
-      accepted and stored in the ``_trace_id_var`` context variable.
-    - Otherwise a placeholder ``unknown-<timestamp>`` value is stored so
-      log lines are never missing the field.
-    - The resolved value is echoed back as a response header so callers can
-      correlate their own logs.
-    - structlog's ``contextvars`` integration picks up the value automatically
-      because ``bind_contextvars`` is called before the next middleware runs.
-    """
-
-    async def dispatch(self, request: Request, call_next: Callable) -> Response:
-        raw = request.headers.get(TRACE_ID_HEADER, "")
-        trace_id = raw if _is_valid_trace_id(raw) else f"unknown-{int(time.time())}"
-
-        # Bind into structlog's context-var store so every downstream log call
-        # emitted during this request automatically carries trace_id.
-        structlog.contextvars.clear_contextvars()
-        structlog.contextvars.bind_contextvars(trace_id=trace_id)
-
-        # Also store in a plain ContextVar for non-structlog callsites.
-        _trace_id_var.set(trace_id)
-
-        log.info(
-            "request_started",
-            method=request.method,
-            path=request.url.path,
-        )
-
-        response: Response = await call_next(request)
-
-        # Echo the trace ID back so callers can correlate their logs.
-        response.headers[TRACE_ID_HEADER] = trace_id
-
-        log.info(
-            "request_completed",
-            method=request.method,
-            path=request.url.path,
-            status_code=response.status_code,
-        )
-
-        return response
+from stages.trace_id import (  # noqa: E402  (after stdlib/third-party imports)
+    TRACE_ID_HEADER,
+    TraceIDMiddleware,
+    is_valid_trace_id as _is_valid_trace_id,
+    trace_id_var as _trace_id_var,
+)
 
 
 # ---------------------------------------------------------------------------
