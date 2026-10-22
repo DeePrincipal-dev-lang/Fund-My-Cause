@@ -4,37 +4,32 @@
  * matching, error classification). No React, no UI imports. Safe to use in
  * tests and server contexts.
  *
- * Responsibilities, by section below (the file is short, so they stay in one module):
- * - Session: persisting the connected address and wallet type.
- * - Network: checking a wallet's network against the app's passphrase.
- * - Signing: `classifySignError` re-exported for sign-failure handling. Signing itself
- *   happens in the wallet hook, not here, and there is no balance logic in this file.
+ * Split by responsibility in #1575:
+ * - connection (session persistence) → ./wallet/wallet.connection.ts
+ * - signing (error classification)    → ./wallet/wallet.signing.ts
+ * - balance reads                     → ./wallet/wallet.balance.ts (no public API yet)
+ *
+ * This file is a thin facade re-exporting the same public API as before, so
+ * importers do not need to change.
  */
 import { NETWORK_PASSPHRASE } from "@/lib/constants";
-import {
-  saveWalletSession,
-  loadWalletSession,
-  clearWalletSession,
-  isNetworkMatch as sdkIsNetworkMatch,
-  classifySignError,
-  type WalletType,
-  type SignErrorKind,
-} from "@fund-my-cause/sdk/wallet";
+import { isNetworkMatch as sdkIsNetworkMatch } from "@fund-my-cause/sdk/wallet";
 
-export type { WalletType, SignErrorKind };
-export { classifySignError };
+// Session (connection)
+export {
+  SESSION_KEY,
+  SESSION_WALLET_KEY,
+  saveSession,
+  loadSession,
+  clearSession,
+} from "./wallet/wallet.connection";
 
-export const SESSION_KEY = "fmc:wallet_address";
-export const SESSION_WALLET_KEY = "fmc:wallet_type";
+// Signing
+export { classifySignError } from "./wallet/wallet.signing";
+export type { SignErrorKind } from "./wallet/wallet.signing";
+export type { WalletType } from "@fund-my-cause/sdk/wallet";
 
-// ── Session ───────────────────────────────────────────────────────────────────
-
-export const saveSession = saveWalletSession;
-export const loadSession = loadWalletSession;
-export const clearSession = clearWalletSession;
-
-// ── Network ───────────────────────────────────────────────────────────────────
-
+// Network
 export function isNetworkMatch(networkPassphrase: string): boolean {
   return sdkIsNetworkMatch(networkPassphrase, NETWORK_PASSPHRASE);
 }
