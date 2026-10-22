@@ -14,7 +14,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { searchCampaigns } from '@/lib/search/search.service';
+import { searchCampaigns } from '@/services/search.service';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
