@@ -200,6 +200,23 @@ class TraceIDMiddleware(BaseHTTPMiddleware):
 
         return response
 
+# ---------------------------------------------------------------------------
+# Idempotency — store protocol + helpers
+# ---------------------------------------------------------------------------
+
+from stages.idempotency import (  # noqa: E402
+    DEFAULT_TTL_SECONDS,
+    IdempotencyStore,
+    InMemoryIdempotencyStore,
+    check_idempotency,
+    record_idempotency,
+)
+
+# Application-wide idempotency store.
+# Swap for PostgresIdempotencyStore(pool) in production via dependency injection
+# or application lifespan configuration.
+_idempotency_store: IdempotencyStore = InMemoryIdempotencyStore()
+
 
 # ---------------------------------------------------------------------------
 # Tuneable thresholds (see docs/fraud-detection-heuristics.md for rationale)
@@ -578,8 +595,13 @@ async def ingest_contribution(request: Request) -> JSONResponse:
     job asynchronously — keeping the donation request path latency < 0.1 ms
     regardless of how many events the heuristics need to scan.
 
+    Changed in #1515: idempotency is enforced via ``_idempotency_store``.
+    A duplicate ``transactionHash`` within the TTL window short-circuits the
+    handler and returns the original response without re-enqueuing.
+
     Returns:
       200 {"status": "queued", "queue_depth": N}  – job enqueued successfully
+      200 {"status": "duplicate"}                  – idempotent replay; already queued
       503 {"error": "queue_full"}                  – queue at capacity; retry later
       422 {"error": "invalid payload"}             – malformed request body
     """
@@ -589,6 +611,17 @@ async def ingest_contribution(request: Request) -> JSONResponse:
     except Exception as exc:
         log.warning("contributions_ingest_invalid_payload", error=str(exc))
         return JSONResponse(status_code=422, content={"error": "invalid payload"})
+
+    # ── Idempotency check (#1515) ─────────────────────────────────────────
+    idempotency_key = payload.transactionHash
+    cached = await check_idempotency(idempotency_key, _idempotency_store)
+    if cached is not None:
+        log.info(
+            "contribution_duplicate_ignored",
+            tx_hash=idempotency_key,
+            campaign_id=payload.campaignId,
+        )
+        return JSONResponse(content=cached)
 
     # Attempt a non-blocking enqueue.  put_nowait raises asyncio.QueueFull
     # when the queue has reached SCORING_QUEUE_MAXSIZE.
@@ -606,6 +639,12 @@ async def ingest_contribution(request: Request) -> JSONResponse:
         )
 
     queue_depth = _scoring_queue.qsize()
+    response_body: dict = {"status": "queued", "queue_depth": queue_depth}
+
+    # Persist the response so retries with the same transactionHash are
+    # short-circuited without hitting the queue again.
+    await record_idempotency(idempotency_key, response_body, _idempotency_store)
+
     log.info(
         "contribution_queued",
         campaign_id=payload.campaignId,
@@ -614,7 +653,7 @@ async def ingest_contribution(request: Request) -> JSONResponse:
         tx_hash=payload.transactionHash,
         queue_depth=queue_depth,
     )
-    return JSONResponse(content={"status": "queued", "queue_depth": queue_depth})
+    return JSONResponse(content=response_body)
 
 
 @app.post("/scan")
