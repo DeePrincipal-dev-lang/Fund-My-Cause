@@ -106,6 +106,9 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
+# Shared scoring helpers — single implementation per #1514.
+from scoring import jaccard_similarity
+
 # ---------------------------------------------------------------------------
 # Logging — structlog configured for JSON output in production,
 # coloured console output in development.
@@ -292,15 +295,6 @@ _CAMPAIGN_RECORDS: list[CampaignRecord] = []
 # Heuristic implementations
 # ---------------------------------------------------------------------------
 
-def _jaccard(a: str, b: str) -> float:
-    """Token-level Jaccard similarity between two strings."""
-    sa = set(a.lower().split())
-    sb = set(b.lower().split())
-    if not sa and not sb:
-        return 1.0
-    return len(sa & sb) / len(sa | sb)
-
-
 def scan_wash_contributions() -> list[Flag]:
     """
     Wash contribution heuristic.
@@ -384,7 +378,7 @@ def scan_duplicate_content() -> list[Flag]:
     for i in range(len(records)):
         for j in range(i + 1, len(records)):
             a, b = records[i], records[j]
-            sim = _jaccard(a.title, b.title)
+            sim = jaccard_similarity(a.title, b.title)
             if sim >= DUPLICATE_JACCARD_THRESHOLD:
                 flags.append(Flag(
                     id=_next_flag_id(),
